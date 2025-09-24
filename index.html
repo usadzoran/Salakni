@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Mini Ride App</title>
+  <script type="module" src="app.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    .card { border: 1px solid #ccc; padding: 15px; margin: 10px 0; border-radius: 8px; }
+    button { padding: 8px 12px; margin-top: 10px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h1>🚖 Mini Ride App</h1>
+
+  <div id="auth">
+    <h2>تسجيل</h2>
+    <input id="name" placeholder="الإسم"><br><br>
+    <input id="phone" placeholder="رقم الهاتف"><br><br>
+    <select id="role">
+      <option value="customer">زبون</option>
+      <option value="driver">سائق</option>
+    </select><br><br>
+    <button id="registerBtn">دخول</button>
+  </div>
+
+  <div id="customer" style="display:none;">
+    <h2>طلب رحلة</h2>
+    <input id="destination" placeholder="أدخل الوجهة"><br><br>
+    <button id="rideBtn">أرسل الطلب</button>
+  </div>
+
+  <div id="driver" style="display:none;">
+    <h2>الطلبات المتاحة</h2>
+    <div id="ridesList"></div>
+  </div>
+</body>
+</html>
