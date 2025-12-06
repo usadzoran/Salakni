@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Admin - Ajouter Restaurant et Plats</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  body { font-family: Arial; padding: 20px; max-width: 700px; margin: auto; }
+  input, button { display: block; margin: 10px 0; width: 100%; padding: 8px; box-sizing: border-box; }
+  label { margin-top: 10px; font-weight: bold; }
+  .meal-item { border: 1px solid #ccc; padding: 15px; margin-bottom: 15px; position: relative; background: #f9f9f9; border-radius: 5px; }
+  .meal-item img { max-width: 100px; margin-top: 5px; }
+  .remove-btn { position: absolute; top: 5px; right: 5px; cursor: pointer; color: red; font-weight: bold; background: #fff; padding: 2px 6px; border: 1px solid red; border-radius: 3px;}
+  img.preview { max-width: 150px; display: block; margin-top: 10px; border-radius: 5px;}
+  .error { color: red; font-weight: bold; margin-top: 10px; }
+  .success { color: green; font-weight: bold; margin-top: 10px; }
+</style>
+</head>
+<body>
+
+<h2>Ajouter un Restaurant et ses Plats</h2>
+
+<label>Nom du restaurant:</label>
+<input type="text" id="restaurantName">
+
+<label>Numéro WhatsApp du restaurant:</label>
+<input type="text" id="restaurantWhatsApp" placeholder="ex: +213XXXXXXXXX">
+
+<label>Image du restaurant:</label>
+<input type="file" id="restaurantImage" accept="image/*" onchange="previewRestaurantImage(event)">
+<img id="restaurantPreview" class="preview">
+
+<h3>Ajouter des plats</h3>
+<div id="mealsContainer"></div>
+
+<button onclick="addMeal()" style="background-color: #007bff; color: white; border: none;">Ajouter un plat</button>
+<button onclick="saveRestaurant()" style="background-color: #28a745; color: white; border: none; padding: 15px;">Enregistrer le restaurant</button>
+
+<div id="message"></div>
+
+<script>
+  // 1. تأكد من أن هذه المفاتيح صحيحة من إعدادات Supabase
+  const supabaseUrl = 'https://yfbmmflrvelcctengksm.supabase.co';
+  // المفتاح أدناه يبدو غير صحيح في كودك الأصلي (عادة يبدأ بـ eyJ...)
+  // يرجى استبداله بمفتاح "anon" "public" الصحيح من لوحة تحكم Supabase
+  const supabaseKey = 'YOUR_SUPABASE_ANON_KEY_HERE'; 
+  
+  // تصحيح: استخدام اسم متغير مختلف لتجنب التضارب
+  const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+  function showMessage(msg, isError = true){
+      const el = document.getElementById('message');
+      el.innerText = msg;
+      el.className = isError ? 'error' : 'success';
+  }
+
+  function previewRestaurantImage(event) {
+      if(event.target.files && event.target.files[0]){
+          const output = document.getElementById('restaurantPreview');
+          output.src = URL.createObjectURL(event.target.files[0]);
+      }
+  }
+
+  function addMeal() {
+      const container = document.getElementById('mealsContainer');
+
+      const mealDiv = document.createElement('div');
+      mealDiv.className = 'meal-item';
+
+      // إضافة كلاسات (Classes) ليسهل جلب البيانات لاحقاً
+      const nameInput = document.createElement('input');
+      nameInput.type = "text"; 
+      nameInput.className = "meal-name";
+      nameInput.placeholder = "Nom du plat";
+
+      const descInput = document.createElement('input');
+      descInput.type = "text";
+      descInput.className = "meal-desc";
+      descInput.placeholder = "Description";
+
+      const priceInput = document.createElement('input');
+      priceInput.type = "number";
+      priceInput.step = "0.01";
+      priceInput.className = "meal-price";
+      priceInput.placeholder = "Prix";
+
+      const imageInput = document.createElement('input');
+      imageInput.type = "file";
+      imageInput.accept = "image/*";
+      imageInput.className = "meal-image";
+      imageInput.onchange = function(e){
+          let imgPreview = mealDiv.querySelector('img.preview');
+          if(!imgPreview){
+              imgPreview = document.createElement('img');
+              imgPreview.className = 'preview';
+              mealDiv.appendChild(imgPreview);
+          }
+          if(e.target.files && e.target.files[0]){
+            imgPreview.src = URL.createObjectURL(e.target.files[0]);
+          }
+      }
+
+      const removeBtn = document.createElement('span');
+      removeBtn.innerText = "X";
+      removeBtn.className = "remove-btn";
+      removeBtn.onclick = () => { container.removeChild(mealDiv); }
+
+      mealDiv.appendChild(removeBtn);
+      mealDiv.appendChild(nameInput);
+      mealDiv.appendChild(descInput);
+      mealDiv.appendChild(priceInput);
+      mealDiv.appendChild(imageInput);
+
+      container.appendChild(mealDiv);
+  }
+
+  async function uploadFile(bucket, file) {
+      // تنظيف اسم الملف من الأحرف الخاصة
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+      
+      const { data, error } = await supabaseClient.storage.from(bucket).upload(fileName, file);
+      
+      if(error) {
+          console.error("Upload Error:", error);
+          throw new Error("Erreur upload image: " + error.message);
+      }
+      
+      const { data: publicUrlData } = supabaseClient.storage.from(bucket).getPublicUrl(fileName);
+      return publicUrlData.publicUrl;
+  }
+
+  async function saveRestaurant() {
+      showMessage('');
+      const restaurantName = document.getElementById('restaurantName').value.trim();
+      const restaurantWhatsApp = document.getElementById('restaurantWhatsApp').value.trim();
+      const restaurantImageInput = document.getElementById('restaurantImage');
+
+      if(!restaurantName || !restaurantWhatsApp || restaurantImageInput.files.length === 0){
+          return showMessage("Veuillez remplir le nom, WhatsApp et l'image du restaurant !");
+      }
+
+      const mealDivs = document.querySelectorAll('.meal-item');
+      if(mealDivs.length === 0) return showMessage("Veuillez ajouter au moins un plat !");
+
+      // التحقق من صحة بيانات الأطباق قبل البدء في الرفع
+      for(let div of mealDivs){
+          const name = div.querySelector('.meal-name').value.trim();
+          const price = div.querySelector('.meal-price').value;
+          const file = div.querySelector('.meal-image').files[0];
+          if(!name || !price || !file) {
+             return showMessage("Veuillez remplir toutes les informations (Nom, Prix, Image) pour chaque plat !");
+          }
+      }
+
+      showMessage("Enregistrement en cours...", false);
+
+      try {
+          // 1. رفع صورة المطعم
+          const restaurantImageUrl = await uploadFile('restaurants', restaurantImageInput.files[0]);
+
+          // 2. تحضير ورفع صور الأطباق
+          let mealsData = [];
+          for(let div of mealDivs){
+              const name = div.querySelector('.meal-name').value.trim();
+              const desc = div.querySelector('.meal-desc').value.trim();
+              const price = parseFloat(div.querySelector('.meal-price').value);
+              const file = div.querySelector('.meal-image').files[0];
+
+              const mealImageUrl = await uploadFile('meals', file);
+              
+              mealsData.push({ 
+                  name: name, 
+                  description: desc, 
+                  price: price, 
+                  image_url: mealImageUrl 
+              });
+          }
+
+          // 3. الحفظ في قاعدة البيانات
+          // تأكد أن عمود 'meals' نوعه JSONB في قاعدة البيانات
+          const { data, error } = await supabaseClient
+              .from('restaurants')
+              .insert([{
+                  name: restaurantName,
+                  whatsapp: restaurantWhatsApp,
+                  image_url: restaurantImageUrl,
+                  meals: mealsData 
+              }]);
+
+          if(error) throw error;
+
+          showMessage("Restaurant et plats ajoutés avec succès !", false);
+          
+          // إعادة تعيين الصفحة
+          setTimeout(() => {
+             location.reload(); 
+          }, 2000);
+
+      } catch(err){
+          console.error(err);
+          showMessage("Erreur : " + err.message);
+      }
+  }
+</script>
+
+</body>
+</html>
