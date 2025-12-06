@@ -9,7 +9,6 @@
   input, button { display: block; margin: 10px 0; width: 100%; padding: 8px; box-sizing: border-box; }
   label { margin-top: 10px; font-weight: bold; }
   .meal-item { border: 1px solid #ccc; padding: 15px; margin-bottom: 15px; position: relative; background: #f9f9f9; border-radius: 5px; }
-  .meal-item img { max-width: 100px; margin-top: 5px; }
   .remove-btn { position: absolute; top: 5px; right: 5px; cursor: pointer; color: red; font-weight: bold; background: #fff; padding: 2px 6px; border: 1px solid red; border-radius: 3px;}
   img.preview { max-width: 150px; display: block; margin-top: 10px; border-radius: 5px;}
   .error { color: red; font-weight: bold; margin-top: 10px; }
@@ -39,11 +38,9 @@
 <div id="message"></div>
 
 <script>
-  // 1. تأكد من أن هذه المفاتيح صحيحة من إعدادات Supabase
+  // بيانات Supabase (مفتاحك تم إدراجه هنا)
   const supabaseUrl = 'https://yfbmmflrvelcctengksm.supabase.co';
-  // المفتاح أدناه يبدو غير صحيح في كودك الأصلي (عادة يبدأ بـ eyJ...)
-  // يرجى استبداله بمفتاح "anon" "public" الصحيح من لوحة تحكم Supabase
-  const supabaseKey = 'YOUR_SUPABASE_ANON_KEY_HERE'; 
+  const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlmYm1tZmxydmVsY2N0ZW5na3NtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ4Nzk4ODEsImV4cCI6MjA4MDQ1NTg4MX0.lSgg5aohNbpAAMWBP7_4sdbxwe7xICrD1xHmB7EXaic'; 
   
   // تصحيح: استخدام اسم متغير مختلف لتجنب التضارب
   const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
@@ -67,7 +64,7 @@
       const mealDiv = document.createElement('div');
       mealDiv.className = 'meal-item';
 
-      // إضافة كلاسات (Classes) ليسهل جلب البيانات لاحقاً
+      // تصحيح: إضافة كلاسات وأنواع (Types) لتسهيل الجلب
       const nameInput = document.createElement('input');
       nameInput.type = "text"; 
       nameInput.className = "meal-name";
@@ -115,11 +112,11 @@
   }
 
   async function uploadFile(bucket, file) {
-      // تنظيف اسم الملف من الأحرف الخاصة
       const fileExt = file.name.split('.').pop();
+      // توليد اسم ملف فريد
       const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
       
-      const { data, error } = await supabaseClient.storage.from(bucket).upload(fileName, file);
+      const { error } = await supabaseClient.storage.from(bucket).upload(fileName, file);
       
       if(error) {
           console.error("Upload Error:", error);
@@ -127,6 +124,7 @@
       }
       
       const { data: publicUrlData } = supabaseClient.storage.from(bucket).getPublicUrl(fileName);
+      // استخدام getPublicUrl للحصول على الرابط العام
       return publicUrlData.publicUrl;
   }
 
@@ -145,6 +143,7 @@
 
       // التحقق من صحة بيانات الأطباق قبل البدء في الرفع
       for(let div of mealDivs){
+          // تصحيح: استخدام الكلاسات لجلب القيم
           const name = div.querySelector('.meal-name').value.trim();
           const price = div.querySelector('.meal-price').value;
           const file = div.querySelector('.meal-image').files[0];
@@ -162,6 +161,7 @@
           // 2. تحضير ورفع صور الأطباق
           let mealsData = [];
           for(let div of mealDivs){
+              // تصحيح: استخدام الكلاسات لجلب القيم
               const name = div.querySelector('.meal-name').value.trim();
               const desc = div.querySelector('.meal-desc').value.trim();
               const price = parseFloat(div.querySelector('.meal-price').value);
@@ -177,9 +177,8 @@
               });
           }
 
-          // 3. الحفظ في قاعدة البيانات
-          // تأكد أن عمود 'meals' نوعه JSONB في قاعدة البيانات
-          const { data, error } = await supabaseClient
+          // 3. الحفظ في قاعدة البيانات (يتطلب أن يكون عمود 'meals' نوعه JSONB)
+          const { error } = await supabaseClient
               .from('restaurants')
               .insert([{
                   name: restaurantName,
@@ -192,7 +191,7 @@
 
           showMessage("Restaurant et plats ajoutés avec succès !", false);
           
-          // إعادة تعيين الصفحة
+          // تحديث الصفحة بعد ثوانٍ قليلة
           setTimeout(() => {
              location.reload(); 
           }, 2000);
