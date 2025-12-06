@@ -8,119 +8,78 @@
 </head>
 <body class="min-h-screen bg-gray-50">
 
-  <header class="relative">
-    <div class="relative h-64 md:h-80">
-      <img id="restaurant-image" src="" alt="مطعم" class="w-full h-full object-cover" />
-      <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
-      <div class="absolute bottom-0 w-full p-6 text-white container mx-auto">
-        <button onclick="window.location.href='restaurants.html'" class="text-white mb-4 bg-black/30 hover:bg-black/50 px-3 py-1 rounded flex items-center gap-1">
-          🔙 العودة للمطاعم
-        </button>
-        <h1 id="restaurant-name" class="text-4xl font-bold"></h1>
-      </div>
-    </div>
-  </header>
+  <div class="container mx-auto py-8">
+    <button onclick="window.location.href='restaurants.html'" class="mb-4 px-4 py-2 bg-primary text-white rounded">⬅ العودة للمطاعم</button>
+    <h1 class="text-3xl font-bold mb-6">قائمة الطعام</h1>
 
-  <main class="container mx-auto px-4 py-8 pb-32">
-    <h2 class="text-2xl font-bold mb-6 text-gray-800 border-b pb-2">قائمة الطعام</h2>
-    <div id="menu-items" class="grid gap-4"></div>
-  </main>
+    <div id="menu-items" class="grid gap-4 md:grid-cols-2 lg:grid-cols-3"></div>
+  </div>
 
-  <div id="cart-bar" class="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4 hidden">
+  <div class="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4 z-20">
     <div class="container mx-auto flex justify-between items-center">
       <div>
-        <p class="text-sm text-muted-foreground">المجموع (<span id="item-count">0</span> عناصر)</p>
-        <p class="text-2xl font-bold text-primary"><span id="total-price">0</span> دج</p>
+        <p class="text-sm text-muted-foreground">المجموع (<span id="count">0</span> عناصر)</p>
+        <p class="text-2xl font-bold text-primary"><span id="total">0</span> دج</p>
       </div>
-      <button onclick="window.location.href='order.html'" class="rounded-full px-8 py-3 text-lg bg-primary text-white hover:bg-primary/90 transition-all">
-        إتمام الطلب 🛒
-      </button>
+      <button onclick="goToOrder()" class="bg-primary text-white px-6 py-3 rounded-lg font-bold">إتمام الطلب</button>
     </div>
   </div>
 
   <script>
-    const restaurants = {
-      1: {
-        name: "مطعم البيتزا",
-        image: "https://images.unsplash.com/photo-1600891964599-f61ba0e24092?auto=format&fit=crop&w=800&q=80",
-        menu: [
-          { item: "بيتزا مارغريتا", price: 1200 },
-          { item: "بيتزا بيبروني", price: 1500 },
-          { item: "بيتزا خضار", price: 1300 },
-        ]
-      },
-      2: {
-        name: "مطعم البرغر",
-        image: "https://images.unsplash.com/photo-1600891964556-8e7b24e12d3f?auto=format&fit=crop&w=800&q=80",
-        menu: [
-          { item: "برغر لحم", price: 800 },
-          { item: "برغر دجاج", price: 700 },
-          { item: "بطاطس مقلية", price: 300 },
-        ]
-      }
-    };
+    // مثال قائمة الطعام
+    const menu = [
+      { item: "بيتزا مارغريتا", price: 1200 },
+      { item: "بيتزا ببروني", price: 1500 },
+      { item: "سلطة خضراء", price: 500 },
+      { item: "مقبلات مشكّلة", price: 700 },
+      { item: "مكرونة بولونيز", price: 1100 },
+    ];
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const restaurantId = urlParams.get('restaurant');
-    const restaurant = restaurants[restaurantId] || restaurants[1];
+    let cart = JSON.parse(localStorage.getItem('cart') || '[]');
 
-    document.getElementById('restaurant-name').textContent = restaurant.name;
-    document.getElementById('restaurant-image').src = restaurant.image;
+    const menuEl = document.getElementById('menu-items');
+    const totalEl = document.getElementById('total');
+    const countEl = document.getElementById('count');
 
-    const menuContainer = document.getElementById('menu-items');
-    const cartBar = document.getElementById('cart-bar');
-    const itemCountEl = document.getElementById('item-count');
-    const totalPriceEl = document.getElementById('total-price');
-
-    let cart = [];
-
-    function updateCartBar() {
-      if (cart.length === 0) {
-        cartBar.classList.add('hidden');
-      } else {
-        cartBar.classList.remove('hidden');
-        itemCountEl.textContent = cart.length;
-        totalPriceEl.textContent = cart.reduce((sum, i) => sum + i.price, 0);
-      }
+    function updateCart() {
+      totalEl.textContent = cart.reduce((a,b) => a + b.price, 0);
+      countEl.textContent = cart.length;
+      localStorage.setItem('cart', JSON.stringify(cart));
     }
 
-    restaurant.menu.forEach((menuItem, idx) => {
-      const card = document.createElement('div');
-      card.className = "p-4 flex justify-between items-center cursor-pointer border rounded-lg hover:shadow-lg transition-all";
-      
-      const left = document.createElement('div');
-      left.className = "flex items-center gap-4";
+    function toggleItem(item) {
+      const index = cart.findIndex(i => i.item === item.item);
+      if(index > -1) {
+        cart.splice(index,1); // إزالة إذا موجود
+      } else {
+        cart.push(item); // إضافة
+      }
+      renderMenu();
+      updateCart();
+    }
 
-      const checkbox = document.createElement('input');
-      checkbox.type = 'checkbox';
-      checkbox.className = "w-6 h-6";
-
-      const span = document.createElement('span');
-      span.textContent = menuItem.item;
-      span.className = "text-lg font-medium";
-
-      left.appendChild(checkbox);
-      left.appendChild(span);
-
-      const price = document.createElement('span');
-      price.textContent = menuItem.price + " دج";
-      price.className = "text-primary font-bold text-lg";
-
-      card.appendChild(left);
-      card.appendChild(price);
-
-      checkbox.addEventListener('change', (e) => {
-        if (checkbox.checked) {
-          cart.push(menuItem);
-        } else {
-          cart = cart.filter(i => i.item !== menuItem.item);
-        }
-        updateCartBar();
+    function renderMenu() {
+      menuEl.innerHTML = '';
+      menu.forEach((item) => {
+        const inCart = cart.some(i => i.item === item.item);
+        const card = document.createElement('div');
+        card.className = `p-4 flex justify-between items-center cursor-pointer border rounded-lg ${inCart ? 'bg-primary/10 border-primary' : 'bg-white'}`;
+        card.innerHTML = `<span>${item.item}</span><span>${item.price} دج</span>`;
+        card.onclick = () => toggleItem(item);
+        menuEl.appendChild(card);
       });
+    }
 
-      menuContainer.appendChild(card);
-    });
+    function goToOrder() {
+      if(cart.length === 0) {
+        alert("الرجاء اختيار عنصر واحد على الأقل!");
+        return;
+      }
+      window.location.href = 'order.html';
+    }
+
+    renderMenu();
+    updateCart();
   </script>
-
 </body>
 </html>
