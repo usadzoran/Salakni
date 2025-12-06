@@ -6,22 +6,56 @@
 <title>Salakni</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-  body { margin:0; font-family:sans-serif; background:#f9fafb; }
+  /* 1. الخلفية السوداء والنص الأبيض */
+  body { margin:0; font-family:sans-serif; background:#1e1e1e; color: white; }
   .hidden { display:none; }
   .container { max-width:1200px; margin:0 auto; padding:20px; }
-  header { background:white; padding:15px; box-shadow:0 2px 5px rgba(0,0,0,0.1); position:sticky; top:0; z-index:10; display:flex; justify-content:space-between; align-items:center; }
+  
+  /* 2. خلفية الهيدر والبطاقات الداكنة */
+  header { background:#252525; padding:15px; box-shadow:0 2px 5px rgba(0,0,0,0.5); position:sticky; top:0; z-index:10; display:flex; justify-content:space-between; align-items:center; }
   h1,h2,h3 { margin:0; }
-  .button { background:#3b82f6; color:white; padding:12px 24px; border:none; border-radius:12px; cursor:pointer; transition:0.3s; display:flex; align-items:center; }
-  .button:hover { background:#2563eb; transform:scale(1.05); }
-  .card { background:white; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.1); overflow:hidden; cursor:pointer; transition:0.3s; }
-  .card:hover { box-shadow:0 4px 16px rgba(0,0,0,0.2); transform:translateY(-5px); }
+  
+  /* 3. لون الأزرار الأحمر */
+  .button { background:#dc3545; color:white; padding:12px 24px; border:none; border-radius:12px; cursor:pointer; transition:0.3s; display:flex; align-items:center; }
+  .button:hover { background:#c82333; transform:scale(1.05); }
+  
+  /* 4. تصميم البطاقات الداكنة */
+  .card { background:#333; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.4); overflow:hidden; cursor:pointer; transition:0.3s; }
+  .card:hover { box-shadow:0 4px 16px rgba(0,0,0,0.6); transform:translateY(-5px); }
   .card img { width:100%; height:200px; object-fit:cover; }
   .grid { display:grid; gap:20px; }
   .grid-cols-3 { grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); }
-  .menu-item { display:flex; justify-content:space-between; align-items:center; padding:12px; border-radius:8px; transition:0.3s; }
-  .menu-item.selected { background:#3b82f6;color:white; }
-  input,textarea { width:100%; padding:10px; margin-top:5px; margin-bottom:10px; border:1px solid #ccc; border-radius:8px; }
-  .fixed-bottom { position:fixed; bottom:0; left:0; right:0; background:white; border-top:1px solid #ddd; padding:15px; display:flex; justify-content:space-between; align-items:center; box-shadow:0 -2px 8px rgba(0,0,0,0.1); }
+  
+  /* 5. تعديل حجم صور المأكولات (أكبر) */
+  .menu-item-content { 
+      display:flex; 
+      flex-direction: column; /* لتكديس الصورة والنص عمودياً */
+      align-items: center; 
+      padding: 15px;
+      border-radius: 8px; 
+      transition: 0.3s;
+      background: #444; /* خلفية الوجبة */
+      text-align: center;
+  }
+  .menu-item-content img { 
+      width: 100%; /* اجعل الصورة تأخذ عرض البطاقة */
+      height: 180px; /* حجم صورة أكبر */
+      object-fit: cover; 
+      margin-bottom: 10px; 
+      border-radius: 8px; 
+  }
+  .menu-item-content span {
+      font-weight: bold;
+      color: #ffc107; /* سعر بلون مختلف */
+      margin-top: 5px;
+  }
+  .menu-item-content.selected { 
+      background:#dc3545; /* لون أحمر عند الاختيار */
+      color:white; 
+  }
+  
+  input,textarea { width:100%; padding:10px; margin-top:5px; margin-bottom:10px; border:1px solid #555; border-radius:8px; background: #333; color: white;}
+  .fixed-bottom { position:fixed; bottom:0; left:0; right:0; background:#252525; border-top:1px solid #444; padding:15px; display:flex; justify-content:space-between; align-items:center; box-shadow:0 -2px 8px rgba(0,0,0,0.4); }
 </style>
 </head>
 <body>
@@ -29,7 +63,7 @@
 <div id="home" class="page">
   <div style="position:relative; height:100vh; color:white;">
     <img src="https://images.unsplash.com/photo-1601924638867-3e3ee3f4f85e?auto=format&fit=crop&w=1350&q=80" style="width:100%; height:100%; object-fit:cover;">
-    <div style="position:absolute; inset:0; background:linear-gradient(to top, black, transparent); display:flex; flex-direction:column; justify-content:center; align-items:center;">
+    <div style="position:absolute; inset:0; background:linear-gradient(to top, rgba(0,0,0,0.8), transparent); display:flex; flex-direction:column; justify-content:center; align-items:center;">
       <h1 style="font-size:64px; margin-bottom:20px;">Salakni</h1>
       <p style="font-size:24px; max-width:500px; text-align:center;">أشهى المأكولات تصلك أينما كنت. اطلب الآن واستمتع بالطعم الأصيل.</p>
       <button class="button" onclick="showPage('restaurants')" style="margin-top:20px;">ابدأ الطلب</button>
@@ -79,7 +113,7 @@
 
 <script>
 // ==========================================================
-// 1. إعداد Supabase
+// 1. إعداد Supabase (بمفتاحك الصحيح)
 // ==========================================================
 
 const supabaseUrl = 'https://yfbmmflrvelcctengksm.supabase.co';
@@ -96,23 +130,18 @@ let cartItems = [];
 function showPage(page) {
   document.querySelectorAll('.page').forEach(p=>p.classList.add('hidden'));
   document.getElementById(page).classList.remove('hidden');
-  if(page==='restaurants') renderRestaurants(); // عند الذهاب لصفحة المطاعم يتم جلبها
+  if(page==='restaurants') renderRestaurants(); 
   if(page==='menu') renderMenu();
   if(page==='order') renderOrderSummary();
 }
 
-// ==========================================================
-// 3. دالة جلب وعرض المطاعم (تم التعديل)
-// ==========================================================
-
 async function renderRestaurants() {
   const container = document.getElementById('restaurants-list');
-  container.innerHTML = '<h3>جاري تحميل المطاعم...</h3>'; // رسالة التحميل
+  container.innerHTML = '<h3>جاري تحميل المطاعم...</h3>'; 
 
-  // جلب البيانات من جدول 'restaurants'
   const { data: restaurants, error } = await supabaseClient
     .from('restaurants')
-    .select('id, name, image_url, whatsapp, meals'); // نطلب الأعمدة الضرورية
+    .select('id, name, image_url, whatsapp, meals'); 
 
   if (error) {
     console.error("Error fetching restaurants:", error);
@@ -125,41 +154,39 @@ async function renderRestaurants() {
     return;
   }
   
-  container.innerHTML = ''; // مسح رسالة التحميل
+  container.innerHTML = ''; 
   
-  // عرض المطاعم
   restaurants.forEach(r => {
     const card = document.createElement('div');
     card.className='card';
-    // نستخدم r.image_url بدلاً من r.image
     card.innerHTML=`<img src="${r.image_url}" alt="${r.name}"><h3 style="padding:10px;">${r.name}</h3>`;
-    // نخزن كائن المطعم كاملاً (بما فيه قائمة meals)
     card.onclick=()=>{selectedRestaurant=r; cartItems=[]; showPage('menu');};
     container.appendChild(card);
   });
 }
 
 // ==========================================================
-// 4. دالة عرض القائمة (تم التعديل لتناسب هيكل Supabase)
+// 3. دالة عرض القائمة (تم التعديل لعرض الصور بالحجم الجديد)
 // ==========================================================
-
 function renderMenu() {
-  const menuItems = selectedRestaurant.meals || []; // نستخدم meals بدلاً من menu
+  const menuItems = selectedRestaurant.meals || []; 
   const container = document.getElementById('menu-list');
   container.innerHTML='';
   document.getElementById('menu-title').innerText=selectedRestaurant.name;
   
-  menuItems.forEach((m,i)=>{ // م الآن تحتوي على {name, price, image_url...}
+  menuItems.forEach((m,i)=>{
     const div = document.createElement('div');
     const isSelected = cartItems.includes(m);
-    div.className='menu-item'+(isSelected?' selected':'');
     
-    // نستخدم m.name بدلاً من m.item و m.image_url بدلاً من m.img
-    div.innerHTML=`<div style="display:flex;align-items:center;">
-                    <img src="${m.image_url}" alt="${m.name}" style="width:40px;height:40px;margin-right:10px;border-radius:6px;">
-                    ${m.name}
-                   </div>
-                   <span>${m.price} دج</span>`;
+    // تم حذف الكلاس القديم وإضافة محتوى item-content جديد
+    div.className='menu-item-content'+(isSelected?' selected':''); 
+    
+    // هيكل العرض الجديد (صورة أكبر واسم وسعر)
+    div.innerHTML=`
+        <img src="${m.image_url}" alt="${m.name}">
+        <p style="font-size:1.1em; margin: 0;">${m.name}</p>
+        <span>${m.price} دج</span>
+    `;
                    
     div.onclick=()=>{
       const index = cartItems.indexOf(m);
@@ -182,20 +209,11 @@ function updateCartBar() {
   } else bar.style.display='none';
 }
 
-// ==========================================================
-// 5. دالة ملخص الطلب (تم التعديل لتناسب هيكل Supabase)
-// ==========================================================
-
 function renderOrderSummary() {
   const summary = document.getElementById('order-summary');
   if(cartItems.length===0) summary.innerHTML='السلة فارغة';
-  // نستخدم i.name بدلاً من i.item
   else summary.innerHTML='<h3>ملخص الطلب:</h3><ul>'+cartItems.map(i=>`<li>${i.name} (${i.price} دج)</li>`).join('')+'</ul>';
 }
-
-// ==========================================================
-// 6. دالة إرسال الطلب (تم التعديل لتناسب هيكل Supabase)
-// ==========================================================
 
 function submitOrder() {
   const name=document.getElementById('name').value.trim();
@@ -203,14 +221,12 @@ function submitOrder() {
   const phone=document.getElementById('phone').value.trim();
   if(!name||!address||!phone){ alert('الرجاء ملء جميع الحقول'); return; }
 
-  // إنشاء رسالة واتساب (نستخدم i.name بدلاً من i.item)
   const message = `*طلب جديد* 🛒%0A👤 ${name}%0A📍 ${address}%0A📱 ${phone}%0A🏠 ${selectedRestaurant.name}%0A${cartItems.map(i=>`- ${i.name} (${i.price} دج)`).join('%0A')}%0A💰 المجموع: ${cartItems.reduce((a,b)=>a+b.price,0)} دج`;
   window.open(`https://wa.me/${selectedRestaurant.whatsapp.replace(/\D/g,'')}?text=${message}`, '_blank');
 
   cartItems=[]; showPage('home');
 }
 
-// يبدأ التطبيق من هنا
 showPage('home');
 </script>
 
