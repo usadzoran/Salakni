@@ -29,128 +29,129 @@
 <img id="restaurantPreview" class="preview">
 
 <h3>Ajouter des plats</h3>
-
 <div id="mealsContainer"></div>
 
 <button onclick="addMeal()">Ajouter un plat</button>
 <button onclick="saveRestaurant()">Enregistrer le restaurant</button>
 
 <script>
-const supabaseUrl = 'https://yfbmmflrvelcctengksm.supabase.co';
-const supabaseKey = 'sb_publishable_eScpCIuTYOsA7KUKlYzeHg_8cQqZQ7f';
-const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+  // 1️⃣ إنشاء عميل Supabase أولاً
+  const supabaseUrl = 'https://yfbmmflrvelcctengksm.supabase.co';
+  const supabaseKey = 'sb_publishable_eScpCIuTYOsA7KUKlYzeHg_8cQqZQ7f';
+  const supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
-let meals = [];
+  // 2️⃣ معاينة صورة المطعم
+  function previewRestaurantImage(event) {
+      const output = document.getElementById('restaurantPreview');
+      output.src = URL.createObjectURL(event.target.files[0]);
+  }
 
-function previewRestaurantImage(event) {
-    const output = document.getElementById('restaurantPreview');
-    output.src = URL.createObjectURL(event.target.files[0]);
-}
+  // 3️⃣ إضافة وجبة جديدة في الواجهة
+  function addMeal() {
+      const container = document.getElementById('mealsContainer');
 
-function addMeal() {
-    const container = document.getElementById('mealsContainer');
+      const mealDiv = document.createElement('div');
+      mealDiv.className = 'meal-item';
 
-    const mealDiv = document.createElement('div');
-    mealDiv.className = 'meal-item';
+      const nameInput = document.createElement('input');
+      nameInput.placeholder = "Nom du plat";
 
-    const nameInput = document.createElement('input');
-    nameInput.placeholder = "Nom du plat";
+      const descInput = document.createElement('input');
+      descInput.placeholder = "Description";
 
-    const descInput = document.createElement('input');
-    descInput.placeholder = "Description";
+      const priceInput = document.createElement('input');
+      priceInput.type = "number";
+      priceInput.step = "0.01";
+      priceInput.placeholder = "Prix";
 
-    const priceInput = document.createElement('input');
-    priceInput.type = "number";
-    priceInput.step = "0.01";
-    priceInput.placeholder = "Prix";
+      const imageInput = document.createElement('input');
+      imageInput.type = "file";
+      imageInput.onchange = function(e){
+          let imgPreview = mealDiv.querySelector('img');
+          if(!imgPreview){
+              imgPreview = document.createElement('img');
+              imgPreview.className = 'preview';
+              mealDiv.appendChild(imgPreview);
+          }
+          imgPreview.src = URL.createObjectURL(e.target.files[0]);
+      }
 
-    const imageInput = document.createElement('input');
-    imageInput.type = "file";
-    imageInput.onchange = function(e){
-        let imgPreview = mealDiv.querySelector('img');
-        if(!imgPreview){
-            imgPreview = document.createElement('img');
-            imgPreview.className = 'preview';
-            mealDiv.appendChild(imgPreview);
-        }
-        imgPreview.src = URL.createObjectURL(e.target.files[0]);
-    }
+      const removeBtn = document.createElement('span');
+      removeBtn.innerText = "X";
+      removeBtn.className = "remove-btn";
+      removeBtn.onclick = () => { container.removeChild(mealDiv); }
 
-    const removeBtn = document.createElement('span');
-    removeBtn.innerText = "X";
-    removeBtn.className = "remove-btn";
-    removeBtn.onclick = () => { container.removeChild(mealDiv); }
+      mealDiv.appendChild(removeBtn);
+      mealDiv.appendChild(nameInput);
+      mealDiv.appendChild(descInput);
+      mealDiv.appendChild(priceInput);
+      mealDiv.appendChild(imageInput);
 
-    mealDiv.appendChild(removeBtn);
-    mealDiv.appendChild(nameInput);
-    mealDiv.appendChild(descInput);
-    mealDiv.appendChild(priceInput);
-    mealDiv.appendChild(imageInput);
+      container.appendChild(mealDiv);
+  }
 
-    container.appendChild(mealDiv);
-}
+  // 4️⃣ حفظ المطعم مع جميع الوجبات
+  async function saveRestaurant() {
+      const restaurantName = document.getElementById('restaurantName').value;
+      const restaurantWhatsApp = document.getElementById('restaurantWhatsApp').value;
+      const restaurantImage = document.getElementById('restaurantImage').files[0];
 
-async function saveRestaurant() {
-    const restaurantName = document.getElementById('restaurantName').value;
-    const restaurantWhatsApp = document.getElementById('restaurantWhatsApp').value;
-    const restaurantImage = document.getElementById('restaurantImage').files[0];
+      if(!restaurantName || !restaurantWhatsApp || !restaurantImage){
+          return alert("Veuillez remplir le nom, WhatsApp et l'image du restaurant !");
+      }
 
-    if(!restaurantName || !restaurantWhatsApp || !restaurantImage){
-        return alert("Veuillez remplir le nom, WhatsApp et l'image du restaurant !");
-    }
+      const mealDivs = document.querySelectorAll('.meal-item');
+      if(mealDivs.length === 0) return alert("Veuillez ajouter au moins un plat !");
 
-    const mealDivs = document.querySelectorAll('.meal-item');
-    if(mealDivs.length === 0) return alert("Veuillez ajouter au moins un plat !");
+      try {
+          // رفع صورة المطعم
+          const { data: restaurantImageData, error: riError } = await supabase.storage
+              .from('restaurants')
+              .upload(`restaurant_${Date.now()}`, restaurantImage);
+          if(riError) throw riError;
+          const restaurantImageUrl = supabase.storage.from('restaurants').getPublicUrl(restaurantImageData.path).publicUrl;
 
-    try {
-        // رفع صورة المطعم
-        const { data: restaurantImageData, error: riError } = await supabase.storage
-            .from('restaurants')
-            .upload(`restaurant_${Date.now()}`, restaurantImage);
-        if(riError) throw riError;
-        const restaurantImageUrl = supabase.storage.from('restaurants').getPublicUrl(restaurantImageData.path).publicUrl;
+          // رفع صور الوجبات وتجميعها
+          let mealsData = [];
+          for(let div of mealDivs){
+              const name = div.querySelector('input[type="text"]').value;
+              const desc = div.querySelectorAll('input[type="text"]')[1]?.value || '';
+              const price = parseFloat(div.querySelector('input[type="number"]').value);
+              const file = div.querySelector('input[type="file"]').files[0];
 
-        // رفع صور الوجبات وتجميعها
-        let mealsData = [];
-        for(let div of mealDivs){
-            const name = div.querySelector('input[type="text"]').value;
-            const desc = div.querySelectorAll('input[type="text"]')[1]?.value || '';
-            const price = parseFloat(div.querySelector('input[type="number"]').value);
-            const file = div.querySelector('input[type="file"]').files[0];
+              if(!name || !price || !file) continue;
 
-            if(!name || !price || !file) continue;
+              const { data: mealImageData, error: miError } = await supabase.storage
+                  .from('meals')
+                  .upload(`meal_${Date.now()}_${Math.random()}`, file);
+              if(miError) throw miError;
+              const mealImageUrl = supabase.storage.from('meals').getPublicUrl(mealImageData.path).publicUrl;
 
-            const { data: mealImageData, error: miError } = await supabase.storage
-                .from('meals')
-                .upload(`meal_${Date.now()}_${Math.random()}`, file);
-            if(miError) throw miError;
-            const mealImageUrl = supabase.storage.from('meals').getPublicUrl(mealImageData.path).publicUrl;
+              mealsData.push({ name, description: desc, price, image_url: mealImageUrl });
+          }
 
-            mealsData.push({ name, description: desc, price, image_url: mealImageUrl });
-        }
+          // إدخال المطعم مع جميع الوجبات
+          const { data, error } = await supabase
+              .from('restaurants')
+              .insert([{
+                  name: restaurantName,
+                  whatsapp: restaurantWhatsApp,
+                  image_url: restaurantImageUrl,
+                  meals: mealsData
+              }]);
+          if(error) throw error;
+          alert("Restaurant et plats ajoutés avec succès !");
 
-        // إدخال المطعم مع جميع الوجبات
-        const { data, error } = await supabase
-            .from('restaurants')
-            .insert([{
-                name: restaurantName,
-                whatsapp: restaurantWhatsApp,
-                image_url: restaurantImageUrl,
-                meals: mealsData
-            }]);
-        if(error) throw error;
-        alert("Restaurant et plats ajoutés avec succès !");
-
-        // مسح الحقول
-        document.getElementById('restaurantName').value = '';
-        document.getElementById('restaurantWhatsApp').value = '';
-        document.getElementById('restaurantImage').value = '';
-        document.getElementById('restaurantPreview').src = '';
-        document.getElementById('mealsContainer').innerHTML = '';
-    } catch(err){
-        alert("Erreur : " + err.message);
-    }
-}
+          // مسح الحقول
+          document.getElementById('restaurantName').value = '';
+          document.getElementById('restaurantWhatsApp').value = '';
+          document.getElementById('restaurantImage').value = '';
+          document.getElementById('restaurantPreview').src = '';
+          document.getElementById('mealsContainer').innerHTML = '';
+      } catch(err){
+          alert("Erreur : " + err.message);
+      }
+  }
 </script>
 
 </body>
