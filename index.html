@@ -1,40 +1,171 @@
 <!DOCTYPE html>
 <html lang="ar">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Salakni - الرئيسية</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://unpkg.com/framer-motion/dist/framer-motion.umd.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Salakni</title>
+<style>
+  body { margin:0; font-family:sans-serif; background:#f9fafb; }
+  .hidden { display:none; }
+  .container { max-width:1200px; margin:0 auto; padding:20px; }
+  header { background:white; padding:15px; box-shadow:0 2px 5px rgba(0,0,0,0.1); position:sticky; top:0; z-index:10; display:flex; justify-content:space-between; align-items:center; }
+  h1,h2,h3 { margin:0; }
+  .button { background:#3b82f6; color:white; padding:12px 24px; border:none; border-radius:12px; cursor:pointer; transition:0.3s; display:flex; align-items:center; }
+  .button:hover { background:#2563eb; transform:scale(1.05); }
+  .card { background:white; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.1); overflow:hidden; cursor:pointer; transition:0.3s; }
+  .card:hover { box-shadow:0 4px 16px rgba(0,0,0,0.2); transform:translateY(-5px); }
+  .card img { width:100%; height:200px; object-fit:cover; }
+  .grid { display:grid; gap:20px; }
+  .grid-cols-3 { grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); }
+  .menu-item { display:flex; justify-content:space-between; align-items:center; padding:12px; border-radius:8px; transition:0.3s; }
+  .menu-item.selected { background:#3b82f6;color:white; }
+  input,textarea { width:100%; padding:10px; margin-top:5px; margin-bottom:10px; border:1px solid #ccc; border-radius:8px; }
+  .fixed-bottom { position:fixed; bottom:0; left:0; right:0; background:white; border-top:1px solid #ddd; padding:15px; display:flex; justify-content:space-between; align-items:center; box-shadow:0 -2px 8px rgba(0,0,0,0.1); }
+</style>
 </head>
-<body class="relative overflow-hidden bg-black min-h-screen flex flex-col items-center justify-center">
+<body>
 
-  <!-- الخلفية -->
-  <div 
-    class="absolute inset-0 z-0 opacity-60 bg-cover bg-center"
-    style="background-image: url('https://images.unsplash.com/photo-1601924638867-3e3ee3f4f85e?auto=format&fit=crop&w=1350&q=80');">
+<!-- الصفحات -->
+<div id="home" class="page">
+  <div style="position:relative; height:100vh; color:white;">
+    <img src="https://images.unsplash.com/photo-1601924638867-3e3ee3f4f85e?auto=format&fit=crop&w=1350&q=80" style="width:100%; height:100%; object-fit:cover;">
+    <div style="position:absolute; inset:0; background:linear-gradient(to top, black, transparent); display:flex; flex-direction:column; justify-content:center; align-items:center;">
+      <h1 style="font-size:64px; margin-bottom:20px;">Salakni</h1>
+      <p style="font-size:24px; max-width:500px; text-align:center;">أشهى المأكولات تصلك أينما كنت. اطلب الآن واستمتع بالطعم الأصيل.</p>
+      <button class="button" onclick="showPage('restaurants')" style="margin-top:20px;">ابدأ الطلب</button>
+    </div>
   </div>
-  <div class="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent z-0"></div>
+</div>
 
-  <!-- المحتوى -->
-  <div class="relative z-10 text-center text-white px-4">
-    <h1 class="text-6xl md:text-8xl font-bold mb-6 drop-shadow-lg font-sans">
-      Salakni
-    </h1>
-    <p class="text-xl md:text-2xl mb-8 text-gray-200 max-w-md mx-auto">
-      أشهى المأكولات تصلك أينما كنت. اطلب الآن واستمتع بالطعم الأصيل.
-    </p>
-    
-    <a href="restaurants.html">
-      <button 
-        class="text-lg px-8 py-6 rounded-full bg-primary hover:bg-primary/90 text-white shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 cursor-pointer flex items-center justify-center gap-2">
-        ابدأ الطلب
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l5-5-5-5m5 5H3"/>
-        </svg>
-      </button>
-    </a>
+<div id="restaurants" class="page hidden">
+  <header>
+    <h2>المطاعم</h2>
+    <button class="button" onclick="showPage('home')">الرئيسية</button>
+  </header>
+  <div class="container grid grid-cols-3" id="restaurants-list">
+    <!-- سيتم ملء المطاعم هنا -->
   </div>
+</div>
+
+<div id="menu" class="page hidden">
+  <header>
+    <button class="button" onclick="showPage('restaurants')">العودة للمطاعم</button>
+    <h2 id="menu-title">قائمة الطعام</h2>
+  </header>
+  <div class="container grid grid-cols-3" id="menu-list">
+    <!-- سيتم ملء الوجبات هنا -->
+  </div>
+  <div class="fixed-bottom" id="cart-bar" style="display:none;">
+    <div>
+      <p id="cart-count">المجموع (0 عناصر)</p>
+      <p id="cart-total">0 دج</p>
+    </div>
+    <button class="button" onclick="showPage('order')">إتمام الطلب</button>
+  </div>
+</div>
+
+<div id="order" class="page hidden">
+  <header>
+    <button class="button" onclick="showPage('menu')">العودة للقائمة</button>
+    <h2>معلومات التوصيل</h2>
+  </header>
+  <div class="container">
+    <div id="order-summary" style="margin-bottom:20px;"></div>
+    <input type="text" id="name" placeholder="الاسم الكامل">
+    <textarea id="address" placeholder="العنوان"></textarea>
+    <input type="text" id="phone" placeholder="رقم الهاتف">
+    <button class="button" onclick="submitOrder()">إرسال الطلب</button>
+  </div>
+</div>
+
+<script>
+const restaurantsData = [
+  {id:0,name:"مطعم الزيتون",image:"https://images.unsplash.com/photo-1600891964599-f61ba0e24092",whatsapp:"+213777111111",menu:[
+    {item:"بيتزا مارجريتا",price:1500,img:"https://images.unsplash.com/photo-1606755962777-cd5df3a7c0b4"},
+    {item:"سلطة خضراء",price:700,img:"https://images.unsplash.com/photo-1600891964599-f61ba0e24092"},
+    {item:"عصير برتقال",price:400,img:"https://images.unsplash.com/photo-1571091718767-18a048cfe9c7"}
+  ]},
+  {id:1,name:"مطعم الفلفل",image:"https://images.unsplash.com/photo-1565299624946-b28f40a0ae38",whatsapp:"+213777222222",menu:[
+    {item:"كباب دجاج",price:1200,img:"https://images.unsplash.com/photo-1606755962777-cd5df3a7c0b4"},
+    {item:"بطاطس مقلية",price:500,img:"https://images.unsplash.com/photo-1600891964599-f61ba0e24092"},
+    {item:"شاي بالنعناع",price:200,img:"https://images.unsplash.com/photo-1571091718767-18a048cfe9c7"}
+  ]}
+];
+
+let selectedRestaurant = null;
+let cartItems = [];
+
+function showPage(page) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.add('hidden'));
+  document.getElementById(page).classList.remove('hidden');
+  if(page==='restaurants') renderRestaurants();
+  if(page==='menu') renderMenu();
+  if(page==='order') renderOrderSummary();
+}
+
+function renderRestaurants() {
+  const container = document.getElementById('restaurants-list');
+  container.innerHTML = '';
+  restaurantsData.forEach(r=>{
+    const card = document.createElement('div');
+    card.className='card';
+    card.innerHTML=`<img src="${r.image}" alt="${r.name}"><h3 style="padding:10px;">${r.name}</h3>`;
+    card.onclick=()=>{selectedRestaurant=r; cartItems=[]; showPage('menu');};
+    container.appendChild(card);
+  });
+}
+
+function renderMenu() {
+  const container = document.getElementById('menu-list');
+  container.innerHTML='';
+  document.getElementById('menu-title').innerText=selectedRestaurant.name;
+  selectedRestaurant.menu.forEach((m,i)=>{
+    const div = document.createElement('div');
+    const isSelected = cartItems.includes(m);
+    div.className='menu-item'+(isSelected?' selected':'');
+    div.innerHTML=`<div style="display:flex;align-items:center;"><img src="${m.img}" alt="" style="width:40px;height:40px;margin-right:10px;border-radius:6px;">${m.item}</div><span>${m.price} دج</span>`;
+    div.onclick=()=>{
+      const index = cartItems.indexOf(m);
+      if(index>-1) cartItems.splice(index,1);
+      else cartItems.push(m);
+      renderMenu(); updateCartBar();
+    };
+    container.appendChild(div);
+  });
+  updateCartBar();
+}
+
+function updateCartBar() {
+  const bar = document.getElementById('cart-bar');
+  if(cartItems.length>0){ 
+    bar.style.display='flex';
+    document.getElementById('cart-count').innerText=`المجموع (${cartItems.length} عناصر)`;
+    const total = cartItems.reduce((a,b)=>a+b.price,0);
+    document.getElementById('cart-total').innerText=total+' دج';
+  } else bar.style.display='none';
+}
+
+function renderOrderSummary() {
+  const summary = document.getElementById('order-summary');
+  if(cartItems.length===0) summary.innerHTML='السلة فارغة';
+  else summary.innerHTML='<h3>ملخص الطلب:</h3><ul>'+cartItems.map(i=>`<li>${i.item} (${i.price} دج)</li>`).join('')+'</ul>';
+}
+
+function submitOrder() {
+  const name=document.getElementById('name').value.trim();
+  const address=document.getElementById('address').value.trim();
+  const phone=document.getElementById('phone').value.trim();
+  if(!name||!address||!phone){ alert('الرجاء ملء جميع الحقول'); return; }
+
+  // فتح واتساب مع رقم المطعم تلقائياً
+  const message = `*طلب جديد* 🛒%0A👤 ${name}%0A📍 ${address}%0A📱 ${phone}%0A🏠 ${selectedRestaurant.name}%0A${cartItems.map(i=>`- ${i.item} (${i.price} دج)`).join('%0A')}%0A💰 المجموع: ${cartItems.reduce((a,b)=>a+b.price,0)} دج`;
+  window.open(`https://wa.me/${selectedRestaurant.whatsapp.replace(/\D/g,'')}?text=${message}`, '_blank');
+
+  cartItems=[]; showPage('home');
+}
+
+showPage('home');
+</script>
 
 </body>
 </html>
