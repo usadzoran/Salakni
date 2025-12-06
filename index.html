@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Salakni</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   body { margin:0; font-family:sans-serif; background:#f9fafb; }
   .hidden { display:none; }
@@ -25,7 +26,6 @@
 </head>
 <body>
 
-<!-- الصفحات -->
 <div id="home" class="page">
   <div style="position:relative; height:100vh; color:white;">
     <img src="https://images.unsplash.com/photo-1601924638867-3e3ee3f4f85e?auto=format&fit=crop&w=1350&q=80" style="width:100%; height:100%; object-fit:cover;">
@@ -43,7 +43,7 @@
     <button class="button" onclick="showPage('home')">الرئيسية</button>
   </header>
   <div class="container grid grid-cols-3" id="restaurants-list">
-    <!-- سيتم ملء المطاعم هنا -->
+    <h3>جاري تحميل المطاعم...</h3>
   </div>
 </div>
 
@@ -53,8 +53,7 @@
     <h2 id="menu-title">قائمة الطعام</h2>
   </header>
   <div class="container grid grid-cols-3" id="menu-list">
-    <!-- سيتم ملء الوجبات هنا -->
-  </div>
+    </div>
   <div class="fixed-bottom" id="cart-bar" style="display:none;">
     <div>
       <p id="cart-count">المجموع (0 عناصر)</p>
@@ -79,18 +78,17 @@
 </div>
 
 <script>
-const restaurantsData = [
-  {id:0,name:"مطعم الزيتون",image:"https://images.unsplash.com/photo-1600891964599-f61ba0e24092",whatsapp:"+213777111111",menu:[
-    {item:"بيتزا مارجريتا",price:1500,img:"https://images.unsplash.com/photo-1606755962777-cd5df3a7c0b4"},
-    {item:"سلطة خضراء",price:700,img:"https://images.unsplash.com/photo-1600891964599-f61ba0e24092"},
-    {item:"عصير برتقال",price:400,img:"https://images.unsplash.com/photo-1571091718767-18a048cfe9c7"}
-  ]},
-  {id:1,name:"مطعم الفلفل",image:"https://images.unsplash.com/photo-1565299624946-b28f40a0ae38",whatsapp:"+213777222222",menu:[
-    {item:"كباب دجاج",price:1200,img:"https://images.unsplash.com/photo-1606755962777-cd5df3a7c0b4"},
-    {item:"بطاطس مقلية",price:500,img:"https://images.unsplash.com/photo-1600891964599-f61ba0e24092"},
-    {item:"شاي بالنعناع",price:200,img:"https://images.unsplash.com/photo-1571091718767-18a048cfe9c7"}
-  ]}
-];
+// ==========================================================
+// 1. إعداد Supabase
+// ==========================================================
+
+const supabaseUrl = 'https://yfbmmflrvelcctengksm.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlmYm1tZmxydmVsY2N0ZW5na3NtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ4Nzk4ODEsImV4cCI6MjA4MDQ1NTg4MX0.lSgg5aohNbpAAMWBP7_4sdbxwe7xICrD1xHmB7EXaic'; 
+const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+// ==========================================================
+// 2. المتغيرات والدوال المساعدة
+// ==========================================================
 
 let selectedRestaurant = null;
 let cartItems = [];
@@ -98,32 +96,71 @@ let cartItems = [];
 function showPage(page) {
   document.querySelectorAll('.page').forEach(p=>p.classList.add('hidden'));
   document.getElementById(page).classList.remove('hidden');
-  if(page==='restaurants') renderRestaurants();
+  if(page==='restaurants') renderRestaurants(); // عند الذهاب لصفحة المطاعم يتم جلبها
   if(page==='menu') renderMenu();
   if(page==='order') renderOrderSummary();
 }
 
-function renderRestaurants() {
+// ==========================================================
+// 3. دالة جلب وعرض المطاعم (تم التعديل)
+// ==========================================================
+
+async function renderRestaurants() {
   const container = document.getElementById('restaurants-list');
-  container.innerHTML = '';
-  restaurantsData.forEach(r=>{
+  container.innerHTML = '<h3>جاري تحميل المطاعم...</h3>'; // رسالة التحميل
+
+  // جلب البيانات من جدول 'restaurants'
+  const { data: restaurants, error } = await supabaseClient
+    .from('restaurants')
+    .select('id, name, image_url, whatsapp, meals'); // نطلب الأعمدة الضرورية
+
+  if (error) {
+    console.error("Error fetching restaurants:", error);
+    container.innerHTML = `<h3 style="color:red;">حدث خطأ في جلب البيانات: ${error.message}</h3>`;
+    return;
+  }
+
+  if (restaurants.length === 0) {
+    container.innerHTML = '<h3>لا توجد مطاعم مسجلة حالياً.</h3>';
+    return;
+  }
+  
+  container.innerHTML = ''; // مسح رسالة التحميل
+  
+  // عرض المطاعم
+  restaurants.forEach(r => {
     const card = document.createElement('div');
     card.className='card';
-    card.innerHTML=`<img src="${r.image}" alt="${r.name}"><h3 style="padding:10px;">${r.name}</h3>`;
+    // نستخدم r.image_url بدلاً من r.image
+    card.innerHTML=`<img src="${r.image_url}" alt="${r.name}"><h3 style="padding:10px;">${r.name}</h3>`;
+    // نخزن كائن المطعم كاملاً (بما فيه قائمة meals)
     card.onclick=()=>{selectedRestaurant=r; cartItems=[]; showPage('menu');};
     container.appendChild(card);
   });
 }
 
+// ==========================================================
+// 4. دالة عرض القائمة (تم التعديل لتناسب هيكل Supabase)
+// ==========================================================
+
 function renderMenu() {
+  const menuItems = selectedRestaurant.meals || []; // نستخدم meals بدلاً من menu
   const container = document.getElementById('menu-list');
   container.innerHTML='';
   document.getElementById('menu-title').innerText=selectedRestaurant.name;
-  selectedRestaurant.menu.forEach((m,i)=>{
+  
+  menuItems.forEach((m,i)=>{ // م الآن تحتوي على {name, price, image_url...}
     const div = document.createElement('div');
     const isSelected = cartItems.includes(m);
     div.className='menu-item'+(isSelected?' selected':'');
-    div.innerHTML=`<div style="display:flex;align-items:center;"><img src="${m.img}" alt="" style="width:40px;height:40px;margin-right:10px;border-radius:6px;">${m.item}</div><span>${m.price} دج</span>`;
+    
+    // نستخدم m.name بدلاً من m.item و m.image_url بدلاً من m.img
+    div.innerHTML=`<div style="display:flex;align-items:center;">
+                    <img src="${m.image_url}" alt="${m.name}" style="width:40px;height:40px;margin-right:10px;border-radius:6px;">
+                    ${m.name}
+                   </div>
+                   <span>${m.price} دج</span>`;
+                   
     div.onclick=()=>{
       const index = cartItems.indexOf(m);
       if(index>-1) cartItems.splice(index,1);
@@ -145,11 +182,20 @@ function updateCartBar() {
   } else bar.style.display='none';
 }
 
+// ==========================================================
+// 5. دالة ملخص الطلب (تم التعديل لتناسب هيكل Supabase)
+// ==========================================================
+
 function renderOrderSummary() {
   const summary = document.getElementById('order-summary');
   if(cartItems.length===0) summary.innerHTML='السلة فارغة';
-  else summary.innerHTML='<h3>ملخص الطلب:</h3><ul>'+cartItems.map(i=>`<li>${i.item} (${i.price} دج)</li>`).join('')+'</ul>';
+  // نستخدم i.name بدلاً من i.item
+  else summary.innerHTML='<h3>ملخص الطلب:</h3><ul>'+cartItems.map(i=>`<li>${i.name} (${i.price} دج)</li>`).join('')+'</ul>';
 }
+
+// ==========================================================
+// 6. دالة إرسال الطلب (تم التعديل لتناسب هيكل Supabase)
+// ==========================================================
 
 function submitOrder() {
   const name=document.getElementById('name').value.trim();
@@ -157,13 +203,14 @@ function submitOrder() {
   const phone=document.getElementById('phone').value.trim();
   if(!name||!address||!phone){ alert('الرجاء ملء جميع الحقول'); return; }
 
-  // فتح واتساب مع رقم المطعم تلقائياً
-  const message = `*طلب جديد* 🛒%0A👤 ${name}%0A📍 ${address}%0A📱 ${phone}%0A🏠 ${selectedRestaurant.name}%0A${cartItems.map(i=>`- ${i.item} (${i.price} دج)`).join('%0A')}%0A💰 المجموع: ${cartItems.reduce((a,b)=>a+b.price,0)} دج`;
+  // إنشاء رسالة واتساب (نستخدم i.name بدلاً من i.item)
+  const message = `*طلب جديد* 🛒%0A👤 ${name}%0A📍 ${address}%0A📱 ${phone}%0A🏠 ${selectedRestaurant.name}%0A${cartItems.map(i=>`- ${i.name} (${i.price} دج)`).join('%0A')}%0A💰 المجموع: ${cartItems.reduce((a,b)=>a+b.price,0)} دج`;
   window.open(`https://wa.me/${selectedRestaurant.whatsapp.replace(/\D/g,'')}?text=${message}`, '_blank');
 
   cartItems=[]; showPage('home');
 }
 
+// يبدأ التطبيق من هنا
 showPage('home');
 </script>
 
