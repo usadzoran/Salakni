@@ -1,7 +1,8 @@
 
 export enum UserRole {
   WORKER = 'WORKER',
-  SEEKER = 'SEEKER'
+  SEEKER = 'SEEKER',
+  ADMIN = 'ADMIN'
 }
 
 export interface Location {
@@ -41,15 +42,15 @@ export interface Worker extends User {
   reviews?: Review[];
 }
 
-export interface ServiceCategory {
+export interface Advertisement {
   id: string;
-  name: string;
-  icon: string;
-  description: string;
+  location: 'hero_bottom' | 'search_sidebar' | 'search_top' | 'footer_top';
+  content: string;
+  is_active: boolean;
 }
 
 export interface AppState {
   currentUser: User | null;
   workers: Worker[];
-  view: 'landing' | 'register' | 'login' | 'dashboard' | 'search' | 'profile';
+  view: 'landing' | 'register' | 'login' | 'dashboard' | 'search' | 'profile' | 'admin';
 }

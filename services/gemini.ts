@@ -1,11 +1,12 @@
 
 import { GoogleGenAI } from "@google/genai";
 
-// Initialize the GoogleGenAI client with the API key from environment variables.
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
 export const getAIRecommendation = async (userNeed: string, workers: any[]) => {
   try {
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) return "نظام الذكاء الاصطناعي غير متوفر حالياً.";
+
+    const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `بناءً على طلب المستخدم: "${userNeed}"، والعمال المتاحين: ${JSON.stringify(workers)}، اقترح أفضل عامل وشرح السبب باختصار باللغة العربية.`,
@@ -15,22 +16,24 @@ export const getAIRecommendation = async (userNeed: string, workers: any[]) => {
       },
     });
 
-    // Access the .text property directly as per GenerateContentResponse guidelines.
-    return response.text;
+    return response.text || "لم أتمكن من إيجاد توصية محددة حالياً.";
   } catch (error) {
     console.error("Gemini Error:", error);
-    return "عذراً، حدث خطأ أثناء معالجة طلبك. يرجى المحاولة لاحقاً.";
+    return "عذراً، حدث خطأ أثناء معالجة طلبك بالذكاء الاصطناعي.";
   }
 };
 
 export const generateBio = async (category: string, skills: string[]) => {
   try {
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) return "";
+
+    const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `أنا أعمل في مجال ${category} وأتقن المهارات التالية: ${skills.join(', ')}. اكتب لي سيرة ذاتية (Bio) قصيرة وجذابة للزبائن باللغة العربية.`,
     });
-    // Access the .text property directly as per GenerateContentResponse guidelines.
-    return response.text;
+    return response.text || "";
   } catch (error) {
     console.error("Gemini Bio Error:", error);
     return "";
