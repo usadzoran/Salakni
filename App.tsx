@@ -19,9 +19,11 @@ const GlobalStyles = () => (
     @media (min-width: 768px) { .portfolio-grid { grid-template-columns: repeat(5, 1fr); } }
     .admin-tab-active { border-bottom: 3px solid #10b981; color: #10b981; }
     
-    .hero-gradient { background: radial-gradient(circle at top right, rgba(16, 185, 129, 0.15), transparent 50%), radial-gradient(circle at bottom left, rgba(20, 184, 166, 0.15), transparent 50%); }
+    .hero-bg-overlay { background: linear-gradient(to bottom, rgba(15, 23, 42, 0.9) 0%, rgba(15, 23, 42, 0.7) 50%, rgba(15, 23, 42, 0.95) 100%); }
   `}</style>
 );
+
+const REQ_IMAGE = "https://st3.depositphotos.com/9744818/17392/i/950/depositphotos_173923044-stock-photo-woman-giving-money-man-corrupted.jpg";
 
 // مكون لعرض الإعلانات
 const AdRenderer: React.FC<{ placement: Advertisement['placement'] }> = ({ placement }) => {
@@ -58,65 +60,57 @@ const Logo: React.FC<{ size?: 'sm' | 'lg', onClick?: () => void, inverse?: boole
 
 const LandingHero: React.FC<{ onStart: (v: AppState['view']) => void }> = ({ onStart }) => (
   <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-slate-950">
-    {/* خلفية سينمائية */}
-    <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1621905252507-b354bcadcabc?q=80&w=2000')] bg-cover bg-center opacity-20"></div>
-    <div className="absolute inset-0 bg-gradient-to-b from-slate-950 via-slate-950/90 to-emerald-950/30"></div>
+    {/* خلفية الموقع - الصورة المطلوبة بفلتر داكن */}
+    <div 
+      className="absolute inset-0 bg-cover bg-center opacity-25 mix-blend-luminosity scale-105"
+      style={{ backgroundImage: `url(${REQ_IMAGE})` }}
+    ></div>
+    <div className="absolute inset-0 hero-bg-overlay"></div>
     
-    <div className="relative z-10 max-w-7xl mx-auto px-6 py-20 w-full">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+    <div className="relative z-10 max-w-7xl mx-auto px-6 py-16 w-full text-center">
+      <div className="flex flex-col items-center gap-10">
         
-        {/* الجانب النصي */}
-        <div className="text-right space-y-8 animate-in fade-in slide-in-from-right-10 duration-1000">
-          <div className="inline-block">
+        {/* شعار وعنوان الموقع */}
+        <div className="space-y-6 animate-in fade-in slide-in-from-top-10 duration-1000">
+          <div className="inline-block animate-float">
             <Logo size="lg" inverse />
           </div>
-          <h1 className="text-4xl md:text-7xl font-black text-white leading-[1.1] tracking-tight">
-            ريح بالك، <br/>
-            <span className="text-emerald-400">سَلّكني</span> يسلكها
+          <h1 className="text-4xl md:text-8xl font-black text-white leading-tight tracking-tight px-4">
+            ريح بالك، <span className="text-emerald-400">سَلّكني</span> يسلكها
           </h1>
-          <p className="text-xl md:text-2xl text-slate-300 font-medium leading-relaxed max-w-2xl">
-            المنصة الجزائرية الأولى لربط الحرفيين المهرة بالزبائن. 
-            <span className="text-yellow-500 font-bold block mt-2">تعامل مباشر، ثقة متبادلة، ودفع يدوي آمن.</span>
+          <p className="text-lg md:text-3xl text-slate-300 font-medium max-w-3xl mx-auto leading-relaxed px-4">
+            المنصة الجزائرية رقم #1 لربط الحرفيين بالزبائن. 
+            <span className="text-yellow-500 font-bold block mt-3">تعامل مباشر، دفع يدوي، وثقة مضمونة.</span>
           </p>
-          
-          <div className="flex flex-col sm:flex-row gap-4 pt-4">
-            <button onClick={() => onStart('search')} className="group relative overflow-hidden bg-emerald-600 px-10 py-5 rounded-2xl font-black text-xl text-white hover:bg-emerald-500 transition-all shadow-[0_0_40px_rgba(16,185,129,0.3)] active:scale-95">
-              <span className="relative z-10">ابحث عن حرفي 🔍</span>
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
-            </button>
-            <button onClick={() => onStart('register')} className="bg-white/10 backdrop-blur-md px-10 py-5 rounded-2xl font-black text-xl text-white border border-white/20 hover:bg-white/20 transition-all active:scale-95">
-              سجل كحرفي 🛠️
-            </button>
+        </div>
+
+        {/* الصورة المطلوبة - عرض مركزي تحت اسم الموقع */}
+        <div className="relative w-full max-w-4xl mx-auto px-4 group animate-in fade-in zoom-in duration-1000 delay-300">
+          <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-[2.5rem] md:rounded-[4rem] blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
+          <div className="relative aspect-[21/9] md:aspect-[21/7] rounded-[2.5rem] md:rounded-[4rem] overflow-hidden border-2 border-white/10 shadow-2xl">
+            <img 
+              src={REQ_IMAGE} 
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000"
+              alt="دفع يدوي آمن"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent"></div>
+            <div className="absolute bottom-4 md:bottom-8 right-4 md:right-8 text-right">
+               <span className="bg-emerald-600/90 backdrop-blur-md text-white px-4 md:px-6 py-2 rounded-full text-xs md:text-lg font-black flex items-center gap-2">
+                 <span>صافية حليب، تعامل مباشر</span>
+                 <span className="text-lg md:text-2xl">🤝</span>
+               </span>
+            </div>
           </div>
         </div>
 
-        {/* الجانب البصري - الصورة الجديدة */}
-        <div className="relative group animate-in fade-in slide-in-from-left-10 duration-1000">
-          {/* تأثير التوهج الخلفي */}
-          <div className="absolute -inset-4 bg-emerald-500/20 rounded-[4rem] blur-3xl group-hover:bg-emerald-500/30 transition-all duration-700"></div>
-          
-          <div className="relative aspect-[4/3] lg:aspect-square rounded-[3rem] md:rounded-[4rem] overflow-hidden border-4 border-white/10 shadow-2xl rotate-2 group-hover:rotate-0 transition-all duration-700">
-            <img 
-              src="https://st3.depositphotos.com/9744818/17392/i/950/depositphotos_173923044-stock-photo-woman-giving-money-man-corrupted.jpg" 
-              className="w-full h-full object-cover scale-110 group-hover:scale-100 transition-transform duration-1000"
-              alt="التعامل المباشر الآمن"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-transparent"></div>
-            
-            {/* بطاقة عائمة فوق الصورة */}
-            <div className="absolute bottom-8 right-8 left-8 bg-white/10 backdrop-blur-xl border border-white/20 p-6 rounded-3xl transform translate-y-4 group-hover:translate-y-0 opacity-0 group-hover:opacity-100 transition-all duration-500">
-              <div className="flex items-center gap-4 flex-row-reverse text-right">
-                <div className="bg-emerald-500 p-3 rounded-2xl text-2xl">🤝</div>
-                <div>
-                  <h4 className="text-white font-black text-lg">ثقة تامة</h4>
-                  <p className="text-slate-300 text-sm font-bold">اتفاق مباشر ودفع يدوي عند الرضا التام</p>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          {/* عنصر زينة إضافي */}
-          <div className="absolute -top-10 -right-10 w-32 h-32 bg-yellow-500/10 rounded-full blur-2xl animate-pulse"></div>
+        {/* أزرار العمل */}
+        <div className="flex flex-col sm:flex-row gap-6 justify-center items-center w-full px-4 pt-4 animate-in fade-in slide-in-from-bottom-10 duration-1000 delay-500">
+          <button onClick={() => onStart('search')} className="w-full sm:w-auto bg-emerald-600 px-12 md:px-20 py-5 md:py-6 rounded-[2rem] font-black text-xl md:text-2xl text-white hover:bg-emerald-500 transition-all shadow-xl active:scale-95">
+            ابحث عن حرفي 🔍
+          </button>
+          <button onClick={() => onStart('register')} className="w-full sm:w-auto bg-white/10 backdrop-blur-md px-12 md:px-20 py-5 md:py-6 rounded-[2rem] font-black text-xl md:text-2xl text-white border border-white/20 hover:bg-white/20 transition-all active:scale-95">
+            سجل كحرفي 🛠️
+          </button>
         </div>
 
       </div>
@@ -250,7 +244,6 @@ const AuthForm: React.FC<{ type: 'login' | 'register' | 'admin', onSuccess: (use
     e.preventDefault();
     setLoading(true);
 
-    // التحقق من بيانات دخول الإدارة
     if (formData.phone === '0777117663' && formData.password === 'vampirewahab31') {
       const adminUser: User = { 
         id: 'admin-1', firstName: 'عبد الوهاب', lastName: 'المدير', phone: '0777117663', 
@@ -342,7 +335,6 @@ const AdminDashboard: React.FC<{ onExit: () => void }> = ({ onExit }) => {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   
-  // نموذج إضافة مستخدم جديد
   const [newUser, setNewUser] = useState({
     firstName: '', lastName: '', phone: '', password: '', 
     role: UserRole.WORKER, wilaya: WILAYAS[0], daira: '', category: SERVICE_CATEGORIES[0].name
@@ -531,7 +523,6 @@ const AdminDashboard: React.FC<{ onExit: () => void }> = ({ onExit }) => {
         )}
       </div>
 
-      {/* مودال إضافة حرفي جديد يدوياً */}
       {showAddModal && (
         <div className="fixed inset-0 z-[110] bg-black/95 flex items-center justify-center p-4 backdrop-blur-md">
           <div className="bg-slate-900 w-full max-w-xl rounded-[3rem] p-8 md:p-10 border border-white/10 text-right shadow-2xl overflow-y-auto max-h-[90vh] custom-scrollbar">
@@ -562,7 +553,6 @@ const AdminDashboard: React.FC<{ onExit: () => void }> = ({ onExit }) => {
         </div>
       )}
 
-      {/* مودال تفاصيل المستخدم */}
       {selectedUser && (
         <div className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4 backdrop-blur-md" onClick={() => setSelectedUser(null)}>
           <div className="bg-slate-900 w-full max-w-2xl rounded-[3rem] p-8 md:p-10 border border-white/10 text-right shadow-2xl overflow-y-auto max-h-[90vh] custom-scrollbar" onClick={e => e.stopPropagation()}>
@@ -615,7 +605,6 @@ const EditProfile: React.FC<{ user: User, onUpdate: (u: User) => void }> = ({ us
   const [idFront, setIdFront] = useState(user.idFront || '');
   const [idBack, setIdBack] = useState(user.idBack || '');
   const [loading, setLoading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDocUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'front' | 'back') => {
     const file = e.target.files?.[0];
@@ -648,7 +637,7 @@ const EditProfile: React.FC<{ user: User, onUpdate: (u: User) => void }> = ({ us
         <div className="space-y-6 text-gray-900">
           <div>
             <label className="block text-sm font-black mb-2">نبذة عنك (تجذب الزبائن):</label>
-            <textarea rows={3} className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl font-bold focus:border-emerald-500 outline-none" value={bio} onChange={setBio} />
+            <textarea rows={3} className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl font-bold focus:border-emerald-500 outline-none" value={bio} onChange={(e) => setBio(e.target.value)} />
           </div>
           
           <div className="p-6 bg-emerald-50/50 rounded-3xl border border-emerald-100">
@@ -681,7 +670,6 @@ const EditProfile: React.FC<{ user: User, onUpdate: (u: User) => void }> = ({ us
   );
 };
 
-// --- المكون الرئيسي App ---
 export default function App() {
   const initialUser = JSON.parse(localStorage.getItem('user')) || null;
   const [state, setState] = useState<AppState>({ currentUser: initialUser, workers: [], view: 'landing' });
