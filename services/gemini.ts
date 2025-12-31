@@ -1,12 +1,5 @@
 
 /**
- * تم تعطيل خدمات الذكاء الاصطناعي (Gemini) بناءً على طلب المستخدم.
+ * تم تعطيل وحذف كافة خدمات الذكاء الاصطناعي.
  */
-
-export const getAIRecommendation = async (userNeed: string, workers: any[]) => {
-  return null;
-};
-
-export const generateBio = async (category: string, skills: string[]) => {
-  return "";
-};
+export {};
