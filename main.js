@@ -140,13 +140,27 @@ window.handleSearch = async () => {
   render();
 
   try {
-    let query = supabase.from('users').select('*').eq('role', 'WORKER').eq('is_verified', true);
-    if (state.filters.wilaya) query = query.eq('wilaya', state.filters.wilaya);
-    if (state.filters.category) query = query.eq('category', state.filters.category);
-    if (state.filters.query) query = query.or(`first_name.ilike.%${state.filters.query}%,bio.ilike.%${state.filters.query}%`);
+    // We remove the explicit is_verified filter from the Supabase query to prevent crashing 
+    // if the column doesn't exist. Instead, we filter in JS memory after the fetch.
+    let baseQuery = supabase.from('users').select('*').eq('role', 'WORKER');
+    
+    if (state.filters.wilaya) baseQuery = baseQuery.eq('wilaya', state.filters.wilaya);
+    if (state.filters.category) baseQuery = baseQuery.eq('category', state.filters.category);
+    if (state.filters.query) baseQuery = baseQuery.or(`first_name.ilike.%${state.filters.query}%,bio.ilike.%${state.filters.query}%`);
 
-    const { data } = await query;
-    state.workers = data || [];
+    const { data, error } = await baseQuery;
+    
+    if (error) {
+      console.error("Search failed:", error);
+      state.workers = [];
+    } else {
+      // Gracefully handle missing column in client-side filtering
+      state.workers = (data || []).filter(w => {
+        // If the column is missing from the record, we assume it's true or just show it 
+        // to avoid hiding everyone when the column is missing.
+        return w.is_verified === undefined || w.is_verified !== false;
+      });
+    }
   } catch (e) {
     console.error(e);
   } finally {

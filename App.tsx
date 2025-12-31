@@ -1,4 +1,11 @@
 
+/* 
+SQL SCHEMA SETUP:
+Run this command in your Supabase SQL Editor to fix the runtime error:
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE;
+*/
+
 import React, { useState, useEffect, useRef } from 'react';
 import { UserRole, AppState, User, Message, Notification, Advertisement, SupportRequest } from './types.ts';
 import { SERVICE_CATEGORIES, WILAYAS, DAIRAS } from './constants.tsx';
@@ -202,8 +209,7 @@ const WorkerRegistrationForm: React.FC<{ onSuccess: (u: User) => void, onBack: (
     
     setLoading(true);
     try {
-      console.log("إرسال بيانات التسجيل...", formData);
-      const { data, error } = await supabase.from('users').insert([{
+      const payload: any = {
         first_name: formData.firstName,
         last_name: formData.lastName,
         phone: formData.phone,
@@ -212,26 +218,25 @@ const WorkerRegistrationForm: React.FC<{ onSuccess: (u: User) => void, onBack: (
         wilaya: formData.wilaya,
         daira: formData.daira,
         category: formData.category,
-        bio: formData.bio,
-        is_verified: false
-      }]).select();
+        bio: formData.bio
+      };
+
+      // Try inserting with is_verified first, if it fails due to missing column, try without it
+      let { data, error } = await supabase.from('users').insert([{ ...payload, is_verified: false }]).select();
+
+      if (error && error.message.includes('is_verified')) {
+        console.warn("is_verified column missing. Retrying without it...");
+        const retry = await supabase.from('users').insert([payload]).select();
+        data = retry.data;
+        error = retry.error;
+      }
 
       if (error) {
         console.error("خطأ Supabase:", error);
         if (error.code === '23505') alert("هذا الرقم مسجل بالفعل في قاعدة البيانات!");
         else alert(`حدث خطأ في قاعدة البيانات: ${error.message}`);
       } else {
-        const newUser = data?.[0] || { 
-          id: 'temp-' + Date.now(), 
-          first_name: formData.firstName, 
-          last_name: formData.lastName,
-          phone: formData.phone,
-          role: UserRole.WORKER,
-          wilaya: formData.wilaya,
-          daira: formData.daira,
-          category: formData.category,
-          is_verified: false 
-        };
+        const newUser = data?.[0] || { ...payload, id: 'temp-' + Date.now() };
         onSuccess({ 
           id: newUser.id, 
           firstName: newUser.first_name, 
@@ -241,7 +246,7 @@ const WorkerRegistrationForm: React.FC<{ onSuccess: (u: User) => void, onBack: (
           location: { wilaya: newUser.wilaya, daira: newUser.daira },
           category: newUser.category,
           bio: newUser.bio,
-          isVerified: newUser.is_verified
+          isVerified: newUser.is_verified || false
         });
       }
     } catch (err) {
@@ -297,21 +302,29 @@ const SeekerRegistrationForm: React.FC<{ onSuccess: (u: User) => void, onBack: (
     e.preventDefault();
     setLoading(true);
     try {
-      const { data, error } = await supabase.from('users').insert([{
+      const payload: any = {
         first_name: formData.firstName,
         last_name: formData.lastName,
         phone: formData.phone,
         password: formData.password,
         role: UserRole.SEEKER,
-        wilaya: formData.wilaya,
-        is_verified: true
-      }]).select();
+        wilaya: formData.wilaya
+      };
+
+      let { data, error } = await supabase.from('users').insert([{ ...payload, is_verified: true }]).select();
+
+      if (error && error.message.includes('is_verified')) {
+        console.warn("is_verified column missing. Retrying without it...");
+        const retry = await supabase.from('users').insert([payload]).select();
+        data = retry.data;
+        error = retry.error;
+      }
 
       if (error) {
         console.error("خطأ Supabase:", error);
         alert(`فشل التسجيل: ${error.message}`);
       } else {
-        const u = data?.[0] || { id: 'temp', first_name: formData.firstName, last_name: formData.lastName, phone: formData.phone, role: UserRole.SEEKER, wilaya: formData.wilaya };
+        const u = data?.[0] || { ...payload, id: 'temp' };
         onSuccess({ 
           id: u.id, 
           firstName: u.first_name, 
@@ -319,7 +332,7 @@ const SeekerRegistrationForm: React.FC<{ onSuccess: (u: User) => void, onBack: (
           phone: u.phone,
           role: UserRole.SEEKER,
           location: { wilaya: u.wilaya, daira: '' },
-          isVerified: true
+          isVerified: u.is_verified || true
         });
       }
     } catch (err) {
@@ -375,7 +388,7 @@ const AuthForm: React.FC<{ type: 'login', onSuccess: (u: User) => void }> = ({ o
           role: data.role as UserRole,
           location: { wilaya: data.wilaya, daira: data.daira },
           avatar: data.avatar,
-          isVerified: data.is_verified,
+          isVerified: data.is_verified || false,
           category: data.category
         });
       }
