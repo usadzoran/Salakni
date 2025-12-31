@@ -22,6 +22,7 @@ export interface User {
   avatar?: string;
   bio?: string;
   category?: string;
+  skills?: string[];
   idFront?: string;
   idBack?: string;
   isVerified?: boolean;
@@ -54,5 +55,5 @@ export interface Advertisement {
 export interface AppState {
   currentUser: User | null;
   workers: Worker[];
-  view: 'landing' | 'register' | 'login' | 'dashboard' | 'search' | 'profile' | 'admin';
+  view: 'landing' | 'register' | 'login' | 'dashboard' | 'search' | 'profile' | 'admin' | 'edit-profile';
 }
