@@ -1,9 +1,9 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { UserRole, AppState, User, Worker, Advertisement } from './types.ts';
-import { SERVICE_CATEGORIES, WILAYAS, DAIRAS } from './constants.tsx';
-import { getAIRecommendation } from './services/gemini.ts';
-import { supabase } from './lib/supabase.ts';
+import { UserRole, AppState, User, Worker, Advertisement } from './types';
+import { SERVICE_CATEGORIES, WILAYAS, DAIRAS } from './constants';
+import { getAIRecommendation } from './services/gemini';
+import { supabase } from './lib/supabase';
 
 // --- Custom Styles ---
 const GlobalStyles = () => (
@@ -14,7 +14,6 @@ const GlobalStyles = () => (
     .shimmer::after { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: linear-gradient(45deg, transparent, rgba(255,255,255,0.2), transparent); transform: rotate(45deg); animation: shimmer 3s infinite; }
     @keyframes shimmer { 0% { transform: translateX(-100%) rotate(45deg); } 100% { transform: translateX(100%) rotate(45deg); } }
     .arabic-text { font-family: 'Tajawal', sans-serif; }
-    .admin-glass { background: rgba(15, 23, 42, 0.98); backdrop-filter: blur(25px); }
     .loading-spinner { border: 4px solid rgba(16, 185, 129, 0.1); border-left-color: #10b981; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   `}</style>
@@ -42,8 +41,8 @@ const Logo: React.FC<{ size?: 'sm' | 'lg' }> = ({ size = 'sm' }) => (
       </div>
       <div className={`absolute inset-0 flex items-center justify-center text-white font-black ${size === 'lg' ? 'text-5xl' : 'text-2xl'} z-10 group-hover:scale-110 transition-transform`}>S</div>
     </div>
-    <div className="flex flex-col items-start leading-none gap-0.5 text-right">
-      <div className="flex items-baseline gap-1.5 flex-row-reverse">
+    <div className="flex flex-col items-start leading-none gap-0.5">
+      <div className="flex items-baseline gap-1.5">
         <span className={`${size === 'lg' ? 'text-6xl md:text-8xl' : 'text-3xl'} font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-emerald-950 via-emerald-800 to-teal-700`}>Salakni</span>
         <span className={`${size === 'lg' ? 'text-4xl' : 'text-xl'} arabic-text font-black text-yellow-500`}>سلكني</span>
       </div>
@@ -55,19 +54,19 @@ const Logo: React.FC<{ size?: 'sm' | 'lg' }> = ({ size = 'sm' }) => (
 const Navbar: React.FC<{ onNavigate: (view: AppState['view']) => void, currentView: AppState['view'], user: User | null, onLogout: () => void }> = ({ onNavigate, currentView, user, onLogout }) => (
   <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md shadow-sm border-b border-gray-100 hidden md:block">
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="flex justify-between items-center h-24 flex-row-reverse">
+      <div className="flex justify-between items-center h-24">
         <div onClick={() => onNavigate('landing')}><Logo /></div>
-        <div className="flex space-x-reverse space-x-10 items-center flex-row-reverse">
+        <div className="flex items-center gap-8">
           <button onClick={() => onNavigate('landing')} className={`${currentView === 'landing' ? 'text-emerald-600 font-black' : 'text-gray-600'} hover:text-emerald-500 transition font-bold text-lg`}>الرئيسية</button>
           <button onClick={() => onNavigate('search')} className={`${currentView === 'search' ? 'text-emerald-600 font-black' : 'text-gray-600'} hover:text-emerald-500 transition font-bold text-lg`}>تصفح الحرفيين</button>
           {!user ? (
-            <div className="flex items-center gap-4 flex-row-reverse">
+            <div className="flex items-center gap-4">
               <button onClick={() => onNavigate('login')} className="text-gray-600 hover:text-emerald-500 font-black text-lg">دخول</button>
               <button onClick={() => onNavigate('register')} className="bg-emerald-600 text-white px-8 py-3.5 rounded-2xl font-black shadow-lg active:scale-95 transition-all">انضم إلينا</button>
             </div>
           ) : (
             <div className="flex items-center gap-4 bg-gray-50 p-2 pr-5 rounded-3xl border border-gray-100 cursor-pointer group" onClick={() => onNavigate('profile')}>
-              <div className="flex flex-col items-end">
+              <div className="flex flex-col items-start">
                 <span className="text-base font-black text-gray-800">{user.firstName}</span>
                 <span className="text-[10px] text-emerald-600 font-black uppercase tracking-widest">{user.role === UserRole.ADMIN ? 'مدير المنصة' : 'حسابي'}</span>
               </div>
@@ -82,7 +81,7 @@ const Navbar: React.FC<{ onNavigate: (view: AppState['view']) => void, currentVi
 
 const BottomNav: React.FC<{ onNavigate: (view: AppState['view']) => void, currentView: AppState['view'], user: User | null }> = ({ onNavigate, currentView, user }) => (
   <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-100 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] md:hidden">
-    <div className="flex justify-around items-center h-20 pb-safe flex-row-reverse">
+    <div className="flex justify-around items-center h-20 pb-safe">
       <button onClick={() => onNavigate('landing')} className={`flex flex-col items-center gap-1 ${currentView === 'landing' ? 'text-emerald-600' : 'text-gray-400'}`}>
         <span className="text-2xl">🏠</span>
         <span className="text-[11px] font-black">الرئيسية</span>
@@ -98,8 +97,6 @@ const BottomNav: React.FC<{ onNavigate: (view: AppState['view']) => void, curren
     </div>
   </div>
 );
-
-// --- Sub-components for Views ---
 
 const LandingHero: React.FC<{ onStart: (v: any) => void }> = ({ onStart }) => (
   <div className="relative min-h-[90vh] flex items-center justify-center text-white text-center p-6">
@@ -124,7 +121,7 @@ const SearchPage: React.FC<{ user: User | null, ads: Advertisement[] }> = ({ ads
   useEffect(() => {
     const fetchWorkers = async () => {
       try {
-        const { data, error } = await supabase.from('users').select('*').eq('role', 'WORKER').eq('is_verified', true);
+        const { data, error } = await supabase.from('users').select('*').eq('role', UserRole.WORKER).eq('is_verified', true);
         if (!error && data) {
           setWorkers(data.map(w => ({
             ...w,
@@ -144,7 +141,7 @@ const SearchPage: React.FC<{ user: User | null, ads: Advertisement[] }> = ({ ads
   }, []);
 
   return (
-    <div className="max-w-7xl mx-auto px-6 py-20 text-right">
+    <div className="max-w-7xl mx-auto px-6 py-20">
       <h2 className="text-4xl font-black mb-12">الحرفيين الموثوقين 🇩🇿</h2>
       {loading ? (
         <div className="flex justify-center py-40"><div className="loading-spinner"></div></div>
@@ -152,14 +149,14 @@ const SearchPage: React.FC<{ user: User | null, ads: Advertisement[] }> = ({ ads
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
           {workers.map(w => (
             <div key={w.id} className="bg-white p-10 rounded-[3.5rem] shadow-xl border border-gray-100 group hover:-translate-y-2 transition-all">
-              <div className="flex gap-6 items-center mb-8 flex-row-reverse">
+              <div className="flex gap-6 items-center mb-8">
                 <img src={w.avatar || `https://ui-avatars.com/api/?name=${w.firstName}`} className="w-24 h-24 rounded-3xl object-cover shadow-lg" alt="" />
                 <div className="text-right">
                   <h3 className="text-2xl font-black">{w.firstName} {w.lastName}</h3>
                   <p className="text-emerald-600 font-bold">{w.category}</p>
                 </div>
               </div>
-              <div className="pt-8 border-t border-gray-50 flex justify-between items-center flex-row-reverse">
+              <div className="pt-8 border-t border-gray-50 flex justify-between items-center">
                 <span className="text-gray-400 font-bold">📍 {w.location.wilaya}</span>
                 <button className="bg-emerald-600 text-white px-8 py-3 rounded-2xl font-black text-sm hover:bg-emerald-700">تواصل</button>
               </div>
@@ -249,7 +246,7 @@ const AdminDashboard: React.FC<{ ads: Advertisement[], setAds: React.Dispatch<Re
   const fetchUnverified = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.from('users').select('*').eq('is_verified', false).eq('role', 'WORKER');
+      const { data, error } = await supabase.from('users').select('*').eq('is_verified', false).eq('role', UserRole.WORKER);
       if (error) throw error;
       if (data) {
         setUnverifiedUsers(data.map(u => ({
@@ -281,11 +278,11 @@ const AdminDashboard: React.FC<{ ads: Advertisement[], setAds: React.Dispatch<Re
   return (
     <div className="min-h-screen bg-slate-950 text-white font-sans text-right">
       <div className="max-w-7xl mx-auto px-6 py-12">
-        <header className="flex flex-col md:flex-row justify-between items-center mb-16 gap-8 border-b border-white/10 pb-12 flex-row-reverse">
+        <header className="flex flex-col md:flex-row justify-between items-center mb-16 gap-8 border-b border-white/10 pb-12">
           <div className="text-center md:text-right">
             <h1 className="text-5xl font-black mb-4">لوحة التحكم <span className="text-emerald-400">السرية</span> 🤫</h1>
           </div>
-          <div className="flex bg-slate-900 p-2 rounded-3xl border border-white/5 shadow-2xl flex-row-reverse">
+          <div className="flex bg-slate-900 p-2 rounded-3xl border border-white/5 shadow-2xl">
             <button onClick={() => setActiveTab('users')} className={`px-10 py-4 rounded-2xl font-black transition-all ${activeTab === 'users' ? 'bg-emerald-600 shadow-xl' : 'text-slate-400 hover:text-white'}`}>طلبات التوثيق</button>
             <button onClick={() => setActiveTab('ads')} className={`px-10 py-4 rounded-2xl font-black transition-all ${activeTab === 'ads' ? 'bg-emerald-600 shadow-xl' : 'text-slate-400 hover:text-white'}`}>إدارة الإعلانات</button>
             <button onClick={onExit} className="px-6 py-4 text-red-400 hover:text-white transition-all">خروج ✕</button>
@@ -321,7 +318,7 @@ const AdminDashboard: React.FC<{ ads: Advertisement[], setAds: React.Dispatch<Re
             </div>
             <div className="lg:col-span-2 space-y-6">
               {ads.map(ad => (
-                <div key={ad.id} className="bg-slate-900/50 p-6 rounded-3xl border border-white/5 flex justify-between items-center flex-row-reverse">
+                <div key={ad.id} className="bg-slate-900/50 p-6 rounded-3xl border border-white/5 flex justify-between items-center">
                   <code className="text-slate-400 text-xs truncate max-w-lg" dir="ltr">{ad.content}</code>
                   <button onClick={() => setAds(ads.filter(a => a.id !== ad.id))} className="text-red-500 p-2">✕</button>
                 </div>
@@ -351,7 +348,7 @@ export default function App() {
   const handleLogout = () => setState(prev => ({ ...prev, currentUser: null, view: 'landing' }));
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50 overflow-x-hidden">
+    <div className="min-h-screen flex flex-col bg-gray-50 overflow-x-hidden" dir="rtl">
       <GlobalStyles />
       {state.view !== 'admin' && (
         <Navbar onNavigate={handleNavigate} currentView={state.view} user={state.currentUser} onLogout={handleLogout} />

@@ -1,9 +1,11 @@
 
-export enum UserRole {
-  WORKER = 'WORKER',
-  SEEKER = 'SEEKER',
-  ADMIN = 'ADMIN'
-}
+export const UserRole = {
+  WORKER: 'WORKER',
+  SEEKER: 'SEEKER',
+  ADMIN: 'ADMIN'
+} as const;
+
+export type UserRole = typeof UserRole[keyof typeof UserRole];
 
 export interface Location {
   wilaya: string;
