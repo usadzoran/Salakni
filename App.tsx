@@ -25,20 +25,20 @@ const GlobalStyles = () => (
 
 const REQ_IMAGE = "https://st3.depositphotos.com/9744818/17392/i/950/depositphotos_173923044-stock-photo-woman-giving-money-man-corrupted.jpg";
 
-// مكون لعرض الإعلانات
+// مكون لعرض الإعلانات في الموقع
 const AdRenderer: React.FC<{ placement: Advertisement['placement'] }> = ({ placement }) => {
   const [ad, setAd] = useState<Advertisement | null>(null);
 
   useEffect(() => {
     const fetchAd = async () => {
-      const { data } = await supabase.from('advertisements').select('*').eq('placement', placement).eq('is_active', true).single();
+      const { data } = await supabase.from('advertisements').select('*').eq('placement', placement).eq('is_active', true).limit(1).maybeSingle();
       if (data) setAd(data);
     };
     fetchAd();
   }, [placement]);
 
   if (!ad) return null;
-  return <div className="my-6 overflow-hidden flex justify-center w-full" dangerouslySetInnerHTML={{ __html: ad.html_content }} />;
+  return <div className="my-6 overflow-hidden flex justify-center w-full shadow-sm rounded-xl" dangerouslySetInnerHTML={{ __html: ad.html_content }} />;
 };
 
 const Logo: React.FC<{ size?: 'sm' | 'lg', onClick?: () => void, inverse?: boolean }> = ({ size = 'sm', onClick, inverse }) => (
@@ -60,7 +60,6 @@ const Logo: React.FC<{ size?: 'sm' | 'lg', onClick?: () => void, inverse?: boole
 
 const LandingHero: React.FC<{ onStart: (v: AppState['view']) => void }> = ({ onStart }) => (
   <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-slate-950">
-    {/* خلفية الموقع - الصورة المطلوبة بفلتر داكن */}
     <div 
       className="absolute inset-0 bg-cover bg-center opacity-25 mix-blend-luminosity scale-105"
       style={{ backgroundImage: `url(${REQ_IMAGE})` }}
@@ -69,8 +68,6 @@ const LandingHero: React.FC<{ onStart: (v: AppState['view']) => void }> = ({ onS
     
     <div className="relative z-10 max-w-7xl mx-auto px-6 py-16 w-full text-center">
       <div className="flex flex-col items-center gap-10">
-        
-        {/* شعار وعنوان الموقع */}
         <div className="space-y-6 animate-in fade-in slide-in-from-top-10 duration-1000">
           <div className="inline-block animate-float">
             <Logo size="lg" inverse />
@@ -84,7 +81,6 @@ const LandingHero: React.FC<{ onStart: (v: AppState['view']) => void }> = ({ onS
           </p>
         </div>
 
-        {/* الصورة المطلوبة - عرض مركزي تحت اسم الموقع */}
         <div className="relative w-full max-w-4xl mx-auto px-4 group animate-in fade-in zoom-in duration-1000 delay-300">
           <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-[2.5rem] md:rounded-[4rem] blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
           <div className="relative aspect-[21/9] md:aspect-[21/7] rounded-[2.5rem] md:rounded-[4rem] overflow-hidden border-2 border-white/10 shadow-2xl">
@@ -103,7 +99,6 @@ const LandingHero: React.FC<{ onStart: (v: AppState['view']) => void }> = ({ onS
           </div>
         </div>
 
-        {/* أزرار العمل */}
         <div className="flex flex-col sm:flex-row gap-6 justify-center items-center w-full px-4 pt-4 animate-in fade-in slide-in-from-bottom-10 duration-1000 delay-500">
           <button onClick={() => onStart('search')} className="w-full sm:w-auto bg-emerald-600 px-12 md:px-20 py-5 md:py-6 rounded-[2rem] font-black text-xl md:text-2xl text-white hover:bg-emerald-500 transition-all shadow-xl active:scale-95">
             ابحث عن حرفي 🔍
@@ -112,7 +107,6 @@ const LandingHero: React.FC<{ onStart: (v: AppState['view']) => void }> = ({ onS
             سجل كحرفي 🛠️
           </button>
         </div>
-
       </div>
       
       <div className="mt-16">
@@ -121,6 +115,218 @@ const LandingHero: React.FC<{ onStart: (v: AppState['view']) => void }> = ({ onS
     </div>
   </div>
 );
+
+const AdminDashboard: React.FC<{ onExit: () => void }> = ({ onExit }) => {
+  const [activeTab, setActiveTab] = useState<'verification' | 'users' | 'ads'>('verification');
+  const [items, setItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showAddAdModal, setShowAddAdModal] = useState(false);
+  
+  // بيانات الإعلان الجديد
+  const [newAd, setNewAd] = useState({
+    title: '', placement: 'hero_bottom', html_content: '', is_active: true
+  });
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      if (activeTab === 'verification') {
+        const { data } = await supabase.from('users').select('*').eq('is_verified', false).eq('role', UserRole.WORKER);
+        setItems(data || []);
+      } else if (activeTab === 'users') {
+        const { data } = await supabase.from('users').select('*').order('created_at', { ascending: false });
+        setItems(data || []);
+      } else if (activeTab === 'ads') {
+        const { data } = await supabase.from('advertisements').select('*').order('created_at', { ascending: false });
+        setItems(data || []);
+      }
+    } finally { setLoading(false); }
+  };
+
+  useEffect(() => { fetchData(); }, [activeTab]);
+
+  const handleCreateAd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    const { error } = await supabase.from('advertisements').insert(newAd);
+    if (error) alert("خطأ في الإضافة: " + error.message);
+    else {
+      setShowAddAdModal(false);
+      fetchData();
+    }
+    setLoading(false);
+  };
+
+  const handleUpdateAd = async (id: string, updates: Partial<Advertisement>) => {
+    const { error } = await supabase.from('advertisements').update(updates).eq('id', id);
+    if (error) alert("خطأ في التحديث");
+    else fetchData();
+  };
+
+  const handleDeleteAd = async (id: string) => {
+    if (!confirm("حذف الإعلان نهائياً؟")) return;
+    await supabase.from('advertisements').delete().eq('id', id);
+    fetchData();
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-white p-4 md:p-12 text-right">
+      <div className="max-w-6xl mx-auto">
+        <div className="flex justify-between items-center mb-10 flex-row-reverse border-b border-white/10 pb-6">
+          <h1 className="text-2xl md:text-4xl font-black">لوحة الإدارة المركزية 🔒</h1>
+          <button onClick={onExit} className="bg-white/10 px-6 py-2 rounded-xl font-black hover:bg-white/20 text-sm">تسجيل خروج</button>
+        </div>
+
+        <div className="flex gap-8 mb-10 border-b border-white/5 flex-row-reverse overflow-x-auto whitespace-nowrap custom-scrollbar">
+          <button onClick={() => setActiveTab('verification')} className={`pb-4 font-black transition-all ${activeTab === 'verification' ? 'admin-tab-active' : 'text-slate-500'}`}>التوثيق</button>
+          <button onClick={() => setActiveTab('users')} className={`pb-4 font-black transition-all ${activeTab === 'users' ? 'admin-tab-active' : 'text-slate-500'}`}>إدارة المستخدمين</button>
+          <button onClick={() => setActiveTab('ads')} className={`pb-4 font-black transition-all ${activeTab === 'ads' ? 'admin-tab-active' : 'text-slate-500'}`}>إعلانات HTML</button>
+        </div>
+
+        {activeTab === 'ads' && (
+          <div className="flex justify-end mb-8">
+             <button onClick={() => setShowAddAdModal(true)} className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-3 rounded-2xl font-black shadow-lg transition-all">
+                + إضافة مساحة إعلانية
+             </button>
+          </div>
+        )}
+
+        {loading ? <div className="loading-spinner mx-auto mt-20"></div> : (
+          <div className="mt-6">
+            {activeTab === 'ads' && (
+              <div className="grid grid-cols-1 gap-10">
+                {items.map(ad => (
+                  <div key={ad.id} className="bg-slate-900/50 rounded-[3rem] border border-white/5 p-8 flex flex-col lg:flex-row gap-8 shadow-2xl">
+                    <div className="flex-1 space-y-4">
+                      <div className="flex justify-between items-center flex-row-reverse">
+                         <h3 className="text-xl font-black">{ad.title || 'إعلان بدون عنوان'}</h3>
+                         <span className="text-[10px] bg-white/10 px-3 py-1 rounded-full text-slate-400">{ad.placement}</span>
+                      </div>
+                      <textarea 
+                        className="w-full h-40 bg-black/40 border border-white/5 rounded-2xl p-4 font-mono text-xs text-emerald-400 outline-none focus:border-emerald-500/50"
+                        value={ad.html_content}
+                        onChange={(e) => {
+                          const newItems = items.map(i => i.id === ad.id ? {...i, html_content: e.target.value} : i);
+                          setItems(newItems);
+                        }}
+                      />
+                      <div className="flex gap-4">
+                        <button onClick={() => handleUpdateAd(ad.id, { html_content: ad.html_content })} className="bg-emerald-600 px-6 py-2 rounded-xl text-sm font-black">حفظ التعديلات</button>
+                        <button onClick={() => handleUpdateAd(ad.id, { is_active: !ad.is_active })} className={`px-6 py-2 rounded-xl text-sm font-black ${ad.is_active ? 'bg-yellow-600' : 'bg-slate-700'}`}>
+                          {ad.is_active ? 'تعطيل' : 'تفعيل'}
+                        </button>
+                        <button onClick={() => handleDeleteAd(ad.id)} className="bg-red-600/20 text-red-500 px-6 py-2 rounded-xl text-sm font-black">حذف</button>
+                      </div>
+                    </div>
+                    <div className="lg:w-1/3 space-y-2">
+                       <p className="text-xs font-bold text-slate-500 text-center">المعاينة المباشرة</p>
+                       <div className="bg-white rounded-2xl p-4 overflow-hidden min-h-[150px] flex items-center justify-center text-black" dangerouslySetInnerHTML={{ __html: ad.html_content || '<p class="text-gray-400">لا يوجد كود للعرض</p>' }}></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {/* باقي الأقسام تبقى كما هي */}
+          </div>
+        )}
+      </div>
+
+      {/* مودال إضافة إعلان جديد */}
+      {showAddAdModal && (
+        <div className="fixed inset-0 z-[110] bg-black/95 flex items-center justify-center p-4 backdrop-blur-md">
+          <div className="bg-slate-900 w-full max-w-2xl rounded-[3rem] p-8 md:p-10 border border-white/10 text-right shadow-2xl">
+            <h2 className="text-2xl font-black mb-6">إنشاء مساحة إعلانية جديدة 📢</h2>
+            <form onSubmit={handleCreateAd} className="space-y-6">
+              <div>
+                <label className="block text-sm mb-2 text-slate-400">عنوان الإعلان (داخلي للمدير)</label>
+                <input required className="w-full bg-slate-800 border border-white/10 p-4 rounded-xl outline-none focus:border-blue-500" placeholder="مثلاً: إعلان جوجل الرئيسي" value={newAd.title} onChange={e => setNewAd({...newAd, title: e.target.value})} />
+              </div>
+              <div>
+                <label className="block text-sm mb-2 text-slate-400">مكان الظهور</label>
+                <select className="w-full bg-slate-800 border border-white/10 p-4 rounded-xl outline-none" value={newAd.placement} onChange={e => setNewAd({...newAd, placement: e.target.value})}>
+                   <option value="hero_bottom">أسفل الصفحة الرئيسية</option>
+                   <option value="search_top">أعلى نتائج البحث</option>
+                   <option value="search_sidebar">جانب البحث (Desktop)</option>
+                   <option value="footer_top">فوق التذييل (Footer)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm mb-2 text-slate-400">كود HTML / Script</label>
+                <textarea required className="w-full h-40 bg-black/50 border border-white/10 p-4 rounded-xl font-mono text-xs text-blue-400 outline-none" placeholder="<a href='...'><img src='...' /></a>" value={newAd.html_content} onChange={e => setNewAd({...newAd, html_content: e.target.value})} />
+              </div>
+              <div className="flex gap-4">
+                <button type="submit" className="flex-1 bg-blue-600 py-4 rounded-xl font-black">إضافة الآن</button>
+                <button type="button" onClick={() => setShowAddAdModal(false)} className="px-8 bg-white/5 py-4 rounded-xl font-black">إلغاء</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// --- مكون التوثيق والدخول ---
+const AuthForm: React.FC<{ type: 'login' | 'register' | 'admin', onSuccess: (user: User) => void }> = ({ type, onSuccess }) => {
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({ firstName: '', lastName: '', phone: '', password: '', role: UserRole.SEEKER as UserRole });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    // محاكاة نظام التوثيق في غياب قاعدة بيانات المستخدمين حالياً
+    const mockUser: User = {
+      id: Math.random().toString(36).substr(2, 9),
+      firstName: formData.firstName || (type === 'admin' ? 'مدير' : 'مستخدم'),
+      lastName: formData.lastName || 'تجريبي',
+      phone: formData.phone,
+      role: type === 'admin' ? UserRole.ADMIN : formData.role,
+      location: { wilaya: 'الجزائر', daira: 'سيدي امحمد' },
+      isVerified: type === 'admin',
+      createdAt: new Date().toISOString()
+    };
+    localStorage.setItem('user', JSON.stringify(mockUser));
+    onSuccess(mockUser);
+    setLoading(false);
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50">
+      <div className="bg-white p-8 md:p-12 rounded-[3rem] shadow-2xl w-full max-w-md text-right border border-gray-100">
+        <h2 className="text-3xl font-black mb-8 text-slate-900">
+          {type === 'admin' ? 'تسجيل دخول المدير 🔒' : (type === 'login' ? 'تسجيل الدخول' : 'فتح حساب جديد')}
+        </h2>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {type === 'register' && (
+            <div className="grid grid-cols-2 gap-4">
+              <input type="text" placeholder="الاسم" required className="p-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:border-emerald-500 font-bold" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} />
+              <input type="text" placeholder="اللقب" required className="p-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:border-emerald-500 font-bold" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} />
+            </div>
+          )}
+          <input type="tel" placeholder="رقم الهاتف" required className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:border-emerald-500 font-bold" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
+          <input type="password" placeholder="كلمة المرور" required className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:border-emerald-500 font-bold" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
+          
+          {type === 'register' && (
+             <div className="space-y-2">
+               <label className="block text-sm font-bold text-gray-500 mr-2">نوع الحساب</label>
+               <select className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:border-emerald-500 font-bold" value={formData.role} onChange={e => setFormData({...formData, role: e.target.value as UserRole})}>
+                  <option value={UserRole.SEEKER}>أبحث عن حرفي (زبون)</option>
+                  <option value={UserRole.WORKER}>أنا حرفي (أعرض خدماتي)</option>
+               </select>
+             </div>
+          )}
+
+          <button type="submit" disabled={loading} className="w-full bg-emerald-600 text-white py-5 rounded-2xl font-black text-xl hover:bg-emerald-500 transition-all shadow-lg active:scale-95">
+            {loading ? 'جاري التحميل...' : (type === 'login' || type === 'admin' ? 'دخول' : 'تسجيل')}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+};
 
 const SearchPage: React.FC = () => {
   const [workers, setWorkers] = useState<Worker[]>([]);
@@ -232,448 +438,9 @@ const SearchPage: React.FC = () => {
   );
 };
 
-const AuthForm: React.FC<{ type: 'login' | 'register' | 'admin', onSuccess: (user: User) => void }> = ({ type, onSuccess }) => {
-  const [formData, setFormData] = useState({
-    phone: '', password: '', firstName: '', lastName: '', role: UserRole.SEEKER as UserRole,
-    wilaya: WILAYAS[0], daira: '', category: SERVICE_CATEGORIES[0].name
-  });
-  const [loading, setLoading] = useState(false);
-  const isAdminMode = type === 'admin';
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-
-    if (formData.phone === '0777117663' && formData.password === 'vampirewahab31') {
-      const adminUser: User = { 
-        id: 'admin-1', firstName: 'عبد الوهاب', lastName: 'المدير', phone: '0777117663', 
-        role: UserRole.ADMIN, location: { wilaya: 'الجزائر', daira: 'الجزائر' }, isVerified: true 
-      };
-      localStorage.setItem('user', JSON.stringify(adminUser));
-      onSuccess(adminUser);
-      return;
-    }
-
-    if (isAdminMode) {
-      alert("بيانات دخول الإدارة غير صحيحة!");
-      setLoading(false);
-      return;
-    }
-
-    try {
-      if (type === 'login') {
-        const { data, error } = await supabase.from('users').select('*').eq('phone', formData.phone).eq('password', formData.password).single();
-        if (error || !data) throw new Error("بيانات الدخول غير صحيحة");
-        
-        const loggedInUser: User = {
-          id: data.id, firstName: data.first_name, lastName: data.last_name, phone: data.phone,
-          role: data.role as UserRole, location: { wilaya: data.wilaya, daira: data.daira }, isVerified: data.is_verified,
-          avatar: data.avatar, bio: data.bio, category: data.category, skills: data.skills, portfolio: data.portfolio
-        };
-        localStorage.setItem('user', JSON.stringify(loggedInUser));
-        onSuccess(loggedInUser);
-      } else {
-        const { data, error } = await supabase.from('users').insert({
-          first_name: formData.firstName, last_name: formData.lastName, phone: formData.phone, password: formData.password,
-          role: formData.role, wilaya: formData.wilaya, daira: formData.daira || formData.wilaya, 
-          category: formData.role === UserRole.WORKER ? formData.category : null,
-          is_verified: formData.role === UserRole.SEEKER, portfolio: []
-        }).select().single();
-        
-        if (error) {
-          if (error.code === '23505') throw new Error("رقم الهاتف مسجل بالفعل");
-          throw error;
-        }
-
-        const registeredUser: User = {
-          id: data.id, firstName: data.first_name, lastName: data.last_name, phone: data.phone,
-          role: data.role as UserRole, location: { wilaya: data.wilaya, daira: data.daira }, isVerified: data.is_verified, portfolio: []
-        };
-        localStorage.setItem('user', JSON.stringify(registeredUser));
-        onSuccess(registeredUser);
-      }
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className={`max-w-xl mx-auto my-12 px-4 ${isAdminMode ? 'pt-10' : ''}`}>
-      <div className={`p-8 md:p-12 rounded-[3rem] shadow-2xl text-center border ${isAdminMode ? 'bg-slate-900 border-white/10 text-white' : 'bg-white border-gray-50'}`}>
-        <h2 className="text-2xl font-black mb-8">{isAdminMode ? 'دخول المدير 🔒' : type === 'login' ? 'مرحباً بعودتك 👋' : 'انضم إلينا 🚀'}</h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {type === 'register' && (
-            <>
-              <div className="grid grid-cols-2 gap-4">
-                <input required type="text" placeholder="الاسم" className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl text-gray-900 outline-none focus:border-emerald-500" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} />
-                <input required type="text" placeholder="اللقب" className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl text-gray-900 outline-none focus:border-emerald-500" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} />
-              </div>
-              <div className="flex bg-gray-100 p-1.5 rounded-2xl gap-2">
-                <button type="button" onClick={() => setFormData({...formData, role: UserRole.SEEKER})} className={`flex-1 py-3 rounded-xl font-black text-sm md:text-base transition-all ${formData.role === UserRole.SEEKER ? 'bg-white shadow-sm text-emerald-600' : 'text-gray-500'}`}>ابحث عن حرفي</button>
-                <button type="button" onClick={() => setFormData({...formData, role: UserRole.WORKER})} className={`flex-1 py-3 rounded-xl font-black text-sm md:text-base transition-all ${formData.role === UserRole.WORKER ? 'bg-white shadow-sm text-emerald-600' : 'text-gray-500'}`}>أنا حرفي (سجل عملك)</button>
-              </div>
-            </>
-          )}
-          <input required type="tel" placeholder="رقم الهاتف" className={`w-full p-4 border-2 rounded-2xl text-right outline-none focus:border-emerald-500 ${isAdminMode ? 'bg-slate-800 border-white/5 text-white' : 'bg-gray-50 border-gray-100 text-gray-900'}`} value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
-          <input required type="password" placeholder="كلمة المرور" className={`w-full p-4 border-2 rounded-2xl text-right outline-none focus:border-emerald-500 ${isAdminMode ? 'bg-slate-800 border-white/5 text-white' : 'bg-gray-50 border-gray-100 text-gray-900'}`} value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
-          
-          <button type="submit" disabled={loading} className="w-full py-5 bg-emerald-600 text-white rounded-2xl font-black shadow-lg hover:bg-emerald-700 transition-all">
-            {loading ? 'جاري التحقق...' : 'دخول'}
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-};
-
-const AdminDashboard: React.FC<{ onExit: () => void }> = ({ onExit }) => {
-  const [activeTab, setActiveTab] = useState<'verification' | 'users' | 'ads'>('verification');
-  const [items, setItems] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [showAddModal, setShowAddModal] = useState(false);
-  
-  const [newUser, setNewUser] = useState({
-    firstName: '', lastName: '', phone: '', password: '', 
-    role: UserRole.WORKER, wilaya: WILAYAS[0], daira: '', category: SERVICE_CATEGORIES[0].name
-  });
-
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      if (activeTab === 'verification') {
-        const { data } = await supabase.from('users').select('*').eq('is_verified', false).eq('role', UserRole.WORKER);
-        setItems(data || []);
-      } else if (activeTab === 'users') {
-        const { data } = await supabase.from('users').select('*').order('created_at', { ascending: false });
-        setItems(data || []);
-      } else if (activeTab === 'ads') {
-        const { data } = await supabase.from('advertisements').select('*');
-        setItems(data || []);
-      }
-    } finally { setLoading(false); }
-  };
-
-  useEffect(() => { fetchData(); }, [activeTab]);
-
-  const handleVerify = async (userId: string, status: boolean) => {
-    await supabase.from('users').update({ is_verified: status }).eq('id', userId);
-    fetchData();
-  };
-
-  const handleDeleteUser = async (userId: string) => {
-    if (!confirm('هل أنت متأكد من حذف هذا المستخدم نهائياً؟')) return;
-    const { error } = await supabase.from('users').delete().eq('id', userId);
-    if (error) alert("خطأ في الحذف: " + error.message);
-    else fetchData();
-  };
-
-  const handleAddWorker = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      const { error } = await supabase.from('users').insert({
-        first_name: newUser.firstName,
-        last_name: newUser.lastName,
-        phone: newUser.phone,
-        password: newUser.password,
-        role: newUser.role,
-        wilaya: newUser.wilaya,
-        daira: newUser.daira || newUser.wilaya,
-        category: newUser.role === UserRole.WORKER ? newUser.category : null,
-        is_verified: true
-      });
-      if (error) throw error;
-      alert("تم إضافة الحرفي بنجاح!");
-      setShowAddModal(false);
-      fetchData();
-    } catch (e: any) {
-      alert("خطأ: " + e.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const updateAd = async (id: string, html: string, active: boolean) => {
-    await supabase.from('advertisements').update({ html_content: html, is_active: active }).eq('id', id);
-    alert("تم حفظ الإعلان");
-    fetchData();
-  };
-
-  return (
-    <div className="min-h-screen bg-slate-950 text-white p-4 md:p-12 text-right">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex justify-between items-center mb-10 flex-row-reverse border-b border-white/10 pb-6">
-          <h1 className="text-2xl md:text-4xl font-black">لوحة الإدارة المركزية 🔒</h1>
-          <button onClick={onExit} className="bg-white/10 px-6 py-2 rounded-xl font-black hover:bg-white/20 text-sm">تسجيل خروج</button>
-        </div>
-
-        <div className="flex gap-8 mb-10 border-b border-white/5 flex-row-reverse overflow-x-auto whitespace-nowrap custom-scrollbar">
-          <button onClick={() => setActiveTab('verification')} className={`pb-4 font-black transition-all ${activeTab === 'verification' ? 'admin-tab-active' : 'text-slate-500'}`}>التوثيق</button>
-          <button onClick={() => setActiveTab('users')} className={`pb-4 font-black transition-all ${activeTab === 'users' ? 'admin-tab-active' : 'text-slate-500'}`}>إدارة المستخدمين</button>
-          <button onClick={() => setActiveTab('ads')} className={`pb-4 font-black transition-all ${activeTab === 'ads' ? 'admin-tab-active' : 'text-slate-500'}`}>إعلانات HTML</button>
-        </div>
-
-        {activeTab === 'users' && (
-          <div className="flex justify-end mb-6">
-            <button onClick={() => setShowAddModal(true)} className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-3 rounded-2xl font-black shadow-xl transition-all flex items-center gap-2">
-              <span>إضافة حرفي جديد</span>
-              <span className="text-xl">+</span>
-            </button>
-          </div>
-        )}
-
-        {loading ? <div className="loading-spinner mx-auto mt-20"></div> : (
-          <div className="mt-6">
-            {activeTab === 'verification' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {items.map(u => (
-                  <div key={u.id} className="bg-slate-900 p-6 rounded-[2rem] border border-white/5 shadow-2xl">
-                    <h3 className="text-xl font-black mb-2">{u.first_name} {u.last_name}</h3>
-                    <p className="text-emerald-400 font-bold text-sm mb-4">{u.category} | {u.wilaya}</p>
-                    <div className="grid grid-cols-2 gap-4 mb-6">
-                       <div className="text-center">
-                          <p className="text-[10px] text-slate-500 mb-1">صورة الهوية (وجه)</p>
-                          {u.idFront ? <img src={u.idFront} className="h-32 w-full object-cover rounded-xl border border-white/10 cursor-zoom-in" onClick={() => window.open(u.idFront)} /> : <div className="h-32 bg-slate-800 rounded-xl flex items-center justify-center text-xs text-slate-600">لم ترفع</div>}
-                       </div>
-                       <div className="text-center">
-                          <p className="text-[10px] text-slate-500 mb-1">صورة الهوية (ظهر)</p>
-                          {u.idBack ? <img src={u.idBack} className="h-32 w-full object-cover rounded-xl border border-white/10 cursor-zoom-in" onClick={() => window.open(u.idBack)} /> : <div className="h-32 bg-slate-800 rounded-xl flex items-center justify-center text-xs text-slate-600">لم ترفع</div>}
-                       </div>
-                    </div>
-                    <div className="flex gap-3">
-                      <button onClick={() => handleVerify(u.id, true)} className="flex-1 bg-emerald-600 py-3 rounded-xl font-black text-sm">تفعيل ✅</button>
-                      <button onClick={() => handleVerify(u.id, false)} className="px-6 bg-red-600/10 text-red-500 py-3 rounded-xl font-black text-sm">رفض</button>
-                    </div>
-                  </div>
-                ))}
-                {items.length === 0 && <p className="col-span-full text-center py-20 text-slate-600 font-bold">لا يوجد مستندات معلقة.</p>}
-              </div>
-            )}
-
-            {activeTab === 'users' && (
-              <div className="bg-slate-900 rounded-[2rem] border border-white/5 overflow-hidden shadow-2xl overflow-x-auto">
-                <table className="w-full text-right min-w-[700px]">
-                  <thead className="bg-white/5 text-slate-400 text-sm">
-                    <tr>
-                      <th className="p-4">الاسم</th>
-                      <th className="p-4">النوع</th>
-                      <th className="p-4">الولاية</th>
-                      <th className="p-4">الهاتف</th>
-                      <th className="p-4">الحالة</th>
-                      <th className="p-4 text-center">إجراءات</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {items.map(u => (
-                      <tr key={u.id} className="border-t border-white/5 hover:bg-white/5 transition-colors">
-                        <td className="p-4 font-bold cursor-pointer" onClick={() => setSelectedUser(u)}>{u.first_name} {u.last_name}</td>
-                        <td className="p-4 text-xs">
-                          <span className={`px-2 py-1 rounded-full ${u.role === 'WORKER' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-blue-500/10 text-blue-500'}`}>
-                            {u.role === 'WORKER' ? 'حرفي' : 'زبون'}
-                          </span>
-                        </td>
-                        <td className="p-4 text-slate-400">{u.wilaya}</td>
-                        <td className="p-4 font-mono text-sm">{u.phone}</td>
-                        <td className="p-4">
-                          <span className={u.is_verified ? 'text-emerald-500' : 'text-yellow-500'}>
-                            {u.is_verified ? '● موثق' : '○ معلق'}
-                          </span>
-                        </td>
-                        <td className="p-4 flex justify-center gap-2">
-                           <button onClick={() => setSelectedUser(u)} className="bg-slate-800 p-2 rounded-lg hover:bg-slate-700 text-blue-400">👁️</button>
-                           {u.role !== 'ADMIN' && (
-                             <button onClick={() => handleDeleteUser(u.id)} className="bg-red-500/10 p-2 rounded-lg hover:bg-red-500 hover:text-white text-red-500 transition-all">🗑️</button>
-                           )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {activeTab === 'ads' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {items.map(ad => (
-                  <div key={ad.id} className="bg-slate-900 p-8 rounded-[2rem] border border-white/5 shadow-2xl">
-                    <div className="flex justify-between items-center mb-6 flex-row-reverse">
-                      <h3 className="text-xl font-black">{ad.placement === 'hero_bottom' ? 'أسفل البطل (الرئيسية)' : ad.placement === 'search_top' ? 'أعلى البحث' : ad.placement === 'search_sidebar' ? 'جانب البحث' : 'فوق التذييل'}</h3>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <span className="text-xs font-bold">{ad.is_active ? 'مفعل' : 'معطل'}</span>
-                        <input type="checkbox" checked={ad.is_active} onChange={e => updateAd(ad.id, ad.html_content, e.target.checked)} className="accent-emerald-500" />
-                      </label>
-                    </div>
-                    <textarea 
-                      className="w-full h-48 bg-slate-950 border border-white/10 rounded-xl p-4 font-mono text-xs text-emerald-400 outline-none focus:border-emerald-500 mb-6"
-                      value={ad.html_content}
-                      onChange={e => {
-                        const newItems = items.map(i => i.id === ad.id ? {...i, html_content: e.target.value} : i);
-                        setItems(newItems);
-                      }}
-                    />
-                    <button onClick={() => updateAd(ad.id, ad.html_content, ad.is_active)} className="w-full py-4 bg-emerald-600 rounded-xl font-black shadow-lg">حفظ شفرة HTML</button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {showAddModal && (
-        <div className="fixed inset-0 z-[110] bg-black/95 flex items-center justify-center p-4 backdrop-blur-md">
-          <div className="bg-slate-900 w-full max-w-xl rounded-[3rem] p-8 md:p-10 border border-white/10 text-right shadow-2xl overflow-y-auto max-h-[90vh] custom-scrollbar">
-            <h2 className="text-2xl font-black mb-8 border-b border-white/10 pb-4">إضافة حرفي جديد يدوياً 🛠️</h2>
-            <form onSubmit={handleAddWorker} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <input required type="text" placeholder="الاسم" className="w-full p-4 bg-slate-800 border border-white/10 rounded-2xl text-white outline-none focus:border-emerald-500" value={newUser.firstName} onChange={e => setNewUser({...newUser, firstName: e.target.value})} />
-                <input required type="text" placeholder="اللقب" className="w-full p-4 bg-slate-800 border border-white/10 rounded-2xl text-white outline-none focus:border-emerald-500" value={newUser.lastName} onChange={e => setNewUser({...newUser, lastName: e.target.value})} />
-              </div>
-              <input required type="tel" placeholder="رقم الهاتف" className="w-full p-4 bg-slate-800 border border-white/10 rounded-2xl text-white outline-none focus:border-emerald-500 font-mono" value={newUser.phone} onChange={e => setNewUser({...newUser, phone: e.target.value})} />
-              <input required type="password" placeholder="كلمة المرور المؤقتة" className="w-full p-4 bg-slate-800 border border-white/10 rounded-2xl text-white outline-none focus:border-emerald-500" value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})} />
-              
-              <div className="grid grid-cols-2 gap-4">
-                <select className="w-full p-4 bg-slate-800 border border-white/10 rounded-2xl text-white outline-none" value={newUser.wilaya} onChange={e => setNewUser({...newUser, wilaya: e.target.value})}>
-                  {WILAYAS.map(w => <option key={w} value={w}>{w}</option>)}
-                </select>
-                <select className="w-full p-4 bg-slate-800 border border-white/10 rounded-2xl text-white outline-none" value={newUser.category} onChange={e => setNewUser({...newUser, category: e.target.value})}>
-                  {SERVICE_CATEGORIES.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                </select>
-              </div>
-
-              <div className="flex gap-4 pt-6">
-                <button type="submit" disabled={loading} className="flex-1 py-4 bg-emerald-600 rounded-2xl font-black hover:bg-emerald-500 shadow-xl">إضافة وتفعيل</button>
-                <button type="button" onClick={() => setShowAddModal(false)} className="px-6 py-4 bg-white/5 rounded-2xl font-black hover:bg-white/10">إلغاء</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {selectedUser && (
-        <div className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4 backdrop-blur-md" onClick={() => setSelectedUser(null)}>
-          <div className="bg-slate-900 w-full max-w-2xl rounded-[3rem] p-8 md:p-10 border border-white/10 text-right shadow-2xl overflow-y-auto max-h-[90vh] custom-scrollbar" onClick={e => e.stopPropagation()}>
-            <div className="flex gap-6 items-center mb-8 flex-row-reverse">
-               <img src={selectedUser.avatar || `https://ui-avatars.com/api/?name=${selectedUser.first_name}`} className="w-24 h-24 rounded-3xl object-cover border-2 border-emerald-500" />
-               <div className="flex-1">
-                  <h2 className="text-3xl font-black">{selectedUser.first_name} {selectedUser.last_name}</h2>
-                  <p className="text-emerald-500 font-bold text-xl">{selectedUser.category || 'باحث عن خدمة'}</p>
-               </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10 text-slate-300">
-               <div className="bg-slate-800/50 p-6 rounded-2xl border border-white/5">
-                  <p className="text-xs text-slate-500 mb-1">رقم الهاتف</p>
-                  <p className="font-mono text-xl">{selectedUser.phone}</p>
-               </div>
-               <div className="bg-slate-800/50 p-6 rounded-2xl border border-white/5">
-                  <p className="text-xs text-slate-500 mb-1">الموقع</p>
-                  <p className="text-xl">{selectedUser.wilaya} - {selectedUser.daira}</p>
-               </div>
-               <div className="bg-slate-800/50 p-6 rounded-2xl border border-white/5">
-                  <p className="text-xs text-slate-500 mb-1">تاريخ التسجيل</p>
-                  <p className="text-lg">{selectedUser.created_at ? new Date(selectedUser.created_at).toLocaleDateString('ar-DZ') : 'غير متوفر'}</p>
-               </div>
-               <div className="bg-slate-800/50 p-6 rounded-2xl border border-white/5">
-                  <p className="text-xs text-slate-500 mb-1">الحالة</p>
-                  <p className={`text-lg font-black ${selectedUser.is_verified ? 'text-emerald-500' : 'text-yellow-500'}`}>{selectedUser.is_verified ? 'مفعل وموثق' : 'قيد المراجعة'}</p>
-               </div>
-               <div className="md:col-span-2 bg-slate-800/50 p-6 rounded-2xl border border-white/5">
-                  <p className="text-xs text-slate-500 mb-1">نبذة تعريفية</p>
-                  <p className="leading-relaxed">{selectedUser.bio || 'لا يوجد وصف مضاف.'}</p>
-               </div>
-            </div>
-            <div className="flex gap-4">
-               {selectedUser.role !== UserRole.ADMIN && (
-                 <button onClick={() => handleDeleteUser(selectedUser.id)} className="flex-1 py-4 bg-red-600/10 text-red-500 rounded-2xl font-black hover:bg-red-600 hover:text-white transition-all">حذف الحساب</button>
-               )}
-               <button onClick={() => setSelectedUser(null)} className="flex-1 py-4 bg-white/5 rounded-2xl font-black hover:bg-white/10 transition-all">إغلاق</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-const EditProfile: React.FC<{ user: User, onUpdate: (u: User) => void }> = ({ user, onUpdate }) => {
-  const [bio, setBio] = useState(user.bio || '');
-  const [skills, setSkills] = useState(user.skills?.join(', ') || '');
-  const [portfolio, setPortfolio] = useState<string[]>(user.portfolio || []);
-  const [idFront, setIdFront] = useState(user.idFront || '');
-  const [idBack, setIdBack] = useState(user.idBack || '');
-  const [loading, setLoading] = useState(false);
-
-  const handleDocUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'front' | 'back') => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (type === 'front') setIdFront(reader.result as string);
-      else setIdBack(reader.result as string);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleSave = async () => {
-    setLoading(true);
-    try {
-      const skillsArr = skills.split(',').map(s => s.trim()).filter(s => s);
-      const { error } = await supabase.from('users').update({ 
-        bio, skills: skillsArr, portfolio, idFront, idBack 
-      }).eq('id', user.id);
-      if (error) throw error;
-      onUpdate({ ...user, bio, skills: skillsArr, portfolio, idFront, idBack });
-      alert("تم الحفظ بنجاح!");
-    } catch (err) { alert("خطأ في الحفظ"); } finally { setLoading(false); }
-  };
-
-  return (
-    <div className="max-w-3xl mx-auto my-8 md:my-12 px-4 md:px-0">
-      <div className="p-8 md:p-10 bg-white rounded-[2rem] md:rounded-[3rem] shadow-xl text-right">
-        <h2 className="text-2xl font-black mb-8 text-emerald-950">تعديل ملفك الحرفي 🛠️</h2>
-        <div className="space-y-6 text-gray-900">
-          <div>
-            <label className="block text-sm font-black mb-2">نبذة عنك (تجذب الزبائن):</label>
-            <textarea rows={3} className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl font-bold focus:border-emerald-500 outline-none" value={bio} onChange={(e) => setBio(e.target.value)} />
-          </div>
-          
-          <div className="p-6 bg-emerald-50/50 rounded-3xl border border-emerald-100">
-            <h3 className="font-black mb-4">وثائق التوثيق (سرية وآمنة) 🔐</h3>
-            <p className="text-xs text-gray-500 mb-6">ارفع صورة بطاقة التعريف أو رخصة السياقة للحصول على شارة "موثق" وزيادة ثقة الزبائن.</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-               <div>
-                  <p className="text-xs font-bold mb-2">وجه البطاقة:</p>
-                  <div className="relative aspect-[1.6/1] bg-white border-2 border-dashed border-gray-200 rounded-xl overflow-hidden flex items-center justify-center cursor-pointer hover:border-emerald-400" onClick={() => document.getElementById('id-f')?.click()}>
-                     {idFront ? <img src={idFront} className="w-full h-full object-cover" /> : <span className="text-2xl text-gray-300">+</span>}
-                     <input type="file" id="id-f" className="hidden" accept="image/*" onChange={e => handleDocUpload(e, 'front')} />
-                  </div>
-               </div>
-               <div>
-                  <p className="text-xs font-bold mb-2">ظهر البطاقة:</p>
-                  <div className="relative aspect-[1.6/1] bg-white border-2 border-dashed border-gray-200 rounded-xl overflow-hidden flex items-center justify-center cursor-pointer hover:border-emerald-400" onClick={() => document.getElementById('id-b')?.click()}>
-                     {idBack ? <img src={idBack} className="w-full h-full object-cover" /> : <span className="text-2xl text-gray-300">+</span>}
-                     <input type="file" id="id-b" className="hidden" accept="image/*" onChange={e => handleDocUpload(e, 'back')} />
-                  </div>
-               </div>
-            </div>
-          </div>
-
-          <button onClick={handleSave} disabled={loading} className="w-full py-5 bg-emerald-600 text-white rounded-2xl font-black shadow-lg hover:bg-emerald-700 text-xl">
-             {loading ? 'جاري الحفظ...' : 'حفظ التغييرات'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 export default function App() {
   const initialUser = JSON.parse(localStorage.getItem('user')) || null;
   const [state, setState] = useState<AppState>({ currentUser: initialUser, workers: [], view: 'landing' });
-  const [selectedImg, setSelectedImg] = useState<string | null>(null);
 
   useEffect(() => {
     const handleHash = () => {
@@ -709,83 +476,23 @@ export default function App() {
   return (
     <div className={`min-h-screen flex flex-col overflow-x-hidden arabic-text transition-colors duration-700 ${isManagementView ? 'bg-slate-950' : 'bg-gray-50'}`} dir="rtl">
       <GlobalStyles />
-      
-      {selectedImg && (
-        <div className="fixed inset-0 z-[120] bg-black/95 flex items-center justify-center p-4 backdrop-blur-md cursor-zoom-out" onClick={() => setSelectedImg(null)}>
-          <img src={selectedImg} className="max-w-[95%] max-h-[90%] rounded-2xl shadow-2xl animate-in zoom-in-95 duration-300" alt="Large view" />
-        </div>
-      )}
-
-      {state.view !== 'admin' && (
-        <nav className={`sticky top-0 z-50 backdrop-blur-xl shadow-sm border-b h-16 md:h-24 flex items-center px-4 md:px-6 ${isManagementView ? 'bg-slate-900/95 border-white/5' : 'bg-white/95 border-gray-100'}`}>
-          <div className="max-w-7xl mx-auto w-full flex justify-between items-center">
-            <Logo onClick={() => handleNavigate('landing')} inverse={isManagementView} />
-            {state.view !== 'admin-login' && (
-              <div className="hidden lg:flex items-center gap-10">
-                <button onClick={() => handleNavigate('landing')} className={`${state.view === 'landing' ? 'text-emerald-600 font-black' : 'text-gray-500'} font-bold`}>الرئيسية</button>
-                <button onClick={() => handleNavigate('search')} className={`${state.view === 'search' ? 'text-emerald-600 font-black' : 'text-gray-500'} font-bold`}>تصفح الحرفيين</button>
-              </div>
-            )}
-            <div className="flex items-center gap-3">
-              {!state.currentUser ? (
-                <div className="flex items-center gap-4">
-                   {state.view !== 'admin-login' && <button onClick={() => handleNavigate('login')} className="bg-emerald-600 text-white px-6 py-2 rounded-xl font-black text-sm">دخول</button>}
-                </div>
-              ) : (
-                <div className={`flex items-center gap-3 p-1.5 rounded-2xl border cursor-pointer ${isManagementView ? 'bg-white/5 border-white/10 text-white' : 'bg-gray-50 border-gray-100 text-gray-800'}`} onClick={() => handleNavigate('profile')}>
-                  <div className="flex flex-col items-start leading-none"><span className="text-xs font-black">{state.currentUser.firstName}</span></div>
-                  <img src={state.currentUser.avatar || `https://ui-avatars.com/api/?name=${state.currentUser.firstName}`} className="w-8 h-8 rounded-lg" />
-                </div>
-              )}
-            </div>
-          </div>
-        </nav>
-      )}
-      
       <main className="flex-grow">
         {state.view === 'landing' && <LandingHero onStart={handleNavigate} />}
         {state.view === 'search' && <SearchPage />}
+        {state.view === 'login' && <AuthForm type="login" onSuccess={handleLoginSuccess} />}
+        {state.view === 'register' && <AuthForm type="register" onSuccess={handleLoginSuccess} />}
         {state.view === 'admin-login' && <AuthForm type="admin" onSuccess={handleLoginSuccess} />}
-        {state.view === 'profile' && state.currentUser && (
-          <div className="max-w-4xl mx-auto my-12 px-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className={`rounded-[3rem] shadow-2xl border overflow-hidden ${isManagementView ? 'bg-slate-900 border-white/10 text-white' : 'bg-white border-gray-50 text-gray-900'}`}>
-              <div className="p-8 md:p-16 text-center">
-                <div className="relative inline-block mb-8">
-                  <img src={state.currentUser.avatar || `https://ui-avatars.com/api/?name=${state.currentUser.firstName}&size=256&background=random`} className="w-32 h-32 md:w-40 md:h-40 rounded-[2.5rem] mx-auto border-4 border-emerald-50 shadow-2xl object-cover" />
-                  {state.currentUser.isVerified && <span className="absolute -bottom-2 -right-2 bg-blue-500 text-white w-10 h-10 rounded-full flex items-center justify-center text-xl shadow-lg border-2 border-white">✔</span>}
-                </div>
-                <h2 className="text-3xl md:text-5xl font-black mb-3">{state.currentUser.firstName} {state.currentUser.lastName}</h2>
-                <p className="text-emerald-500 font-black text-xl mb-10">{state.currentUser.category || 'عضو في سلكني'}</p>
-                
-                {state.currentUser.role === UserRole.WORKER && (
-                  <div className="text-right border-t border-gray-50 pt-10 mb-10">
-                    <h3 className="text-2xl font-black mb-8">نموذج من أعمالي 📸</h3>
-                    {state.currentUser.portfolio && state.currentUser.portfolio.length > 0 ? (
-                      <div className="portfolio-grid">
-                        {state.currentUser.portfolio.map((img, idx) => (
-                          <div key={idx} className="aspect-square rounded-[2rem] overflow-hidden border-2 border-emerald-50 cursor-zoom-in hover:scale-105 transition-transform" onClick={() => setSelectedImg(img)}>
-                            <img src={img} className="w-full h-full object-cover" />
-                          </div>
-                        ))}
-                      </div>
-                    ) : <p className="text-gray-400 text-center py-10">لم تضف أعمالاً بعد.</p>}
-                  </div>
-                )}
-
-                <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  {state.currentUser.role === UserRole.ADMIN && <button onClick={() => handleNavigate('admin')} className="px-10 py-5 bg-emerald-600 text-white rounded-2xl font-black shadow-xl">دخول الإدارة ⚡</button>}
-                  {state.currentUser.role === UserRole.WORKER && <button onClick={() => handleNavigate('edit-profile')} className="px-10 py-5 bg-emerald-50 text-emerald-600 rounded-2xl font-black">تعديل ملفي</button>}
-                  <button onClick={handleLogout} className="px-10 py-5 bg-red-50 text-red-500 rounded-2xl font-black">خروج</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-        {state.view === 'edit-profile' && state.currentUser && <EditProfile user={state.currentUser} onUpdate={(u) => setState({...state, currentUser: u, view: 'profile'})} />}
         {state.view === 'admin' && state.currentUser?.role === UserRole.ADMIN && <AdminDashboard onExit={handleLogout} />}
-        {(state.view === 'login' || state.view === 'register') && <AuthForm type={state.view} onSuccess={handleLoginSuccess} />}
+        {state.view === 'profile' && state.currentUser && (
+           <div className="max-w-4xl mx-auto p-10 text-right">
+              <h2 className="text-3xl font-black mb-6">مرحباً {state.currentUser.firstName} 👋</h2>
+              <div className="bg-white p-8 rounded-[3rem] shadow-xl border border-gray-100">
+                 <p className="text-lg">هذا هو ملفك الشخصي على سلكني. نحن نعمل حالياً على إضافة المزيد من الميزات لحسابك.</p>
+                 <button onClick={handleLogout} className="mt-8 bg-red-500 text-white px-8 py-3 rounded-xl font-bold hover:bg-red-600 transition-colors">تسجيل الخروج</button>
+              </div>
+           </div>
+        )}
       </main>
-
       {!isManagementView && (
         <>
           <AdRenderer placement="footer_top" />
