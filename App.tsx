@@ -12,168 +12,48 @@ const GlobalStyles = () => (
     .arabic-text { font-family: 'Tajawal', sans-serif; }
     .loading-spinner { border: 4px solid rgba(16, 185, 129, 0.1); border-left-color: #10b981; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+    .custom-scrollbar::-webkit-scrollbar { width: 4px; }
     .custom-scrollbar::-webkit-scrollbar-thumb { background: #10b981; border-radius: 10px; }
     .admin-tab-active { border-bottom: 3px solid #10b981; color: #10b981; transform: translateY(-2px); }
     .hero-bg-overlay { background: linear-gradient(to bottom, rgba(15, 23, 42, 0.9) 0%, rgba(15, 23, 42, 0.7) 50%, rgba(15, 23, 42, 0.95) 100%); }
-    .chat-bubble-me { background: #10b981; color: white; border-radius: 1.5rem 1.5rem 0 1.5rem; }
-    .chat-bubble-them { background: #f3f4f6; color: #1f2937; border-radius: 1.5rem 1.5rem 1.5rem 0; }
+    .chat-bubble-me { background: #10b981; color: white; border-radius: 1.2rem 1.2rem 0 1.2rem; }
+    .chat-bubble-them { background: #f3f4f6; color: #1f2937; border-radius: 1.2rem 1.2rem 1.2rem 0; }
+    
+    /* Responsive Table Wrapper */
+    .table-container { -webkit-overflow-scrolling: touch; }
+    
+    @media (max-width: 640px) {
+      .hero-title { font-size: 2.25rem !important; line-height: 1.2 !important; }
+      .card-p { padding: 1.5rem !important; border-radius: 1.5rem !important; }
+      .section-p { padding: 1.5rem !important; border-radius: 2rem !important; }
+    }
   `}</style>
 );
 
 const REQ_IMAGE = "https://st3.depositphotos.com/9744818/17392/i/950/depositphotos_173923044-stock-photo-woman-giving-money-man-corrupted.jpg";
 
-// --- مكون عرض الإعلانات ---
-const AdRenderer: React.FC<{ placement: Advertisement['placement'] }> = ({ placement }) => {
-  const [ad, setAd] = useState<Advertisement | null>(null);
-  useEffect(() => {
-    const fetchAd = async () => {
-      const { data } = await supabase.from('advertisements').select('*').eq('placement', placement).eq('is_active', true).limit(1).maybeSingle();
-      if (data) setAd(data);
-    };
-    fetchAd();
-  }, [placement]);
-  if (!ad) return null;
-  return <div className="my-6 flex justify-center w-full" dangerouslySetInnerHTML={{ __html: ad.html_content }} />;
-};
-
 const Logo: React.FC<{ size?: 'sm' | 'lg', onClick?: () => void, inverse?: boolean }> = ({ size = 'sm', onClick, inverse }) => (
-  <div onClick={onClick} className={`flex items-center gap-2 md:gap-3 group cursor-pointer transition-all ${size === 'lg' ? 'scale-110' : ''}`}>
-    <div className={`relative ${size === 'lg' ? 'w-16 h-16' : 'w-10 h-10'} flex-shrink-0`}>
+  <div onClick={onClick} className={`flex items-center gap-2 md:gap-3 group cursor-pointer transition-all ${size === 'lg' ? 'scale-100 md:scale-110' : ''}`}>
+    <div className={`relative ${size === 'lg' ? 'w-14 h-14 md:w-16 md:h-16' : 'w-10 h-10'} flex-shrink-0`}>
       <div className={`absolute inset-0 bg-gradient-to-tr from-emerald-600 via-teal-500 to-yellow-400 rounded-xl rotate-3 group-hover:rotate-12 transition-transform shadow-xl`}></div>
       <div className="absolute inset-0 flex items-center justify-center text-white font-black z-10">S</div>
     </div>
     <div className="flex flex-col items-start leading-none">
       <div className="flex items-baseline gap-1">
-        <span className={`${size === 'lg' ? 'text-4xl' : 'text-2xl'} font-black ${inverse ? 'text-white' : 'text-emerald-950'}`}>Salakni</span>
-        <span className="text-yellow-500 font-bold">سلكني</span>
+        <span className={`${size === 'lg' ? 'text-2xl md:text-4xl' : 'text-xl md:text-2xl'} font-black ${inverse ? 'text-white' : 'text-emerald-950'}`}>Salakni</span>
+        <span className="text-yellow-500 font-bold text-xs md:text-sm">سلكني</span>
       </div>
     </div>
   </div>
 );
 
-// --- قسم الدعم الفني للمستخدم ---
-const SupportView: React.FC<{ currentUser: User }> = ({ currentUser }) => {
-  const [description, setDescription] = useState('');
-  const [image, setImage] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
-
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImage(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      const { error } = await supabase.from('support_requests').insert([{
-        user_id: currentUser.id,
-        user_name: `${currentUser.firstName} ${currentUser.lastName}`,
-        user_phone: currentUser.phone,
-        description,
-        image_data: image,
-        status: 'pending'
-      }]);
-      if (error) throw error;
-      
-      // إرسال إشعار للآدمن (في الأنظمة الحقيقية يرسل لجدول إشعارات الآدمن)
-      setSuccess(true);
-      setDescription('');
-      setImage(null);
-    } catch (err) {
-      alert("حدث خطأ أثناء إرسال الطلب. يرجى المحاولة لاحقاً.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="max-w-3xl mx-auto my-12 px-6 animate-in fade-in slide-in-from-bottom-6 duration-500">
-      <div className="bg-white p-8 md:p-12 rounded-[3rem] shadow-2xl border border-gray-100 text-right">
-        <h2 className="text-3xl font-black mb-4 text-slate-900">الدعم الفني والشكاوي 🛠️</h2>
-        <p className="text-slate-500 mb-8 font-medium">واجهت مشكلة؟ نحن هنا لمساعدتك. يرجى شرح المشكلة بوضوح وإرفاق صورة إذا لزم الأمر.</p>
-        
-        {success ? (
-          <div className="bg-emerald-50 border border-emerald-100 p-8 rounded-3xl text-center">
-            <div className="text-4xl mb-4">✅</div>
-            <h3 className="text-xl font-black text-emerald-800 mb-2">تم إرسال طلبك بنجاح</h3>
-            <p className="text-emerald-600 font-medium">سيقوم فريق الدعم بمراجعة مشكلتك والرد عليك في أقرب وقت ممكن.</p>
-            <button onClick={() => setSuccess(false)} className="mt-6 text-emerald-700 font-bold underline">إرسال طلب آخر</button>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <label className="block font-black text-slate-700 pr-2">وصف المشكلة</label>
-              <textarea 
-                required
-                className="w-full h-48 p-5 bg-gray-50 border-2 border-gray-100 rounded-3xl outline-none focus:border-emerald-500 transition-all font-medium"
-                placeholder="اشرح المشكلة بالتفصيل هنا..."
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <label className="block font-black text-slate-700 pr-2">إرفاق صورة (اختياري)</label>
-              <div className="relative group">
-                <input 
-                  type="file" 
-                  accept="image/*" 
-                  onChange={handleImageChange}
-                  className="hidden" 
-                  id="support-image" 
-                />
-                <label 
-                  htmlFor="support-image" 
-                  className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-gray-200 rounded-3xl cursor-pointer hover:bg-gray-50 hover:border-emerald-300 transition-all"
-                >
-                  {image ? (
-                    <img src={image} className="h-full w-full object-contain p-2 rounded-3xl" />
-                  ) : (
-                    <>
-                      <div className="text-3xl mb-2">📸</div>
-                      <span className="text-sm font-bold text-gray-500">انقر لرفع صورة عن المشكلة</span>
-                    </>
-                  )}
-                </label>
-                {image && (
-                  <button 
-                    type="button" 
-                    onClick={() => setImage(null)}
-                    className="absolute top-2 left-2 bg-red-500 text-white w-8 h-8 rounded-full flex items-center justify-center shadow-lg"
-                  >✕</button>
-                )}
-              </div>
-            </div>
-
-            <button 
-              type="submit" 
-              disabled={loading}
-              className={`w-full py-5 rounded-2xl font-black text-xl text-white shadow-xl transition-all active:scale-95 ${loading ? 'bg-emerald-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-500'}`}
-            >
-              {loading ? 'جاري الإرسال...' : 'إرسال الطلب للآدمن'}
-            </button>
-          </form>
-        )}
-      </div>
-    </div>
-  );
-};
-
-// --- نظام الرسائل (Chat) ---
+// --- نظام الرسائل المتجاوب ---
 const ChatView: React.FC<{ currentUser: User, targetUser?: User | null }> = ({ currentUser, targetUser }) => {
   const [conversations, setConversations] = useState<any[]>([]);
   const [activeChat, setActiveChat] = useState<User | null>(targetUser || null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
+  const [showConvList, setShowConvList] = useState(!targetUser);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const fetchConversations = async () => {
@@ -204,7 +84,10 @@ const ChatView: React.FC<{ currentUser: User, targetUser?: User | null }> = ({ c
   }, [activeChat]);
 
   useEffect(() => {
-    if (activeChat) fetchMessages(activeChat.id);
+    if (activeChat) {
+      fetchMessages(activeChat.id);
+      if (window.innerWidth < 768) setShowConvList(false);
+    }
   }, [activeChat]);
 
   useEffect(() => {
@@ -220,13 +103,17 @@ const ChatView: React.FC<{ currentUser: User, targetUser?: User | null }> = ({ c
   };
 
   return (
-    <div className="max-w-6xl mx-auto my-6 md:my-10 h-[80vh] bg-white rounded-[3rem] shadow-2xl overflow-hidden border flex flex-row-reverse">
-      <div className="w-1/3 border-l bg-gray-50 flex flex-col">
-        <div className="p-6 border-b bg-white"><h2 className="text-xl font-black">المحادثات</h2></div>
+    <div className="max-w-6xl mx-auto my-4 md:my-10 h-[85vh] md:h-[80vh] bg-white rounded-3xl md:rounded-[3rem] shadow-2xl overflow-hidden border flex flex-col md:flex-row-reverse">
+      {/* القائمة الجانبية (تظهر بالكامل في الحاسوب وتتبادل مع الدردشة في الهاتف) */}
+      <div className={`${showConvList ? 'flex' : 'hidden md:flex'} w-full md:w-1/3 border-l bg-gray-50 flex-col h-full`}>
+        <div className="p-4 md:p-6 border-b bg-white flex justify-between items-center flex-row-reverse">
+          <h2 className="text-lg md:text-xl font-black">المحادثات</h2>
+          {activeChat && <button className="md:hidden text-emerald-600 font-bold" onClick={() => setShowConvList(false)}>رجوع للدردشة</button>}
+        </div>
         <div className="flex-1 overflow-y-auto custom-scrollbar">
           {conversations.map((conv: any) => (
             <div key={conv.id} onClick={() => setActiveChat(conv)} className={`p-4 flex items-center gap-4 flex-row-reverse cursor-pointer hover:bg-emerald-50 transition-all ${activeChat?.id === conv.id ? 'bg-emerald-100' : ''}`}>
-              <img src={conv.avatar || `https://ui-avatars.com/api/?name=${conv.first_name}`} className="w-12 h-12 rounded-xl object-cover" />
+              <img src={conv.avatar || `https://ui-avatars.com/api/?name=${conv.first_name}`} className="w-10 h-10 md:w-12 md:h-12 rounded-xl object-cover" />
               <div className="text-right flex-1">
                 <p className="font-black text-sm">{conv.first_name} {conv.last_name}</p>
                 <p className="text-xs text-gray-500 truncate">{conv.last_message}</p>
@@ -237,22 +124,25 @@ const ChatView: React.FC<{ currentUser: User, targetUser?: User | null }> = ({ c
           {conversations.length === 0 && <p className="text-center py-10 text-gray-400 font-bold">لا توجد محادثات.</p>}
         </div>
       </div>
-      <div className="flex-1 flex flex-col bg-white">
+
+      {/* منطقة الدردشة */}
+      <div className={`${!showConvList ? 'flex' : 'hidden md:flex'} flex-1 flex-col bg-white h-full`}>
         {activeChat ? (
           <>
-            <div className="p-6 border-b flex items-center justify-between flex-row-reverse">
-              <div className="flex items-center gap-4 flex-row-reverse">
-                <img src={activeChat.avatar || `https://ui-avatars.com/api/?name=${activeChat.firstName}`} className="w-10 h-10 rounded-xl" />
+            <div className="p-4 md:p-6 border-b flex items-center justify-between flex-row-reverse">
+              <div className="flex items-center gap-3 md:gap-4 flex-row-reverse">
+                <img src={activeChat.avatar || `https://ui-avatars.com/api/?name=${activeChat.firstName}`} className="w-8 h-8 md:w-10 md:h-10 rounded-xl" />
                 <div className="text-right">
-                  <p className="font-black">{activeChat.firstName} {activeChat.lastName}</p>
-                  <p className="text-[10px] text-emerald-500 font-bold">متصل الآن</p>
+                  <p className="font-black text-sm md:text-base">{activeChat.firstName} {activeChat.lastName}</p>
+                  <p className="text-[10px] text-emerald-500 font-bold">نشط الآن</p>
                 </div>
               </div>
+              <button className="md:hidden text-gray-500 font-bold text-xs" onClick={() => setShowConvList(true)}>كل المحادثات</button>
             </div>
-            <div className="flex-1 p-6 overflow-y-auto custom-scrollbar space-y-4">
+            <div className="flex-1 p-4 md:p-6 overflow-y-auto custom-scrollbar space-y-4">
               {messages.map((m) => (
                 <div key={m.id} className={`flex ${m.sender_id === currentUser.id ? 'justify-start' : 'justify-end'}`}>
-                  <div className={`max-w-[70%] p-4 text-sm font-medium ${m.sender_id === currentUser.id ? 'chat-bubble-me' : 'chat-bubble-them'}`}>
+                  <div className={`max-w-[85%] md:max-w-[70%] p-3 md:p-4 text-sm font-medium ${m.sender_id === currentUser.id ? 'chat-bubble-me' : 'chat-bubble-them'}`}>
                     {m.content}
                     <p className="text-[8px] mt-1 opacity-70 text-left">{new Date(m.created_at).toLocaleTimeString('ar-DZ')}</p>
                   </div>
@@ -260,20 +150,20 @@ const ChatView: React.FC<{ currentUser: User, targetUser?: User | null }> = ({ c
               ))}
               <div ref={messagesEndRef} />
             </div>
-            <form onSubmit={sendMessage} className="p-6 border-t bg-gray-50 flex gap-4">
-              <input value={newMessage} onChange={(e) => setNewMessage(e.target.value)} placeholder="اكتب رسالتك هنا..." className="flex-1 p-4 bg-white border rounded-2xl outline-none focus:border-emerald-500 font-medium" />
-              <button type="submit" className="bg-emerald-600 text-white px-8 rounded-2xl font-black hover:bg-emerald-500 transition-all">إرسال</button>
+            <form onSubmit={sendMessage} className="p-4 md:p-6 border-t bg-gray-50 flex gap-2 md:gap-4">
+              <input value={newMessage} onChange={(e) => setNewMessage(e.target.value)} placeholder="رسالتك..." className="flex-1 p-3 md:p-4 bg-white border rounded-xl md:rounded-2xl outline-none focus:border-emerald-500 font-medium text-sm" />
+              <button type="submit" className="bg-emerald-600 text-white px-4 md:px-8 rounded-xl md:rounded-2xl font-black hover:bg-emerald-500 transition-all text-sm">إرسال</button>
             </form>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center text-gray-400 font-bold">اختر محادثة لبدء الدردشة.</div>
+          <div className="flex-1 flex items-center justify-center text-gray-400 font-bold px-10 text-center">اختر محادثة من القائمة الجانبية لبدء المراسلة.</div>
         )}
       </div>
     </div>
   );
 };
 
-// --- لوحة الآدمن المحدثة ---
+// --- لوحة الآدمن المتجاوبة ---
 const AdminDashboard: React.FC<{ onExit: () => void }> = ({ onExit }) => {
   const [activeTab, setActiveTab] = useState<'stats' | 'verification' | 'users' | 'ads' | 'support'>('stats');
   const [items, setItems] = useState<any[]>([]);
@@ -291,17 +181,15 @@ const AdminDashboard: React.FC<{ onExit: () => void }> = ({ onExit }) => {
     
     setStats({ totalWorkers: workers || 0, totalSeekers: seekers || 0, pendingVerifications: pending || 0, openSupport: support || 0 });
 
-    if (activeTab === 'users') {
-      const { data } = await supabase.from('users').select('*').order('created_at', { ascending: false });
-      setItems(data || []);
-    } else if (activeTab === 'verification') {
-      const { data } = await supabase.from('users').select('*').eq('role', UserRole.WORKER).eq('is_verified', false);
-      setItems(data || []);
-    } else if (activeTab === 'ads') {
-      const { data } = await supabase.from('advertisements').select('*').order('created_at', { ascending: false });
-      setItems(data || []);
-    } else if (activeTab === 'support') {
-      const { data } = await supabase.from('support_requests').select('*').order('created_at', { ascending: false });
+    const tabQueries: any = {
+      users: () => supabase.from('users').select('*').order('created_at', { ascending: false }),
+      verification: () => supabase.from('users').select('*').eq('role', UserRole.WORKER).eq('is_verified', false),
+      ads: () => supabase.from('advertisements').select('*').order('created_at', { ascending: false }),
+      support: () => supabase.from('support_requests').select('*').order('created_at', { ascending: false })
+    };
+
+    if (tabQueries[activeTab]) {
+      const { data } = await tabQueries[activeTab]();
       setItems(data || []);
     }
     setLoading(false);
@@ -310,80 +198,80 @@ const AdminDashboard: React.FC<{ onExit: () => void }> = ({ onExit }) => {
   useEffect(() => { fetchData(); }, [activeTab]);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white p-6 md:p-12 text-right">
+    <div className="min-h-screen bg-slate-950 text-white p-4 md:p-12 text-right">
       <div className="max-w-7xl mx-auto">
-        <header className="flex justify-between items-center mb-12 border-b border-white/10 pb-6 flex-row-reverse">
-          <div className="flex items-center gap-4"><Logo size="lg" inverse /><span className="bg-emerald-600 px-3 py-1 rounded-lg text-xs font-black uppercase tracking-widest">إدارة النظام</span></div>
-          <button onClick={onExit} className="bg-red-600/20 text-red-500 px-6 py-2 rounded-xl font-bold hover:bg-red-600 transition-all">خروج</button>
+        <header className="flex justify-between items-center mb-8 md:mb-12 border-b border-white/10 pb-6 flex-row-reverse">
+          <div className="flex items-center gap-2 md:gap-4">
+            <Logo size="lg" inverse />
+          </div>
+          <button onClick={onExit} className="bg-red-600/20 text-red-500 px-4 md:px-6 py-2 rounded-xl font-bold hover:bg-red-600 transition-all text-xs md:text-base">خروج</button>
         </header>
-        <nav className="flex gap-8 mb-12 border-b border-white/5 flex-row-reverse overflow-x-auto whitespace-nowrap pb-1">
-          <button onClick={() => setActiveTab('stats')} className={`pb-4 font-black transition-all ${activeTab === 'stats' ? 'admin-tab-active' : 'text-slate-500'}`}>الإحصائيات</button>
-          <button onClick={() => setActiveTab('verification')} className={`pb-4 font-black transition-all ${activeTab === 'verification' ? 'admin-tab-active' : 'text-slate-500'}`}>التوثيق</button>
-          <button onClick={() => setActiveTab('support')} className={`pb-4 font-black transition-all ${activeTab === 'support' ? 'admin-tab-active' : 'text-slate-500'}`}>الدعم الفني ({stats.openSupport})</button>
-          <button onClick={() => setActiveTab('users')} className={`pb-4 font-black transition-all ${activeTab === 'users' ? 'admin-tab-active' : 'text-slate-500'}`}>المستخدمين</button>
-          <button onClick={() => setActiveTab('ads')} className={`pb-4 font-black transition-all ${activeTab === 'ads' ? 'admin-tab-active' : 'text-slate-500'}`}>الإعلانات</button>
+        
+        <nav className="flex gap-4 md:gap-8 mb-8 md:mb-12 border-b border-white/5 flex-row-reverse overflow-x-auto whitespace-nowrap pb-2 custom-scrollbar no-scrollbar">
+          <button onClick={() => setActiveTab('stats')} className={`pb-3 text-sm md:text-base font-black transition-all ${activeTab === 'stats' ? 'admin-tab-active' : 'text-slate-500'}`}>الإحصائيات</button>
+          <button onClick={() => setActiveTab('verification')} className={`pb-3 text-sm md:text-base font-black transition-all ${activeTab === 'verification' ? 'admin-tab-active' : 'text-slate-500'}`}>التوثيق</button>
+          <button onClick={() => setActiveTab('support')} className={`pb-3 text-sm md:text-base font-black transition-all ${activeTab === 'support' ? 'admin-tab-active' : 'text-slate-500'}`}>الدعم ({stats.openSupport})</button>
+          <button onClick={() => setActiveTab('users')} className={`pb-3 text-sm md:text-base font-black transition-all ${activeTab === 'users' ? 'admin-tab-active' : 'text-slate-500'}`}>المستخدمين</button>
+          <button onClick={() => setActiveTab('ads')} className={`pb-3 text-sm md:text-base font-black transition-all ${activeTab === 'ads' ? 'admin-tab-active' : 'text-slate-500'}`}>الإعلانات</button>
         </nav>
         
         {loading ? <div className="flex justify-center py-20"><div className="loading-spinner"></div></div> : (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
             {activeTab === 'stats' && (
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 text-center">
-                <div className="bg-slate-900 p-8 rounded-[2rem] border border-white/5 shadow-2xl">
-                  <p className="text-slate-400 font-bold mb-2">الحرفيين</p><p className="text-4xl font-black text-emerald-500">{stats.totalWorkers}</p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 text-center">
+                <div className="bg-slate-900 p-6 md:p-8 rounded-2xl md:rounded-[2rem] border border-white/5">
+                  <p className="text-slate-400 font-bold mb-1 text-xs md:text-sm">الحرفيين</p>
+                  <p className="text-2xl md:text-4xl font-black text-emerald-500">{stats.totalWorkers}</p>
                 </div>
-                <div className="bg-slate-900 p-8 rounded-[2rem] border border-white/5 shadow-2xl">
-                  <p className="text-slate-400 font-bold mb-2">الزبائن</p><p className="text-4xl font-black text-blue-500">{stats.totalSeekers}</p>
+                <div className="bg-slate-900 p-6 md:p-8 rounded-2xl md:rounded-[2rem] border border-white/5">
+                  <p className="text-slate-400 font-bold mb-1 text-xs md:text-sm">الزبائن</p>
+                  <p className="text-2xl md:text-4xl font-black text-blue-500">{stats.totalSeekers}</p>
                 </div>
-                <div className="bg-slate-900 p-8 rounded-[2rem] border border-yellow-500/10 shadow-2xl">
-                  <p className="text-slate-400 font-bold mb-2">بانتظار التوثيق</p><p className="text-4xl font-black text-yellow-500">{stats.pendingVerifications}</p>
+                <div className="bg-slate-900 p-6 md:p-8 rounded-2xl md:rounded-[2rem] border border-yellow-500/10">
+                  <p className="text-slate-400 font-bold mb-1 text-xs md:text-sm">التوثيق</p>
+                  <p className="text-2xl md:text-4xl font-black text-yellow-500">{stats.pendingVerifications}</p>
                 </div>
-                <div className="bg-slate-900 p-8 rounded-[2rem] border border-red-500/10 shadow-2xl">
-                  <p className="text-slate-400 font-bold mb-2">شكاوي مفتوحة</p><p className="text-4xl font-black text-red-500">{stats.openSupport}</p>
+                <div className="bg-slate-900 p-6 md:p-8 rounded-2xl md:rounded-[2rem] border border-red-500/10">
+                  <p className="text-slate-400 font-bold mb-1 text-xs md:text-sm">الشكاوي</p>
+                  <p className="text-2xl md:text-4xl font-black text-red-500">{stats.openSupport}</p>
                 </div>
               </div>
             )}
 
-            {activeTab === 'support' && (
-              <div className="bg-slate-900 rounded-[2.5rem] border border-white/5 overflow-hidden shadow-2xl">
-                <table className="w-full text-right">
-                  <thead className="bg-white/5 text-slate-400 text-xs">
-                    <tr><th className="p-6">المستخدم</th><th className="p-6">الوصف</th><th className="p-6">الحالة</th><th className="p-6">التاريخ</th><th className="p-6 text-center">الإجراء</th></tr>
+            {activeTab !== 'stats' && (
+              <div className="bg-slate-900 rounded-2xl md:rounded-[2.5rem] border border-white/5 overflow-hidden shadow-2xl overflow-x-auto table-container">
+                <table className="w-full text-right min-w-[700px]">
+                  <thead className="bg-white/5 text-slate-400 text-[10px] md:text-xs">
+                    <tr>
+                      <th className="p-4 md:p-6">المستخدم / العنصر</th>
+                      <th className="p-4 md:p-6">التفاصيل</th>
+                      <th className="p-4 md:p-6">الحالة</th>
+                      <th className="p-4 md:p-6 text-center">الإجراء</th>
+                    </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
-                    {items.map(s => (
-                      <tr key={s.id} className={`hover:bg-white/5 transition-colors ${s.status === 'pending' ? 'bg-red-500/5' : ''}`}>
-                        <td className="p-6">
-                           <p className="font-black text-slate-200">{s.user_name}</p>
-                           <p className="text-xs text-slate-500">{s.user_phone}</p>
+                    {items.map((item: any) => (
+                      <tr key={item.id} className="hover:bg-white/5 transition-colors">
+                        <td className="p-4 md:p-6">
+                           <div className="flex items-center gap-3 flex-row-reverse">
+                             <img src={item.avatar || item.image_data || `https://ui-avatars.com/api/?name=${item.first_name || item.user_name || 'Item'}`} className="w-10 h-10 rounded-lg object-cover" />
+                             <div className="text-right">
+                               <p className="font-black text-slate-200 text-sm">{item.first_name || item.user_name || item.title}</p>
+                               <p className="text-[10px] text-slate-500">{item.phone || item.user_phone || item.placement}</p>
+                             </div>
+                           </div>
                         </td>
-                        <td className="p-6 max-w-xs"><p className="text-sm truncate">{s.description}</p></td>
-                        <td className="p-6"><span className={`px-3 py-1 rounded-full text-[10px] font-black ${s.status === 'pending' ? 'bg-red-500/10 text-red-500' : 'bg-green-500/10 text-green-500'}`}>{s.status === 'pending' ? 'بانتظار المعالجة' : 'تم الحل'}</span></td>
-                        <td className="p-6 text-slate-400 text-xs">{new Date(s.created_at).toLocaleDateString('ar-DZ')}</td>
-                        <td className="p-6 text-center"><button onClick={() => setSelectedSupport(s)} className="text-emerald-500 font-bold">عرض المشكلة</button></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {(activeTab === 'users' || activeTab === 'verification') && (
-              <div className="bg-slate-900 rounded-[2.5rem] border border-white/5 overflow-hidden shadow-2xl overflow-x-auto">
-                <table className="w-full text-right min-w-[600px]">
-                  <thead className="bg-white/5 text-slate-400 text-xs uppercase">
-                    <tr><th className="p-6">المستخدم</th><th className="p-6">الدور</th><th className="p-6">الحالة</th><th className="p-6">الموقع</th><th className="p-6 text-center">خيارات</th></tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5">
-                    {items.map(u => (
-                      <tr key={u.id} className="hover:bg-white/5 transition-colors group cursor-pointer" onClick={() => setSelectedUser(u)}>
-                        <td className="p-6 flex items-center gap-4 flex-row-reverse" onClick={(e) => e.stopPropagation()}>
-                          <img src={u.avatar || `https://ui-avatars.com/api/?name=${u.first_name}`} className="w-12 h-12 rounded-2xl border-2 border-slate-800" />
-                          <div className="text-right"><p className="font-black text-slate-200">{u.first_name} {u.last_name}</p><p className="text-xs text-slate-500 font-mono">{u.phone}</p></div>
+                        <td className="p-4 md:p-6 max-w-xs">
+                          <p className="text-xs text-slate-400 line-clamp-1">{item.bio || item.description || item.category || '---'}</p>
                         </td>
-                        <td className="p-6"><span className={`px-3 py-1 rounded-full text-[10px] font-black ${u.role === UserRole.WORKER ? 'bg-emerald-500/10 text-emerald-500' : 'bg-blue-500/10 text-blue-500'}`}>{u.role === UserRole.WORKER ? 'حرفي' : 'زبون'}</span></td>
-                        <td className="p-6"><span className={`px-3 py-1 rounded-full text-[10px] font-black ${u.is_verified ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>{u.is_verified ? 'موثق ✅' : 'غير موثق ❌'}</span></td>
-                        <td className="p-6 text-slate-400 text-sm">{u.wilaya}</td>
-                        <td className="p-6 text-center"><button onClick={() => setSelectedUser(u)} className="text-emerald-500 font-bold ml-2">تفاصيل</button></td>
+                        <td className="p-4 md:p-6">
+                          <span className={`px-2 py-1 rounded-full text-[9px] font-black ${item.is_verified || item.status === 'resolved' || item.is_active ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
+                            {item.is_verified ? 'موثق' : (item.status === 'pending' ? 'مفتوح' : (item.is_active ? 'نشط' : 'معطل'))}
+                          </span>
+                        </td>
+                        <td className="p-4 md:p-6 text-center">
+                          <button onClick={() => { activeTab === 'support' ? setSelectedSupport(item) : setSelectedUser(item) }} className="text-emerald-500 text-xs font-bold">معاينة</button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -393,69 +281,6 @@ const AdminDashboard: React.FC<{ onExit: () => void }> = ({ onExit }) => {
           </div>
         )}
       </div>
-
-      {/* مودال تفاصيل طلب الدعم */}
-      {selectedSupport && (
-        <div className="fixed inset-0 z-[120] bg-black/95 flex items-center justify-center p-4 backdrop-blur-xl animate-in fade-in duration-300">
-           <div className="bg-slate-900 w-full max-w-2xl rounded-[3rem] p-8 md:p-12 border border-white/10 text-right shadow-2xl relative max-h-[90vh] overflow-y-auto">
-             <button onClick={() => setSelectedSupport(null)} className="absolute top-8 left-8 text-slate-500 hover:text-white text-2xl">✕</button>
-             <h2 className="text-2xl font-black mb-6">تفاصيل الشكوى ⚠️</h2>
-             <div className="bg-white/5 p-6 rounded-3xl mb-6">
-                <p className="text-slate-400 text-xs mb-2">من المستخدم:</p>
-                <p className="font-black text-lg text-emerald-400">{selectedSupport.user_name} ({selectedSupport.user_phone})</p>
-             </div>
-             <div className="bg-white/5 p-6 rounded-3xl mb-6">
-                <p className="text-slate-400 text-xs mb-2">وصف المشكلة:</p>
-                <p className="text-slate-200 leading-relaxed font-medium">{selectedSupport.description}</p>
-             </div>
-             {selectedSupport.image_data && (
-               <div className="mb-8">
-                 <p className="text-slate-400 text-xs mb-2">الصورة المرفقة:</p>
-                 <img src={selectedSupport.image_data} className="w-full rounded-3xl border border-white/10 shadow-2xl" />
-               </div>
-             )}
-             <div className="flex gap-4">
-                <button 
-                  onClick={async () => {
-                    await supabase.from('support_requests').update({ status: 'resolved' }).eq('id', selectedSupport.id);
-                    setSelectedSupport(null);
-                    fetchData();
-                  }}
-                  className="flex-1 bg-emerald-600 text-white py-4 rounded-2xl font-black shadow-lg hover:bg-emerald-500 transition-all"
-                >تمت معالجة المشكلة ✅</button>
-                <button 
-                   onClick={async () => {
-                     if(confirm("حذف الطلب؟")) {
-                       await supabase.from('support_requests').delete().eq('id', selectedSupport.id);
-                       setSelectedSupport(null);
-                       fetchData();
-                     }
-                   }}
-                   className="px-8 bg-red-600 text-white py-4 rounded-2xl font-black shadow-lg"
-                >حذف</button>
-             </div>
-           </div>
-        </div>
-      )}
-
-      {selectedUser && (
-        <div className="fixed inset-0 z-[120] bg-black/95 flex items-center justify-center p-4 backdrop-blur-xl">
-          <div className="bg-slate-900 w-full max-w-2xl rounded-[3rem] p-8 md:p-12 border border-white/10 text-right shadow-2xl relative">
-            <button onClick={() => setSelectedUser(null)} className="absolute top-8 left-8 text-slate-500 hover:text-white text-2xl transition-colors">✕</button>
-            <div className="flex flex-col items-center mb-8">
-              <img src={selectedUser.avatar || `https://ui-avatars.com/api/?name=${selectedUser.first_name}`} className="w-32 h-32 rounded-[2.5rem] mb-4" />
-              <h2 className="text-3xl font-black">{selectedUser.first_name} {selectedUser.last_name}</h2>
-              <p className="text-emerald-500 font-bold">{selectedUser.category || 'مستخدم'}</p>
-            </div>
-            <div className="grid grid-cols-2 gap-4 mb-8">
-              <button onClick={async () => { await supabase.from('users').update({ is_verified: !selectedUser.is_verified }).eq('id', selectedUser.id); fetchData(); setSelectedUser(null); }} className={`py-4 rounded-2xl font-black ${selectedUser.is_verified ? 'bg-red-600/20 text-red-500' : 'bg-emerald-600 text-white'}`}>
-                {selectedUser.is_verified ? 'إلغاء التوثيق' : 'توثيق الحساب الآن'}
-              </button>
-              <button onClick={async () => { if(confirm("حذف الحساب نهائياً؟")) { await supabase.from('users').delete().eq('id', selectedUser.id); fetchData(); setSelectedUser(null); } }} className="bg-red-600 py-4 rounded-2xl font-black text-white">حذف الحساب</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
@@ -489,18 +314,42 @@ export default function App() {
   const [showNotifList, setShowNotifList] = useState(false);
   const [chatTarget, setChatTarget] = useState<User | null>(null);
 
+  /**
+   * Fix: Add startChat function to navigate to messages and set the recipient.
+   */
+  const startChat = (user: any) => {
+    if (!state.currentUser) {
+      setView('login');
+      return;
+    }
+    setChatTarget({
+      id: user.id,
+      firstName: user.first_name || user.firstName || 'حرفي',
+      lastName: user.last_name || user.lastName || '',
+      phone: user.phone || '',
+      role: user.role || UserRole.WORKER,
+      location: user.location || { wilaya: '', daira: '' },
+      avatar: user.avatar
+    } as User);
+    setView('messages');
+  };
+
   useEffect(() => {
     const handleHash = () => {
       const hash = window.location.hash.replace('#/', '');
       const user = getInitialUser();
-      if (hash === 'support' && user) setState(prev => ({ ...prev, view: 'support', currentUser: user }));
-      else if (hash === 'messages' && user) setState(prev => ({ ...prev, view: 'messages', currentUser: user }));
-      else if (hash === 'search') setState(prev => ({ ...prev, view: 'search', currentUser: user }));
-      else if (hash === 'login') setState(prev => ({ ...prev, view: 'login', currentUser: user }));
-      else if (hash === 'register') setState(prev => ({ ...prev, view: 'register', currentUser: user }));
-      else if (hash === 'profile' && user) setState(prev => ({ ...prev, view: 'profile', currentUser: user }));
-      else if (hash === 'admin' && user?.role === UserRole.ADMIN) setState(prev => ({ ...prev, view: 'admin', currentUser: user }));
-      else if (hash === '') setState(prev => ({ ...prev, view: user?.role === UserRole.ADMIN ? 'admin' : 'landing', currentUser: user }));
+      const viewMap: any = {
+        'support': 'support',
+        'messages': 'messages',
+        'search': 'search',
+        'login': 'login',
+        'register': 'register',
+        'profile': 'profile',
+        'admin': user?.role === UserRole.ADMIN ? 'admin' : null
+      };
+      
+      const newView = viewMap[hash] || (user?.role === UserRole.ADMIN ? 'admin' : 'landing');
+      setState(prev => ({ ...prev, view: newView, currentUser: user }));
     };
     window.addEventListener('hashchange', handleHash);
     return () => window.removeEventListener('hashchange', handleHash);
@@ -524,30 +373,14 @@ export default function App() {
   }, [state.currentUser]);
 
   const setView = (view: AppState['view']) => {
-    if (view === 'landing') window.location.hash = '';
-    else window.location.hash = `#/${view}`;
+    window.location.hash = view === 'landing' ? '' : `#/${view}`;
     setState(prev => ({ ...prev, view }));
   };
 
   const handleLoginSuccess = (user: User) => {
     localStorage.setItem('user', JSON.stringify(user));
     setState(prev => ({ ...prev, currentUser: user }));
-    if (user.role === UserRole.ADMIN) setView('admin');
-    else setView('profile');
-  };
-
-  const startChat = (user: any) => {
-    if (!state.currentUser) return setView('login');
-    setChatTarget({
-      id: user.id,
-      firstName: user.first_name,
-      lastName: user.last_name,
-      phone: user.phone,
-      role: user.role,
-      location: { wilaya: user.wilaya, daira: user.daira },
-      avatar: user.avatar
-    });
-    setView('messages');
+    setView(user.role === UserRole.ADMIN ? 'admin' : 'profile');
   };
 
   const handleLogout = () => {
@@ -561,131 +394,139 @@ export default function App() {
   return (
     <div className={`min-h-screen flex flex-col arabic-text transition-colors duration-700 ${isManagementView ? 'bg-slate-950' : 'bg-gray-50'}`} dir="rtl">
       <GlobalStyles />
-      <nav className={`h-24 flex items-center px-6 sticky top-0 z-50 backdrop-blur-xl border-b transition-all ${isManagementView ? 'bg-slate-900/90 border-white/5' : 'bg-white/90 border-gray-100 shadow-sm'}`}>
+      <nav className={`h-20 md:h-24 flex items-center px-4 md:px-6 sticky top-0 z-50 backdrop-blur-xl border-b transition-all ${isManagementView ? 'bg-slate-900/90 border-white/5' : 'bg-white/90 border-gray-100 shadow-sm'}`}>
         <div className="max-w-7xl mx-auto w-full flex justify-between items-center">
           <Logo onClick={() => setView('landing')} inverse={isManagementView} />
           {state.view !== 'admin' && (
-            <div className="flex items-center gap-4 md:gap-8">
-              <button onClick={() => setView('landing')} className={`${state.view === 'landing' ? 'text-emerald-600 font-black' : (isManagementView ? 'text-slate-400' : 'text-slate-500')} font-bold`}>الرئيسية</button>
-              <button onClick={() => setView('search')} className={`${state.view === 'search' ? 'text-emerald-600 font-black' : (isManagementView ? 'text-slate-400' : 'text-slate-500')} font-bold`}>الحرفيين</button>
+            <div className="flex items-center gap-2 md:gap-8">
+              <button onClick={() => setView('landing')} className={`hidden sm:block ${state.view === 'landing' ? 'text-emerald-600 font-black' : (isManagementView ? 'text-slate-400' : 'text-slate-500')} font-bold text-sm md:text-base`}>الرئيسية</button>
+              <button onClick={() => setView('search')} className={`${state.view === 'search' ? 'text-emerald-600 font-black' : (isManagementView ? 'text-slate-400' : 'text-slate-500')} font-bold text-xs md:text-base`}>الحرفيين</button>
+              
               {state.currentUser && (
-                <div className="flex items-center gap-4 relative">
-                  <button onClick={() => setView('messages')} className={`${state.view === 'messages' ? 'text-emerald-600' : 'text-slate-500'} font-bold`}>الرسائل</button>
-                  <button onClick={() => setView('support')} className={`${state.view === 'support' ? 'text-emerald-600 font-black' : 'text-slate-500'} font-bold`}>اتصل بنا</button>
-                  <button onClick={() => setShowNotifList(!showNotifList)} className="relative text-slate-500 hover:text-emerald-600 transition-all">
-                    🔔 {unreadCount > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center font-bold animate-pulse">{unreadCount}</span>}
+                <div className="flex items-center gap-3 md:gap-4 relative">
+                  <button onClick={() => setView('messages')} className="p-2 text-slate-500 hover:text-emerald-600 relative">
+                    💬 {unreadCount > 0 && <span className="absolute top-1 right-1 bg-emerald-500 text-white text-[8px] w-3 h-3 rounded-full flex items-center justify-center font-bold">!</span>}
                   </button>
+                  <button onClick={() => setShowNotifList(!showNotifList)} className="p-2 relative text-slate-500 hover:text-emerald-600">
+                    🔔 {unreadCount > 0 && <span className="absolute top-1 right-1 bg-red-500 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center font-bold animate-pulse">{unreadCount}</span>}
+                  </button>
+                  
                   {showNotifList && (
-                    <div className="absolute top-12 left-0 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-[100] animate-in fade-in slide-in-from-top-2">
-                      <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
-                        <span className="font-black text-sm">الإشعارات</span>
-                        <button onClick={async () => { await supabase.from('notifications').update({ is_read: true }).eq('user_id', state.currentUser!.id); fetchNotifications(); }} className="text-[10px] text-emerald-600 font-bold">تحديد كقروء</button>
+                    <div className="absolute top-12 left-0 w-64 md:w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-[100] animate-in fade-in slide-in-from-top-2">
+                      <div className="p-3 md:p-4 border-b bg-gray-50 flex justify-between items-center">
+                        <span className="font-black text-xs md:text-sm">الإشعارات</span>
+                        <button onClick={async () => { await supabase.from('notifications').update({ is_read: true }).eq('user_id', state.currentUser!.id); fetchNotifications(); }} className="text-[9px] md:text-[10px] text-emerald-600 font-bold">تحديد كقروء</button>
                       </div>
-                      <div className="max-h-96 overflow-y-auto custom-scrollbar">
+                      <div className="max-h-64 md:max-h-96 overflow-y-auto custom-scrollbar">
                         {notifications.map(n => (
-                          <div key={n.id} className={`p-4 border-b text-right hover:bg-gray-50 transition-all ${!n.is_read ? 'bg-emerald-50' : ''}`}>
-                            <p className="font-black text-xs">{n.title}</p>
-                            <p className="text-[10px] text-gray-500 mt-1">{n.content}</p>
-                            <p className="text-[8px] text-gray-400 mt-2">{new Date(n.created_at).toLocaleDateString('ar-DZ')}</p>
+                          <div key={n.id} className={`p-3 md:p-4 border-b text-right hover:bg-gray-50 transition-all ${!n.is_read ? 'bg-emerald-50' : ''}`}>
+                            <p className="font-black text-[10px] md:text-xs">{n.title}</p>
+                            <p className="text-[9px] md:text-[10px] text-gray-500 mt-1">{n.content}</p>
                           </div>
                         ))}
-                        {notifications.length === 0 && <div className="p-10 text-center text-gray-400 font-bold">لا توجد إشعارات.</div>}
+                        {notifications.length === 0 && <div className="p-10 text-center text-gray-400 font-bold text-xs">لا توجد إشعارات.</div>}
                       </div>
                     </div>
                   )}
                 </div>
               )}
+              
               {!state.currentUser ? (
-                <button onClick={() => setView('login')} className="bg-emerald-600 text-white px-8 py-3 rounded-2xl font-black shadow-lg">دخول</button>
+                <button onClick={() => setView('login')} className="bg-emerald-600 text-white px-4 md:px-8 py-2 md:py-3 rounded-xl md:rounded-2xl font-black shadow-lg text-xs md:text-base">دخول</button>
               ) : (
-                <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setView('profile')}>
-                  <img src={state.currentUser.avatar || `https://ui-avatars.com/api/?name=${state.currentUser.firstName}`} className="w-10 h-10 rounded-xl border-2 border-emerald-500/20 shadow-sm" />
+                <div className="flex items-center gap-2 cursor-pointer group" onClick={() => setView('profile')}>
+                  <img src={state.currentUser.avatar || `https://ui-avatars.com/api/?name=${state.currentUser.firstName}`} className="w-8 h-8 md:w-10 md:h-10 rounded-lg border-2 border-emerald-500/20" />
                 </div>
               )}
             </div>
           )}
         </div>
       </nav>
+
       <main className="flex-grow">
         {state.view === 'landing' && (
-          <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-slate-950">
+          <div className="relative min-h-[90vh] md:min-h-screen flex items-center justify-center overflow-hidden bg-slate-950">
             <div className="absolute inset-0 bg-cover bg-center opacity-25" style={{ backgroundImage: `url(${REQ_IMAGE})` }}></div>
             <div className="absolute inset-0 hero-bg-overlay"></div>
-            <div className="relative z-10 max-w-7xl mx-auto px-6 py-16 w-full text-center">
-              <Logo size="lg" inverse />
-              <h1 className="text-4xl md:text-8xl font-black text-white mt-10">ريح بالك، <span className="text-emerald-400">سَلّكني</span> يسلكها</h1>
-              <p className="text-xl md:text-3xl text-slate-300 mt-6 font-medium">المنصة الجزائرية رقم #1 لربط الحرفيين بالزبائن.</p>
-              <div className="flex gap-6 mt-16 justify-center">
-                <button onClick={() => setView('search')} className="bg-emerald-600 px-16 py-5 rounded-[2.5rem] font-black text-xl text-white shadow-xl">ابحث عن حرفي 🔍</button>
-                <button onClick={() => setView('register')} className="bg-white/10 backdrop-blur-md px-16 py-5 rounded-[2.5rem] font-black text-xl text-white border border-white/20">سجل كحرفي 🛠️</button>
+            <div className="relative z-10 max-w-7xl mx-auto px-6 py-12 md:py-16 w-full text-center">
+              <div className="scale-75 md:scale-100 flex justify-center mb-6 md:mb-10"><Logo size="lg" inverse /></div>
+              <h1 className="hero-title text-4xl md:text-8xl font-black text-white mt-6 md:mt-10 tracking-tight">ريح بالك، <span className="text-emerald-400">سَلّكني</span> يسلكها</h1>
+              <p className="text-lg md:text-3xl text-slate-300 mt-4 md:mt-6 font-medium max-w-3xl mx-auto leading-relaxed">المنصة الجزائرية رقم #1 لربط خيرة الحرفيين بالزبائن بضمان وثقة.</p>
+              <div className="flex flex-col sm:flex-row gap-4 md:gap-6 mt-10 md:mt-16 justify-center px-4">
+                <button onClick={() => setView('search')} className="w-full sm:w-auto bg-emerald-600 px-10 md:px-16 py-4 md:py-5 rounded-2xl md:rounded-[2.5rem] font-black text-lg md:text-xl text-white shadow-xl hover:bg-emerald-500 transition-all">ابحث عن حرفي 🔍</button>
+                <button onClick={() => setView('register')} className="w-full sm:w-auto bg-white/10 backdrop-blur-md px-10 md:px-16 py-4 md:py-5 rounded-2xl md:rounded-[2.5rem] font-black text-lg md:text-xl text-white border border-white/20">سجل كحرفي 🛠️</button>
               </div>
             </div>
           </div>
         )}
+        
         {state.view === 'search' && (
-          <div className="max-w-7xl mx-auto px-6 py-12 text-right">
-            <div className="bg-emerald-900/5 p-12 rounded-[3rem] mb-12 border border-emerald-100 shadow-sm">
-              <h2 className="text-3xl font-black mb-8">ابحث عن الحرفي المثالي 🔍</h2>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <input placeholder="عن ماذا تبحث؟" className="md:col-span-2 p-5 bg-white border-2 border-emerald-50 rounded-2xl outline-none" />
-                <select className="p-5 bg-white border-2 border-emerald-50 rounded-2xl outline-none">
+          <div className="max-w-7xl mx-auto px-4 md:px-6 py-8 md:py-12 text-right">
+            <div className="section-p bg-emerald-900/5 p-6 md:p-12 rounded-3xl md:rounded-[3rem] mb-8 md:mb-12 border border-emerald-100 shadow-sm">
+              <h2 className="text-2xl md:text-3xl font-black mb-6 md:mb-8">ابحث عن الحرفي المثالي 🔍</h2>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3 md:gap-4">
+                <input placeholder="عن ماذا تبحث؟ (مثلاً: كهربائي)" className="md:col-span-2 p-4 md:p-5 bg-white border-2 border-emerald-50 rounded-xl md:rounded-2xl outline-none text-sm md:text-base font-bold" />
+                <select className="p-4 md:p-5 bg-white border-2 border-emerald-50 rounded-xl md:rounded-2xl outline-none text-sm md:text-base font-bold">
                   <option value="">كل الولايات</option>
                   {WILAYAS.map(w => <option key={w} value={w}>{w}</option>)}
                 </select>
-                <select className="p-5 bg-white border-2 border-emerald-50 rounded-2xl outline-none">
+                <select className="p-4 md:p-5 bg-white border-2 border-emerald-50 rounded-xl md:rounded-2xl outline-none text-sm md:text-base font-bold">
                   <option value="">كل التخصصات</option>
                   {SERVICE_CATEGORIES.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                 </select>
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {[1, 2, 3].map(i => (
-                <div key={i} className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-gray-100 group hover:-translate-y-1 transition-all">
-                  <div className="flex gap-4 items-center mb-6 flex-row-reverse">
-                    <img src={`https://ui-avatars.com/api/?name=Worker${i}`} className="w-16 h-16 rounded-xl border-2 border-emerald-50" />
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 md:gap-8">
+              {[1, 2, 3, 4, 5, 6].map(i => (
+                <div key={i} className="card-p bg-white p-6 md:p-8 rounded-2xl md:rounded-[2.5rem] shadow-xl border border-gray-100 group hover:-translate-y-1 transition-all">
+                  <div className="flex gap-4 items-center mb-4 md:mb-6 flex-row-reverse">
+                    <img src={`https://ui-avatars.com/api/?name=Worker${i}&background=random`} className="w-14 h-14 md:w-16 md:h-16 rounded-xl border-2 border-emerald-50 object-cover" />
                     <div className="text-right flex-1">
-                      <h3 className="text-lg font-black">حرفي متخصص {i}</h3>
-                      <span className="text-emerald-600 font-bold text-xs bg-emerald-50 px-2 py-1 rounded-lg">كهرباء</span>
+                      <h3 className="text-base md:text-lg font-black">حرفي محترف {i}</h3>
+                      <span className="text-emerald-600 font-bold text-[10px] md:text-xs bg-emerald-50 px-2 py-1 rounded-lg">سباكة / ترصيص</span>
                     </div>
                   </div>
-                  <p className="text-gray-600 text-sm mb-6 flex-1">خبرة تزيد عن 10 سنوات في تقديم أفضل الخدمات وبجودة عالية.</p>
+                  <p className="text-gray-600 text-xs md:text-sm mb-4 md:mb-6 flex-1 leading-relaxed">خبرة سنوات في تقديم خدمات عالية الجودة وبضمان تام لجميع زبائننا الكرام.</p>
                   <div className="flex justify-between items-center flex-row-reverse pt-4 border-t border-gray-50">
-                    <span className="text-gray-500 font-bold text-xs">📍 الجزائر العاصمة</span>
-                    <button onClick={() => startChat({ id: `worker-${i}`, first_name: 'حرفي', last_name: i.toString() })} className="bg-slate-900 text-white px-6 py-2 rounded-xl font-black text-xs hover:bg-emerald-600 transition-all">تواصل الآن</button>
+                    <span className="text-gray-500 font-bold text-[10px] md:text-xs">📍 الجزائر العاصمة</span>
+                    <button onClick={() => startChat({ id: `worker-${i}`, first_name: 'حرفي', last_name: i.toString() })} className="bg-slate-900 text-white px-4 md:px-6 py-2 rounded-lg md:rounded-xl font-black text-[10px] md:text-xs hover:bg-emerald-600 transition-all">تواصل</button>
                   </div>
                 </div>
               ))}
             </div>
           </div>
         )}
+
         {state.view === 'messages' && state.currentUser && <ChatView currentUser={state.currentUser} targetUser={chatTarget} />}
-        {state.view === 'support' && state.currentUser && <SupportView currentUser={state.currentUser} />}
-        {state.view === 'login' && <AuthForm type="login" onSuccess={handleLoginSuccess} />}
-        {state.view === 'register' && <AuthForm type="register" onSuccess={handleLoginSuccess} />}
-        {state.view === 'admin-login' && <AuthForm type="admin" onSuccess={handleLoginSuccess} />}
-        {state.view === 'admin' && state.currentUser?.role === UserRole.ADMIN && <AdminDashboard onExit={handleLogout} />}
+        
         {state.view === 'profile' && state.currentUser && (
-          <div className="max-w-4xl mx-auto my-12 md:my-20 px-6">
-            <div className="bg-white p-8 md:p-16 rounded-[3rem] shadow-2xl text-center border border-gray-100">
-              <div className="relative inline-block mb-8">
-                <img src={state.currentUser.avatar || `https://ui-avatars.com/api/?name=${state.currentUser.firstName}`} className="w-32 h-32 md:w-40 md:h-40 rounded-[3rem] border-4 border-emerald-50 shadow-xl" />
-                {state.currentUser.isVerified && <span className="absolute bottom-2 right-2 bg-emerald-500 text-white w-10 h-10 rounded-full flex items-center justify-center border-4 border-white shadow-lg text-xl">✓</span>}
+          <div className="max-w-4xl mx-auto my-8 md:my-20 px-4 md:px-6">
+            <div className="section-p bg-white p-8 md:p-16 rounded-3xl md:rounded-[3rem] shadow-2xl text-center border border-gray-100">
+              <div className="relative inline-block mb-6 md:mb-8">
+                <img src={state.currentUser.avatar || `https://ui-avatars.com/api/?name=${state.currentUser.firstName}`} className="w-28 h-28 md:w-40 md:h-40 rounded-3xl md:rounded-[3rem] border-4 border-emerald-50 shadow-xl object-cover" />
+                {state.currentUser.isVerified && <span className="absolute bottom-2 right-2 bg-emerald-500 text-white w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center border-4 border-white shadow-lg text-sm md:text-xl">✓</span>}
               </div>
-              <h2 className="text-3xl md:text-5xl font-black mb-4">أهلاً بك، {state.currentUser.firstName} ✨</h2>
-              <p className="text-slate-500 text-lg md:text-xl mb-12 font-medium">أنت مسجل كـ <span className="text-emerald-600 font-black">{state.currentUser.role === UserRole.WORKER ? 'حرفي محترف' : 'زبون'}</span> في ولاية {state.currentUser.location.wilaya}</p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <button className="bg-slate-900 text-white px-12 py-4 rounded-2xl font-black text-lg shadow-xl hover:bg-emerald-600 transition-all">تعديل الملف ⚙️</button>
-                <button onClick={handleLogout} className="bg-red-50 text-red-500 px-12 py-4 rounded-2xl font-black text-lg border border-red-100 hover:bg-red-500 hover:text-white transition-all">تسجيل الخروج</button>
+              <h2 className="text-2xl md:text-5xl font-black mb-3 md:mb-4">أهلاً، {state.currentUser.firstName} ✨</h2>
+              <p className="text-slate-500 text-base md:text-xl mb-8 md:mb-12 font-medium">حساب {state.currentUser.role === UserRole.WORKER ? 'حرفي' : 'زبون'} - ولاية {state.currentUser.location.wilaya}</p>
+              <div className="flex flex-col sm:flex-row gap-3 md:gap-4 justify-center">
+                <button className="bg-slate-900 text-white px-8 md:px-12 py-3 md:py-4 rounded-xl md:rounded-2xl font-black text-sm md:text-lg shadow-xl">تعديل الملف ⚙️</button>
+                <button onClick={handleLogout} className="bg-red-50 text-red-500 px-8 md:px-12 py-3 md:py-4 rounded-xl md:rounded-2xl font-black text-sm md:text-lg border border-red-100">تسجيل الخروج</button>
               </div>
             </div>
           </div>
         )}
+
+        {(state.view === 'login' || state.view === 'register' || state.view === 'admin-login') && <AuthForm type={state.view === 'admin-login' ? 'admin' : state.view as any} onSuccess={handleLoginSuccess} />}
+        {state.view === 'admin' && state.currentUser?.role === UserRole.ADMIN && <AdminDashboard onExit={handleLogout} />}
+        {state.view === 'support' && state.currentUser && <SupportView currentUser={state.currentUser} />}
       </main>
+
       {!isManagementView && (
-        <footer className="bg-slate-900 text-white py-16 px-6 text-center mt-auto border-t border-white/5">
-          <Logo size="lg" inverse />
-          <p className="mt-4 text-slate-500 font-bold">سلكني - منصتكم الموثوقة للحرف والمهن 🇩🇿</p>
-          <div className="border-t border-white/5 mt-16 pt-10 text-slate-500 text-sm font-bold tracking-wide">جميع الحقوق محفوظة &copy; {new Date().getFullYear()} سلكني</div>
+        <footer className="bg-slate-900 text-white py-10 md:py-16 px-6 text-center mt-auto border-t border-white/5">
+          <div className="flex justify-center mb-4 md:mb-6"><Logo size="sm" inverse /></div>
+          <p className="text-slate-400 text-xs md:text-sm font-medium">سلكني - المنصة الأولى لربط خيرة الحرفيين بالزبائن في الجزائر 🇩🇿</p>
+          <div className="border-t border-white/5 mt-8 md:mt-12 pt-6 md:pt-10 text-slate-500 text-[10px] md:text-xs font-bold">جميع الحقوق محفوظة &copy; {new Date().getFullYear()} سلكني</div>
         </footer>
       )}
     </div>
@@ -704,11 +545,11 @@ const AuthForm: React.FC<{ type: 'login' | 'register' | 'admin', onSuccess: (use
         if (formData.phone === '0777117663' && formData.password === 'vampirewahab31') {
           const adminUser: User = { id: 'admin-id', firstName: 'عبد الوهاب', lastName: 'المدير', phone: formData.phone, role: UserRole.ADMIN, location: { wilaya: 'الجزائر', daira: 'الجزائر' }, isVerified: true };
           onSuccess(adminUser);
-        } else { alert("بيانات دخول الإدارة غير صحيحة!"); }
+        } else { alert("بيانات الدخول غير صحيحة"); }
       } else if (type === 'login') {
         const { data } = await supabase.from('users').select('*').eq('phone', formData.phone).eq('password', formData.password).single();
         if (data) onSuccess({ ...data, firstName: data.first_name, lastName: data.last_name, location: { wilaya: data.wilaya, daira: data.daira }, isVerified: data.is_verified });
-        else alert("خطأ في تسجيل الدخول");
+        else alert("فشل الدخول");
       } else {
         const { data } = await supabase.from('users').insert([{ first_name: formData.firstName, last_name: formData.lastName, phone: formData.phone, password: formData.password, role: formData.role, wilaya: formData.wilaya, is_verified: formData.role === UserRole.SEEKER }]).select().single();
         if (data) onSuccess({ ...data, firstName: data.first_name, lastName: data.last_name, location: { wilaya: data.wilaya, daira: data.daira }, isVerified: data.is_verified });
@@ -717,31 +558,79 @@ const AuthForm: React.FC<{ type: 'login' | 'register' | 'admin', onSuccess: (use
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50">
-      <div className="bg-white p-8 md:p-12 rounded-[3rem] shadow-2xl w-full max-w-md text-right border border-gray-100">
-        <h2 className="text-3xl font-black mb-8 text-slate-900">{type === 'admin' ? 'دخول الإدارة 🔒' : type === 'login' ? 'مرحباً بعودتك 👋' : 'انضم إلى سلكني ✨'}</h2>
-        <form onSubmit={handleSubmit} className="space-y-6">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50">
+      <div className="bg-white p-6 md:p-12 rounded-3xl md:rounded-[3rem] shadow-2xl w-full max-w-md text-right border border-gray-100">
+        <h2 className="text-2xl md:text-3xl font-black mb-6 md:mb-8 text-slate-900">{type === 'admin' ? 'دخول الإدارة 🔒' : type === 'login' ? 'مرحباً بعودتك 👋' : 'انضم إلى سلكني ✨'}</h2>
+        <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
           {type === 'register' && (
-            <div className="grid grid-cols-2 gap-4">
-              <input placeholder="الاسم" required className="p-4 bg-gray-50 border rounded-2xl outline-none" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} />
-              <input placeholder="اللقب" required className="p-4 bg-gray-50 border rounded-2xl outline-none" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} />
+            <div className="grid grid-cols-2 gap-3 md:gap-4">
+              <input placeholder="الاسم" required className="p-3 md:p-4 bg-gray-50 border rounded-xl md:rounded-2xl outline-none text-sm font-bold" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} />
+              <input placeholder="اللقب" required className="p-3 md:p-4 bg-gray-50 border rounded-xl md:rounded-2xl outline-none text-sm font-bold" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} />
             </div>
           )}
-          <input placeholder="رقم الهاتف" required className="w-full p-4 bg-gray-50 border rounded-2xl outline-none font-mono" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
-          <input type="password" placeholder="كلمة المرور" required className="w-full p-4 bg-gray-50 border rounded-2xl outline-none" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
+          <input placeholder="رقم الهاتف" required className="w-full p-3 md:p-4 bg-gray-50 border rounded-xl md:rounded-2xl outline-none font-bold font-mono text-sm" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
+          <input type="password" placeholder="كلمة المرور" required className="w-full p-3 md:p-4 bg-gray-50 border rounded-xl md:rounded-2xl outline-none font-bold text-sm" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
           {type === 'register' && (
             <>
-              <select className="w-full p-4 bg-gray-50 border rounded-2xl outline-none" value={formData.role} onChange={e => setFormData({...formData, role: e.target.value as UserRole})}>
+              <select className="w-full p-3 md:p-4 bg-gray-50 border rounded-xl md:rounded-2xl outline-none font-bold text-sm" value={formData.role} onChange={e => setFormData({...formData, role: e.target.value as UserRole})}>
                 <option value={UserRole.SEEKER}>أبحث عن حرفي</option>
-                <option value={UserRole.WORKER}>أنا حرفي</option>
+                <option value={UserRole.WORKER}>أنا حرفي (أعرض خدماتي)</option>
               </select>
-              <select className="w-full p-4 bg-gray-50 border rounded-2xl outline-none" value={formData.wilaya} onChange={e => setFormData({...formData, wilaya: e.target.value})}>
+              <select className="w-full p-3 md:p-4 bg-gray-50 border rounded-xl md:rounded-2xl outline-none font-bold text-sm" value={formData.wilaya} onChange={e => setFormData({...formData, wilaya: e.target.value})}>
                 {WILAYAS.map(w => <option key={w} value={w}>{w}</option>)}
               </select>
             </>
           )}
-          <button type="submit" disabled={loading} className="w-full bg-emerald-600 text-white py-5 rounded-2xl font-black text-xl hover:bg-emerald-500 transition-all shadow-lg">{loading ? 'جاري التحقق...' : 'دخول'}</button>
+          <button type="submit" disabled={loading} className="w-full bg-emerald-600 text-white py-4 md:py-5 rounded-xl md:rounded-2xl font-black text-lg md:text-xl hover:bg-emerald-500 transition-all shadow-lg">{loading ? 'جاري التحقق...' : 'تأكيد'}</button>
         </form>
+      </div>
+    </div>
+  );
+};
+
+const SupportView: React.FC<{ currentUser: User }> = ({ currentUser }) => {
+  const [description, setDescription] = useState('');
+  const [image, setImage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const { error } = await supabase.from('support_requests').insert([{ user_id: currentUser.id, user_name: `${currentUser.firstName} ${currentUser.lastName}`, user_phone: currentUser.phone, description, image_data: image, status: 'pending' }]);
+      if (error) throw error;
+      setSuccess(true);
+      setDescription('');
+      setImage(null);
+    } catch (err) { alert("فشل الإرسال"); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <div className="max-w-3xl mx-auto my-8 md:my-12 px-4 md:px-6">
+      <div className="section-p bg-white p-6 md:p-12 rounded-3xl md:rounded-[3rem] shadow-2xl border border-gray-100 text-right">
+        <h2 className="text-2xl md:text-3xl font-black mb-4">الدعم الفني والشكاوي 🛠️</h2>
+        <p className="text-slate-500 mb-6 md:mb-8 font-medium text-sm md:text-base">يرجى توضيح المشكلة مع إرفاق صورة إن وجد لنسرع في حل طلبك.</p>
+        {success ? (
+          <div className="bg-emerald-50 p-6 md:p-8 rounded-2xl text-center border border-emerald-100">
+            <p className="text-emerald-700 font-black mb-4">تم إرسال طلبك بنجاح ✅</p>
+            <button onClick={() => setSuccess(false)} className="text-emerald-600 text-xs font-bold underline">إرسال طلب آخر</button>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
+            <textarea required className="w-full h-40 md:h-48 p-4 md:p-5 bg-gray-50 border rounded-2xl outline-none text-sm font-medium" placeholder="وصف المشكلة هنا..." value={description} onChange={e => setDescription(e.target.value)} />
+            <input type="file" accept="image/*" className="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100" onChange={e => {
+              const file = e.target.files?.[0];
+              if (file) {
+                const reader = new FileReader();
+                reader.onloadend = () => setImage(reader.result as string);
+                reader.readAsDataURL(file);
+              }
+            }} />
+            <button type="submit" disabled={loading} className="w-full py-4 md:py-5 rounded-xl md:rounded-2xl bg-emerald-600 text-white font-black text-base md:text-xl shadow-xl">{loading ? 'جاري الإرسال...' : 'إرسال الشكوى'}</button>
+          </form>
+        )}
       </div>
     </div>
   );
