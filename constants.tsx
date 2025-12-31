@@ -1,5 +1,5 @@
 
-import { Worker, UserRole } from './types';
+import { Worker, UserRole } from './types.ts';
 
 export const WILAYA_DATA: Record<string, string[]> = {
   "أدرار": ["أدرار", "أولف", "رقان", "تيميمون", "برج باجي مختار", "زاوية كنتة", "أقبلي", "تسابيت", "أولاد سعيد", "تيمقتن"],
@@ -65,7 +65,6 @@ export const WILAYA_DATA: Record<string, string[]> = {
 export const WILAYAS = Object.keys(WILAYA_DATA);
 export const DAIRAS: Record<string, string[]> = WILAYA_DATA;
 
-// Comprehensive list of crafts and professions
 export const SERVICE_CATEGORIES = [
   { id: 'plumbing', name: 'ترصيص صحي (Plomberie)', icon: '🔧' },
   { id: 'electricity', name: 'كهرباء (Électricité)', icon: '⚡' },
@@ -112,49 +111,4 @@ export const SERVICE_CATEGORIES = [
   { id: 'welding_expert', name: 'لحام تحت الماء', icon: '🤿' },
   { id: 'shoemaker', name: 'إصلاح أحذية', icon: '👟' },
   { id: 'watch_repair', name: 'إصلاح ساعات', icon: '⌚' }
-];
-
-export const MOCK_WORKERS: Worker[] = [
-  {
-    id: '1',
-    firstName: 'أحمد',
-    lastName: 'عزي',
-    phone: '0550123456',
-    role: UserRole.WORKER,
-    category: 'plumbing',
-    location: { wilaya: 'الجزائر', daira: 'الحراش' },
-    bio: 'خبير في الترصيص الصحي بخبرة 10 سنوات.',
-    skills: ['تركيب سخانات', 'إصلاح تسربات'],
-    rating: 4.8,
-    completedJobs: 124,
-    avatar: 'https://picsum.photos/seed/worker1/200/200'
-  },
-  {
-    id: '2',
-    firstName: 'كريم',
-    lastName: 'بلقاسم',
-    phone: '0661223344',
-    role: UserRole.WORKER,
-    category: 'electricity',
-    location: { wilaya: 'وهران', daira: 'السانية' },
-    bio: 'كهربائي معماري وصناعي متمرس.',
-    skills: ['تركيب لوحات كهربائية', 'إصلاح أعطال'],
-    rating: 4.5,
-    completedJobs: 89,
-    avatar: 'https://picsum.photos/seed/worker2/200/200'
-  },
-  {
-    id: '3',
-    firstName: 'ياسين',
-    lastName: 'سعدي',
-    phone: '0770998877',
-    role: UserRole.WORKER,
-    category: 'painting',
-    location: { wilaya: 'سطيف', daira: 'العلمة' },
-    bio: 'مختص في الصباغة والديكور العصري.',
-    skills: ['صباغة زيتية', 'ورق جدران'],
-    rating: 4.9,
-    completedJobs: 56,
-    avatar: 'https://picsum.photos/seed/worker3/200/200'
-  }
 ];

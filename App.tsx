@@ -1,9 +1,9 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { UserRole, AppState, User, Worker, Advertisement } from './types';
-import { SERVICE_CATEGORIES, WILAYAS, DAIRAS } from './constants';
-import { getAIRecommendation } from './services/gemini';
-import { supabase } from './lib/supabase';
+import { UserRole, AppState, User, Worker, Advertisement } from './types.ts';
+import { SERVICE_CATEGORIES, WILAYAS, DAIRAS } from './constants.tsx';
+import { getAIRecommendation } from './services/gemini.ts';
+import { supabase } from './lib/supabase.ts';
 
 // --- Custom Styles ---
 const GlobalStyles = () => (
@@ -18,19 +18,6 @@ const GlobalStyles = () => (
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   `}</style>
 );
-
-// --- Ad Renderer Component ---
-const AdRenderer: React.FC<{ location: Advertisement['location'], ads: Advertisement[] }> = ({ location, ads }) => {
-  const activeAds = ads.filter(ad => ad.location === location && ad.is_active);
-  if (activeAds.length === 0) return null;
-  return (
-    <div className="flex flex-col gap-4 my-6">
-      {activeAds.map(ad => (
-        <div key={ad.id} className="w-full overflow-hidden rounded-3xl shadow-sm border border-emerald-100/50 bg-white" dangerouslySetInnerHTML={{ __html: ad.content || '' }} />
-      ))}
-    </div>
-  );
-};
 
 // --- Logo Component ---
 const Logo: React.FC<{ size?: 'sm' | 'lg' }> = ({ size = 'sm' }) => (
@@ -50,55 +37,9 @@ const Logo: React.FC<{ size?: 'sm' | 'lg' }> = ({ size = 'sm' }) => (
   </div>
 );
 
-// --- Navbar ---
-const Navbar: React.FC<{ onNavigate: (view: AppState['view']) => void, currentView: AppState['view'], user: User | null, onLogout: () => void }> = ({ onNavigate, currentView, user, onLogout }) => (
-  <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md shadow-sm border-b border-gray-100 hidden md:block">
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="flex justify-between items-center h-24">
-        <div onClick={() => onNavigate('landing')}><Logo /></div>
-        <div className="flex items-center gap-8">
-          <button onClick={() => onNavigate('landing')} className={`${currentView === 'landing' ? 'text-emerald-600 font-black' : 'text-gray-600'} hover:text-emerald-500 transition font-bold text-lg`}>الرئيسية</button>
-          <button onClick={() => onNavigate('search')} className={`${currentView === 'search' ? 'text-emerald-600 font-black' : 'text-gray-600'} hover:text-emerald-500 transition font-bold text-lg`}>تصفح الحرفيين</button>
-          {!user ? (
-            <div className="flex items-center gap-4">
-              <button onClick={() => onNavigate('login')} className="text-gray-600 hover:text-emerald-500 font-black text-lg">دخول</button>
-              <button onClick={() => onNavigate('register')} className="bg-emerald-600 text-white px-8 py-3.5 rounded-2xl font-black shadow-lg active:scale-95 transition-all">انضم إلينا</button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-4 bg-gray-50 p-2 pr-5 rounded-3xl border border-gray-100 cursor-pointer group" onClick={() => onNavigate('profile')}>
-              <div className="flex flex-col items-start">
-                <span className="text-base font-black text-gray-800">{user.firstName}</span>
-                <span className="text-[10px] text-emerald-600 font-black uppercase tracking-widest">{user.role === UserRole.ADMIN ? 'مدير المنصة' : 'حسابي'}</span>
-              </div>
-              <img src={user.avatar || `https://ui-avatars.com/api/?name=${user.firstName}`} className="w-12 h-12 rounded-2xl object-cover border-2 border-white shadow-md" />
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  </nav>
-);
+// --- Sub-components (Moved for clarity and better initialization order) ---
 
-const BottomNav: React.FC<{ onNavigate: (view: AppState['view']) => void, currentView: AppState['view'], user: User | null }> = ({ onNavigate, currentView, user }) => (
-  <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-100 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] md:hidden">
-    <div className="flex justify-around items-center h-20 pb-safe">
-      <button onClick={() => onNavigate('landing')} className={`flex flex-col items-center gap-1 ${currentView === 'landing' ? 'text-emerald-600' : 'text-gray-400'}`}>
-        <span className="text-2xl">🏠</span>
-        <span className="text-[11px] font-black">الرئيسية</span>
-      </button>
-      <button onClick={() => onNavigate('search')} className={`flex flex-col items-center gap-1 ${currentView === 'search' ? 'text-emerald-600' : 'text-gray-400'}`}>
-        <span className="text-2xl">🔍</span>
-        <span className="text-[11px] font-black">تصفح</span>
-      </button>
-      <button onClick={() => user ? onNavigate('profile') : onNavigate('register')} className={`flex flex-col items-center gap-1 ${currentView === 'profile' || currentView === 'register' ? 'text-emerald-600' : 'text-gray-400'}`}>
-        <span className="text-2xl">👤</span>
-        <span className="text-[11px] font-black">حسابي</span>
-      </button>
-    </div>
-  </div>
-);
-
-const LandingHero: React.FC<{ onStart: (v: any) => void }> = ({ onStart }) => (
+const LandingHero: React.FC<{ onStart: (v: AppState['view']) => void }> = ({ onStart }) => (
   <div className="relative min-h-[90vh] flex items-center justify-center text-white text-center p-6">
     <div className="absolute inset-0 bg-slate-900 bg-[url('https://images.unsplash.com/photo-1581094794329-c8112a89af12?q=80&w=2000')] bg-cover bg-center opacity-40"></div>
     <div className="absolute inset-0 bg-gradient-to-tr from-gray-900 via-emerald-950/70 to-teal-900/80"></div>
@@ -141,7 +82,7 @@ const SearchPage: React.FC<{ user: User | null, ads: Advertisement[] }> = ({ ads
   }, []);
 
   return (
-    <div className="max-w-7xl mx-auto px-6 py-20">
+    <div className="max-w-7xl mx-auto px-6 py-20 text-right">
       <h2 className="text-4xl font-black mb-12">الحرفيين الموثوقين 🇩🇿</h2>
       {loading ? (
         <div className="flex justify-center py-40"><div className="loading-spinner"></div></div>
@@ -149,20 +90,20 @@ const SearchPage: React.FC<{ user: User | null, ads: Advertisement[] }> = ({ ads
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
           {workers.map(w => (
             <div key={w.id} className="bg-white p-10 rounded-[3.5rem] shadow-xl border border-gray-100 group hover:-translate-y-2 transition-all">
-              <div className="flex gap-6 items-center mb-8">
+              <div className="flex gap-6 items-center mb-8 flex-row-reverse">
                 <img src={w.avatar || `https://ui-avatars.com/api/?name=${w.firstName}`} className="w-24 h-24 rounded-3xl object-cover shadow-lg" alt="" />
                 <div className="text-right">
                   <h3 className="text-2xl font-black">{w.firstName} {w.lastName}</h3>
                   <p className="text-emerald-600 font-bold">{w.category}</p>
                 </div>
               </div>
-              <div className="pt-8 border-t border-gray-50 flex justify-between items-center">
+              <div className="pt-8 border-t border-gray-50 flex justify-between items-center flex-row-reverse">
                 <span className="text-gray-400 font-bold">📍 {w.location.wilaya}</span>
                 <button className="bg-emerald-600 text-white px-8 py-3 rounded-2xl font-black text-sm hover:bg-emerald-700">تواصل</button>
               </div>
             </div>
           ))}
-          {workers.length === 0 && <p className="col-span-full text-center py-20 text-gray-400 font-bold">لا يوجد حرفيون موثقون حالياً.</p>}
+          {workers.length === 0 && <p className="col-span-full text-center py-20 text-gray-400 font-bold">لا يوجد حرفيون موثوقون حالياً.</p>}
         </div>
       )}
     </div>
@@ -226,15 +167,6 @@ const AuthForm: React.FC<{ type: 'login' | 'register', onSuccess: (user: User) =
   );
 };
 
-const ProfilePage: React.FC<any> = ({ user, onLogout }) => (
-  <div className="max-w-4xl mx-auto my-32 p-16 bg-white rounded-[5rem] shadow-2xl text-center">
-    <img src={user.avatar || `https://ui-avatars.com/api/?name=${user.firstName}&size=200`} className="w-48 h-48 rounded-[3.5rem] mx-auto mb-10 border-8 border-gray-50 shadow-xl object-cover" alt="" />
-    <h2 className="text-5xl font-black mb-4">{user.firstName} {user.lastName}</h2>
-    <p className="text-emerald-600 font-black text-2xl mb-12 uppercase tracking-widest">{user.role}</p>
-    <button onClick={onLogout} className="px-16 py-5 bg-red-50 text-red-500 rounded-[2rem] font-black text-xl hover:bg-red-500 hover:text-white transition-all shadow-lg">تسجيل الخروج 👋</button>
-  </div>
-);
-
 const AdminDashboard: React.FC<{ ads: Advertisement[], setAds: React.Dispatch<React.SetStateAction<Advertisement[]>>, onExit: () => void }> = ({ ads, setAds, onExit }) => {
   const [unverifiedUsers, setUnverifiedUsers] = useState<User[]>([]);
   const [activeTab, setActiveTab] = useState<'users' | 'ads'>('users');
@@ -276,7 +208,7 @@ const AdminDashboard: React.FC<{ ads: Advertisement[], setAds: React.Dispatch<Re
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white font-sans text-right">
+    <div className="min-h-screen bg-slate-950 text-white font-sans text-right" dir="rtl">
       <div className="max-w-7xl mx-auto px-6 py-12">
         <header className="flex flex-col md:flex-row justify-between items-center mb-16 gap-8 border-b border-white/10 pb-12">
           <div className="text-center md:text-right">
@@ -351,18 +283,66 @@ export default function App() {
     <div className="min-h-screen flex flex-col bg-gray-50 overflow-x-hidden" dir="rtl">
       <GlobalStyles />
       {state.view !== 'admin' && (
-        <Navbar onNavigate={handleNavigate} currentView={state.view} user={state.currentUser} onLogout={handleLogout} />
+        <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md shadow-sm border-b border-gray-100 hidden md:block">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center h-24">
+              <div onClick={() => handleNavigate('landing')}><Logo /></div>
+              <div className="flex items-center gap-8">
+                <button onClick={() => handleNavigate('landing')} className={`${state.view === 'landing' ? 'text-emerald-600 font-black' : 'text-gray-600'} hover:text-emerald-500 transition font-bold text-lg`}>الرئيسية</button>
+                <button onClick={() => handleNavigate('search')} className={`${state.view === 'search' ? 'text-emerald-600 font-black' : 'text-gray-600'} hover:text-emerald-500 transition font-bold text-lg`}>تصفح الحرفيين</button>
+                {!state.currentUser ? (
+                  <div className="flex items-center gap-4">
+                    <button onClick={() => handleNavigate('login')} className="text-gray-600 hover:text-emerald-500 font-black text-lg">دخول</button>
+                    <button onClick={() => handleNavigate('register')} className="bg-emerald-600 text-white px-8 py-3.5 rounded-2xl font-black shadow-lg active:scale-95 transition-all">انضم إلينا</button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-4 bg-gray-50 p-2 pr-5 rounded-3xl border border-gray-100 cursor-pointer group" onClick={() => handleNavigate('profile')}>
+                    <div className="flex flex-col items-start">
+                      <span className="text-base font-black text-gray-800">{state.currentUser.firstName}</span>
+                      <span className="text-[10px] text-emerald-600 font-black uppercase tracking-widest">{state.currentUser.role === UserRole.ADMIN ? 'مدير المنصة' : 'حسابي'}</span>
+                    </div>
+                    <img src={state.currentUser.avatar || `https://ui-avatars.com/api/?name=${state.currentUser.firstName}`} className="w-12 h-12 rounded-2xl object-cover border-2 border-white shadow-md" />
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </nav>
       )}
       
       <main className="flex-grow">
         {state.view === 'landing' && <LandingHero onStart={handleNavigate} />}
         {state.view === 'search' && <SearchPage user={state.currentUser} ads={ads} />}
-        {state.view === 'profile' && state.currentUser && <ProfilePage user={state.currentUser} onLogout={handleLogout} />}
+        {state.view === 'profile' && state.currentUser && (
+          <div className="max-w-4xl mx-auto my-32 p-16 bg-white rounded-[5rem] shadow-2xl text-center">
+            <img src={state.currentUser.avatar || `https://ui-avatars.com/api/?name=${state.currentUser.firstName}&size=200`} className="w-48 h-48 rounded-[3.5rem] mx-auto mb-10 border-8 border-gray-50 shadow-xl object-cover" alt="" />
+            <h2 className="text-5xl font-black mb-4">{state.currentUser.firstName} {state.currentUser.lastName}</h2>
+            <p className="text-emerald-600 font-black text-2xl mb-12 uppercase tracking-widest">{state.currentUser.role}</p>
+            <button onClick={handleLogout} className="px-16 py-5 bg-red-50 text-red-500 rounded-[2rem] font-black text-xl hover:bg-red-500 hover:text-white transition-all shadow-lg">تسجيل الخروج 👋</button>
+          </div>
+        )}
         {state.view === 'admin' && state.currentUser?.role === UserRole.ADMIN && <AdminDashboard ads={ads} setAds={setAds} onExit={() => handleNavigate('landing')} />}
         {(state.view === 'login' || state.view === 'register') && <AuthForm type={state.view} onSuccess={handleLoginSuccess} />}
       </main>
 
-      {state.view !== 'admin' && <BottomNav onNavigate={handleNavigate} currentView={state.view} user={state.currentUser} />}
+      {state.view !== 'admin' && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-100 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] md:hidden">
+          <div className="flex justify-around items-center h-20 pb-safe">
+            <button onClick={() => handleNavigate('landing')} className={`flex flex-col items-center gap-1 ${state.view === 'landing' ? 'text-emerald-600' : 'text-gray-400'}`}>
+              <span className="text-2xl">🏠</span>
+              <span className="text-[11px] font-black">الرئيسية</span>
+            </button>
+            <button onClick={() => handleNavigate('search')} className={`flex flex-col items-center gap-1 ${state.view === 'search' ? 'text-emerald-600' : 'text-gray-400'}`}>
+              <span className="text-2xl">🔍</span>
+              <span className="text-[11px] font-black">تصفح</span>
+            </button>
+            <button onClick={() => state.currentUser ? handleNavigate('profile') : handleNavigate('register')} className={`flex flex-col items-center gap-1 ${state.view === 'profile' || state.view === 'register' ? 'text-emerald-600' : 'text-gray-400'}`}>
+              <span className="text-2xl">👤</span>
+              <span className="text-[11px] font-black">حسابي</span>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
