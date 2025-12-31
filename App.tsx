@@ -1,13 +1,13 @@
 
 /* 
 SQL SCHEMA SETUP:
-Run this command in your Supabase SQL Editor to fix the runtime error:
+Run this command in your Supabase SQL Editor to ensure the database is ready:
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE;
 */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { UserRole, AppState, User, Message, Notification, Advertisement, SupportRequest } from './types.ts';
+import { UserRole, AppState, User, Message, Notification, Advertisement, SupportRequest, Worker } from './types.ts';
 import { SERVICE_CATEGORIES, WILAYAS, DAIRAS } from './constants.tsx';
 import { supabase } from './lib/supabase.ts';
 
@@ -28,8 +28,6 @@ const GlobalStyles = () => (
     .table-container { -webkit-overflow-scrolling: touch; }
     @media (max-width: 640px) {
       .hero-title { font-size: 2.25rem !important; line-height: 1.2 !important; }
-      .card-p { padding: 1.5rem !important; border-radius: 1.5rem !important; }
-      .section-p { padding: 1.5rem !important; border-radius: 2rem !important; }
     }
   `}</style>
 );
@@ -56,19 +54,13 @@ const RegistrationChoice: React.FC<{ onChoice: (role: UserRole) => void }> = ({ 
   <div className="max-w-4xl mx-auto my-12 md:my-20 px-4 animate-in fade-in zoom-in duration-500">
     <h2 className="text-3xl md:text-5xl font-black text-center mb-12 text-slate-900">كيف تريد الانضمام إلينا؟ ✨</h2>
     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-      <div 
-        onClick={() => onChoice(UserRole.WORKER)}
-        className="bg-white p-10 rounded-[3rem] shadow-2xl border-4 border-transparent hover:border-emerald-500 cursor-pointer transition-all group text-center"
-      >
+      <div onClick={() => onChoice(UserRole.WORKER)} className="bg-white p-10 rounded-[3rem] shadow-2xl border-4 border-transparent hover:border-emerald-500 cursor-pointer transition-all group text-center">
         <div className="text-7xl mb-6 group-hover:scale-110 transition-transform">🛠️</div>
         <h3 className="text-2xl font-black mb-4">أنا حرفي محترف</h3>
         <p className="text-slate-500 font-medium">أريد عرض خدماتي، بناء سمعتي، والوصول لمئات الزبائن في ولايتي.</p>
         <button className="mt-8 bg-emerald-600 text-white px-8 py-3 rounded-2xl font-black w-full shadow-lg group-hover:bg-emerald-500 transition-colors">سجل كحرفي</button>
       </div>
-      <div 
-        onClick={() => onChoice(UserRole.SEEKER)}
-        className="bg-white p-10 rounded-[3rem] shadow-2xl border-4 border-transparent hover:border-blue-500 cursor-pointer transition-all group text-center"
-      >
+      <div onClick={() => onChoice(UserRole.SEEKER)} className="bg-white p-10 rounded-[3rem] shadow-2xl border-4 border-transparent hover:border-blue-500 cursor-pointer transition-all group text-center">
         <div className="text-7xl mb-6 group-hover:scale-110 transition-transform">🔍</div>
         <h3 className="text-2xl font-black mb-4">أنا أبحث عن حرفي</h3>
         <p className="text-slate-500 font-medium">أبحث عن أفضل المهنيين الموثوقين في منطقتي لإنجاز أعمالي بكل سهولة.</p>
@@ -83,6 +75,8 @@ export default function App() {
   const [state, setState] = useState<AppState>(() => ({ currentUser: getInitialUser(), workers: [], view: 'landing' }));
   const [chatTarget, setChatTarget] = useState<User | null>(null);
   const [registerRole, setRegisterRole] = useState<UserRole | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [searchFilters, setSearchFilters] = useState({ query: '', wilaya: '', category: '' });
 
   const setView = (view: AppState['view']) => setState(prev => ({ ...prev, view }));
 
@@ -97,10 +91,50 @@ export default function App() {
     setState({ currentUser: null, workers: [], view: 'landing' });
   };
 
-  const isManagementView = state.view === 'admin' || state.view === 'admin-login';
+  const fetchWorkers = async () => {
+    setLoading(true);
+    try {
+      let query = supabase.from('users').select('*').eq('role', UserRole.WORKER);
+      
+      if (searchFilters.wilaya) query = query.eq('wilaya', searchFilters.wilaya);
+      if (searchFilters.category) query = query.eq('category', searchFilters.category);
+      if (searchFilters.query) query = query.or(`first_name.ilike.%${searchFilters.query}%,last_name.ilike.%${searchFilters.query}%,bio.ilike.%${searchFilters.query}%`);
+
+      const { data, error } = await query;
+      if (error) throw error;
+      
+      const mappedWorkers: Worker[] = (data || []).map(d => ({
+        id: d.id,
+        firstName: d.first_name,
+        lastName: d.last_name,
+        phone: d.phone,
+        role: UserRole.WORKER,
+        location: { wilaya: d.wilaya, daira: d.daira },
+        avatar: d.avatar,
+        bio: d.bio,
+        category: d.category,
+        isVerified: d.is_verified,
+        rating: d.rating || 0,
+        completedJobs: d.completed_jobs || 0,
+        skills: d.skills || []
+      }));
+      
+      setState(prev => ({ ...prev, workers: mappedWorkers }));
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (state.view === 'search') {
+      fetchWorkers();
+    }
+  }, [state.view, searchFilters]);
 
   return (
-    <div className={`min-h-screen flex flex-col arabic-text transition-colors duration-700 ${isManagementView ? 'bg-slate-950' : 'bg-gray-50'}`} dir="rtl">
+    <div className={`min-h-screen flex flex-col arabic-text transition-colors duration-700 bg-gray-50`} dir="rtl">
       <GlobalStyles />
       <nav className="h-24 flex items-center px-4 md:px-6 sticky top-0 z-50 backdrop-blur-xl border-b bg-white/90 border-gray-100 shadow-sm">
         <div className="max-w-7xl mx-auto w-full flex justify-between items-center">
@@ -165,21 +199,64 @@ export default function App() {
         
         {state.view === 'search' && (
           <div className="max-w-7xl mx-auto px-4 py-12 text-right">
-             <h2 className="text-3xl font-black mb-8 border-r-4 border-emerald-500 pr-4">ابحث عن الحرفي المثالي في ولايتك 🇩🇿</h2>
+             <div className="bg-white p-8 rounded-[3rem] shadow-xl border border-gray-100 mb-12 animate-in fade-in duration-500">
+               <h2 className="text-3xl font-black mb-6">ابحث في ولايتك 🇩🇿</h2>
+               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                 <input 
+                   placeholder="بحث بالاسم أو الكلمات الدلالية..." 
+                   className="p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 font-bold"
+                   value={searchFilters.query}
+                   onChange={e => setSearchFilters(f => ({ ...f, query: e.target.value }))}
+                 />
+                 <select 
+                   className="p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 font-bold"
+                   value={searchFilters.wilaya}
+                   onChange={e => setSearchFilters(f => ({ ...f, wilaya: e.target.value }))}
+                 >
+                   <option value="">كل الولايات</option>
+                   {WILAYAS.map(w => <option key={w} value={w}>{w}</option>)}
+                 </select>
+                 <select 
+                   className="p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 font-bold"
+                   value={searchFilters.category}
+                   onChange={e => setSearchFilters(f => ({ ...f, category: e.target.value }))}
+                 >
+                   <option value="">كل التخصصات</option>
+                   {SERVICE_CATEGORIES.map(c => <option key={c.id} value={c.name}>{c.icon} {c.name}</option>)}
+                 </select>
+               </div>
+             </div>
+
              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-               {[1,2,3,4,5,6].map(i => (
-                 <div key={i} className="bg-white p-8 rounded-[3rem] shadow-xl border border-gray-100 hover:shadow-2xl transition-all cursor-pointer group">
-                    <div className="flex gap-4 items-center mb-6 flex-row-reverse">
-                       <img src={`https://ui-avatars.com/api/?name=W${i}&background=random`} className="w-20 h-20 rounded-3xl shadow-lg group-hover:rotate-3 transition-transform" />
-                       <div className="text-right flex-1">
-                          <h3 className="font-black text-xl">حرفي متميز {i}</h3>
-                          <span className="text-emerald-600 text-sm font-bold bg-emerald-50 px-3 py-1 rounded-full">ترصيص صحي</span>
-                       </div>
-                    </div>
-                    <p className="text-gray-500 text-sm mb-6 leading-relaxed">خبرة سنوات في تقديم خدمات الترصيص والصيانة المنزلية بجودة عالية وأسعار مدروسة.</p>
-                    <button onClick={() => startChat({ id: i })} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black group-hover:bg-emerald-600 transition-colors shadow-lg">تواصل الآن</button>
+               {loading ? (
+                 <div className="col-span-full py-20 flex justify-center"><div className="loading-spinner"></div></div>
+               ) : state.workers.length > 0 ? (
+                 state.workers.map(w => (
+                   <div key={w.id} className="bg-white p-8 rounded-[3rem] shadow-xl border border-gray-100 hover:shadow-2xl transition-all group animate-in slide-in-from-bottom-5">
+                      <div className="flex gap-4 items-center mb-6 flex-row-reverse">
+                         <img src={w.avatar || `https://ui-avatars.com/api/?name=${w.firstName}&background=random`} className="w-20 h-20 rounded-3xl shadow-lg group-hover:rotate-3 transition-transform object-cover" />
+                         <div className="text-right flex-1">
+                            <h3 className="font-black text-xl">{w.firstName} {w.lastName}</h3>
+                            <div className="flex items-center gap-2 justify-end">
+                              <span className="text-emerald-600 text-sm font-bold bg-emerald-50 px-3 py-1 rounded-full">{w.category}</span>
+                              {w.isVerified && <span className="bg-blue-100 text-blue-600 text-[10px] px-2 py-0.5 rounded-full font-black">موثق ✓</span>}
+                            </div>
+                         </div>
+                      </div>
+                      <p className="text-gray-500 text-sm mb-6 leading-relaxed line-clamp-2 h-10">{w.bio || 'لا يوجد وصف مهني متاح.'}</p>
+                      <div className="flex justify-between items-center mb-6 flex-row-reverse">
+                        <span className="text-slate-400 text-xs font-bold">📍 {w.location.wilaya}</span>
+                        <div className="flex items-center gap-1 text-yellow-500 font-bold text-sm">⭐ 4.5</div>
+                      </div>
+                      <button onClick={() => startChat(w)} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black group-hover:bg-emerald-600 transition-colors shadow-lg">تواصل الآن</button>
+                   </div>
+                 ))
+               ) : (
+                 <div className="col-span-full py-20 text-center">
+                    <div className="text-6xl mb-4">🔍</div>
+                    <p className="text-gray-400 font-bold text-xl">لم نجد أي حرفيين يطابقون بحثك في الوقت الحالي.</p>
                  </div>
-               ))}
+               )}
             </div>
           </div>
         )}
@@ -195,7 +272,7 @@ export default function App() {
   );
 }
 
-// --- لوحة تسجيل الحرفي المعدلة ---
+// --- لوحة تسجيل الحرفي المتصلة بقاعدة البيانات ---
 const WorkerRegistrationForm: React.FC<{ onSuccess: (u: User) => void, onBack: () => void }> = ({ onSuccess, onBack }) => {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({ 
@@ -221,18 +298,15 @@ const WorkerRegistrationForm: React.FC<{ onSuccess: (u: User) => void, onBack: (
         bio: formData.bio
       };
 
-      // Try inserting with is_verified first, if it fails due to missing column, try without it
       let { data, error } = await supabase.from('users').insert([{ ...payload, is_verified: false }]).select();
 
       if (error && error.message.includes('is_verified')) {
-        console.warn("is_verified column missing. Retrying without it...");
         const retry = await supabase.from('users').insert([payload]).select();
         data = retry.data;
         error = retry.error;
       }
 
       if (error) {
-        console.error("خطأ Supabase:", error);
         if (error.code === '23505') alert("هذا الرقم مسجل بالفعل في قاعدة البيانات!");
         else alert(`حدث خطأ في قاعدة البيانات: ${error.message}`);
       } else {
@@ -250,7 +324,6 @@ const WorkerRegistrationForm: React.FC<{ onSuccess: (u: User) => void, onBack: (
         });
       }
     } catch (err) {
-      console.error("خطأ تقني:", err);
       alert("تعذر الاتصال بقاعدة البيانات. تأكد من إعدادات Supabase والاتصال بالإنترنت.");
     } finally {
       setLoading(false);
@@ -293,7 +366,7 @@ const WorkerRegistrationForm: React.FC<{ onSuccess: (u: User) => void, onBack: (
   );
 };
 
-// --- لوحة تسجيل الزبون المعدلة ---
+// --- لوحة تسجيل الزبون المتصلة بقاعدة البيانات ---
 const SeekerRegistrationForm: React.FC<{ onSuccess: (u: User) => void, onBack: () => void }> = ({ onSuccess, onBack }) => {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({ firstName: '', lastName: '', phone: '', password: '', wilaya: WILAYAS[0] });
@@ -314,14 +387,12 @@ const SeekerRegistrationForm: React.FC<{ onSuccess: (u: User) => void, onBack: (
       let { data, error } = await supabase.from('users').insert([{ ...payload, is_verified: true }]).select();
 
       if (error && error.message.includes('is_verified')) {
-        console.warn("is_verified column missing. Retrying without it...");
         const retry = await supabase.from('users').insert([payload]).select();
         data = retry.data;
         error = retry.error;
       }
 
       if (error) {
-        console.error("خطأ Supabase:", error);
         alert(`فشل التسجيل: ${error.message}`);
       } else {
         const u = data?.[0] || { ...payload, id: 'temp' };
@@ -336,7 +407,6 @@ const SeekerRegistrationForm: React.FC<{ onSuccess: (u: User) => void, onBack: (
         });
       }
     } catch (err) {
-      console.error(err);
       alert("حدث خطأ تقني غير متوقع.");
     } finally {
       setLoading(false);
@@ -367,7 +437,7 @@ const SeekerRegistrationForm: React.FC<{ onSuccess: (u: User) => void, onBack: (
   );
 };
 
-// --- نموذج الدخول المعدل ---
+// --- نموذج الدخول ---
 const AuthForm: React.FC<{ type: 'login', onSuccess: (u: User) => void }> = ({ onSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({ phone: '', password: '' });
