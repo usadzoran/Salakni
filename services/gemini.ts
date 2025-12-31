@@ -3,7 +3,7 @@ import { GoogleGenAI } from "@google/genai";
 
 export const getAIRecommendation = async (userNeed: string, workers: any[]) => {
   try {
-    const apiKey = process.env.API_KEY;
+    const apiKey = typeof process !== 'undefined' ? process.env.API_KEY : undefined;
     if (!apiKey) return "نظام الذكاء الاصطناعي غير متوفر حالياً.";
 
     const ai = new GoogleGenAI({ apiKey });
@@ -25,7 +25,7 @@ export const getAIRecommendation = async (userNeed: string, workers: any[]) => {
 
 export const generateBio = async (category: string, skills: string[]) => {
   try {
-    const apiKey = process.env.API_KEY;
+    const apiKey = typeof process !== 'undefined' ? process.env.API_KEY : undefined;
     if (!apiKey) return "";
 
     const ai = new GoogleGenAI({ apiKey });

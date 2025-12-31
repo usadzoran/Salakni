@@ -1,9 +1,9 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { UserRole, AppState, User, Worker, Advertisement } from './types';
-import { SERVICE_CATEGORIES, WILAYAS, DAIRAS } from './constants';
-import { getAIRecommendation } from './services/gemini';
-import { supabase } from './lib/supabase';
+import { UserRole, AppState, User, Worker, Advertisement } from './types.ts';
+import { SERVICE_CATEGORIES, WILAYAS, DAIRAS } from './constants.tsx';
+import { getAIRecommendation } from './services/gemini.ts';
+import { supabase } from './lib/supabase.ts';
 
 // --- Custom Styles ---
 const GlobalStyles = () => (
@@ -27,7 +27,7 @@ const AdRenderer: React.FC<{ location: Advertisement['location'], ads: Advertise
   return (
     <div className="flex flex-col gap-4 my-6">
       {activeAds.map(ad => (
-        <div key={ad.id} className="w-full overflow-hidden rounded-3xl shadow-sm border border-emerald-100/50 bg-white" dangerouslySetInnerHTML={{ __html: ad.content }} />
+        <div key={ad.id} className="w-full overflow-hidden rounded-3xl shadow-sm border border-emerald-100/50 bg-white" dangerouslySetInnerHTML={{ __html: ad.content || '' }} />
       ))}
     </div>
   );
@@ -42,8 +42,8 @@ const Logo: React.FC<{ size?: 'sm' | 'lg' }> = ({ size = 'sm' }) => (
       </div>
       <div className={`absolute inset-0 flex items-center justify-center text-white font-black ${size === 'lg' ? 'text-5xl' : 'text-2xl'} z-10 group-hover:scale-110 transition-transform`}>S</div>
     </div>
-    <div className="flex flex-col items-start leading-none gap-0.5">
-      <div className="flex items-baseline gap-1.5">
+    <div className="flex flex-col items-start leading-none gap-0.5 text-right">
+      <div className="flex items-baseline gap-1.5 flex-row-reverse">
         <span className={`${size === 'lg' ? 'text-6xl md:text-8xl' : 'text-3xl'} font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-emerald-950 via-emerald-800 to-teal-700`}>Salakni</span>
         <span className={`${size === 'lg' ? 'text-4xl' : 'text-xl'} arabic-text font-black text-yellow-500`}>سلكني</span>
       </div>
@@ -55,15 +55,15 @@ const Logo: React.FC<{ size?: 'sm' | 'lg' }> = ({ size = 'sm' }) => (
 const Navbar: React.FC<{ onNavigate: (view: AppState['view']) => void, currentView: AppState['view'], user: User | null, onLogout: () => void }> = ({ onNavigate, currentView, user, onLogout }) => (
   <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md shadow-sm border-b border-gray-100 hidden md:block">
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="flex justify-between items-center h-24">
+      <div className="flex justify-between items-center h-24 flex-row-reverse">
         <div onClick={() => onNavigate('landing')}><Logo /></div>
-        <div className="flex space-x-reverse space-x-10 items-center">
+        <div className="flex space-x-reverse space-x-10 items-center flex-row-reverse">
           <button onClick={() => onNavigate('landing')} className={`${currentView === 'landing' ? 'text-emerald-600 font-black' : 'text-gray-600'} hover:text-emerald-500 transition font-bold text-lg`}>الرئيسية</button>
           <button onClick={() => onNavigate('search')} className={`${currentView === 'search' ? 'text-emerald-600 font-black' : 'text-gray-600'} hover:text-emerald-500 transition font-bold text-lg`}>تصفح الحرفيين</button>
           {!user ? (
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 flex-row-reverse">
               <button onClick={() => onNavigate('login')} className="text-gray-600 hover:text-emerald-500 font-black text-lg">دخول</button>
-              <button onClick={() => onNavigate('register')} className="bg-emerald-600 text-white px-8 py-3.5 rounded-2xl font-black shadow-lg shadow-emerald-100 active:scale-95 transition-all">انضم إلينا</button>
+              <button onClick={() => onNavigate('register')} className="bg-emerald-600 text-white px-8 py-3.5 rounded-2xl font-black shadow-lg active:scale-95 transition-all">انضم إلينا</button>
             </div>
           ) : (
             <div className="flex items-center gap-4 bg-gray-50 p-2 pr-5 rounded-3xl border border-gray-100 cursor-pointer group" onClick={() => onNavigate('profile')}>
@@ -82,7 +82,7 @@ const Navbar: React.FC<{ onNavigate: (view: AppState['view']) => void, currentVi
 
 const BottomNav: React.FC<{ onNavigate: (view: AppState['view']) => void, currentView: AppState['view'], user: User | null }> = ({ onNavigate, currentView, user }) => (
   <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-100 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] md:hidden">
-    <div className="flex justify-around items-center h-20 pb-safe">
+    <div className="flex justify-around items-center h-20 pb-safe flex-row-reverse">
       <button onClick={() => onNavigate('landing')} className={`flex flex-col items-center gap-1 ${currentView === 'landing' ? 'text-emerald-600' : 'text-gray-400'}`}>
         <span className="text-2xl">🏠</span>
         <span className="text-[11px] font-black">الرئيسية</span>
@@ -99,7 +99,145 @@ const BottomNav: React.FC<{ onNavigate: (view: AppState['view']) => void, curren
   </div>
 );
 
-// --- Admin Dashboard Component ---
+// --- Sub-components for Views ---
+
+const LandingHero: React.FC<{ onStart: (v: any) => void }> = ({ onStart }) => (
+  <div className="relative min-h-[90vh] flex items-center justify-center text-white text-center p-6">
+    <div className="absolute inset-0 bg-slate-900 bg-[url('https://images.unsplash.com/photo-1581094794329-c8112a89af12?q=80&w=2000')] bg-cover bg-center opacity-40"></div>
+    <div className="absolute inset-0 bg-gradient-to-tr from-gray-900 via-emerald-950/70 to-teal-900/80"></div>
+    <div className="relative z-10 max-w-5xl">
+      <Logo size="lg" />
+      <h1 className="text-5xl md:text-8xl font-black mt-16 mb-8 tracking-tighter">ريح بالك، <span className="text-emerald-400">سَلّكني</span> يسلكها</h1>
+      <p className="text-xl md:text-3xl text-slate-300 mb-16 font-medium">المنصة الجزائرية رقم #1 لربط الحرفيين المهرة بالزبائن بكل ثقة وأمان.</p>
+      <div className="flex flex-col sm:flex-row gap-8 justify-center">
+        <button onClick={() => onStart('search')} className="bg-emerald-600 px-16 py-6 rounded-[2.5rem] font-black text-2xl hover:bg-emerald-500 transition-all shadow-2xl active:scale-95">اطلب خدمة الآن 🔍</button>
+        <button onClick={() => onStart('register')} className="bg-white/10 backdrop-blur-md px-16 py-6 rounded-[2.5rem] font-black text-2xl border border-white/20 hover:bg-white/20 transition-all active:scale-95">سجل كحرفي 🛠️</button>
+      </div>
+    </div>
+  </div>
+);
+
+const SearchPage: React.FC<{ user: User | null, ads: Advertisement[] }> = ({ ads }) => {
+  const [workers, setWorkers] = useState<Worker[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchWorkers = async () => {
+      try {
+        const { data, error } = await supabase.from('users').select('*').eq('role', 'WORKER').eq('is_verified', true);
+        if (!error && data) {
+          setWorkers(data.map(w => ({
+            ...w,
+            firstName: w.first_name || '',
+            lastName: w.last_name || '',
+            location: { wilaya: w.wilaya || 'غير محدد', daira: w.daira || '' },
+            category: w.category || 'عام'
+          })) as Worker[]);
+        }
+      } catch (e) {
+        console.error("Worker Fetch Fail", e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchWorkers();
+  }, []);
+
+  return (
+    <div className="max-w-7xl mx-auto px-6 py-20 text-right">
+      <h2 className="text-4xl font-black mb-12">الحرفيين الموثوقين 🇩🇿</h2>
+      {loading ? (
+        <div className="flex justify-center py-40"><div className="loading-spinner"></div></div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+          {workers.map(w => (
+            <div key={w.id} className="bg-white p-10 rounded-[3.5rem] shadow-xl border border-gray-100 group hover:-translate-y-2 transition-all">
+              <div className="flex gap-6 items-center mb-8 flex-row-reverse">
+                <img src={w.avatar || `https://ui-avatars.com/api/?name=${w.firstName}`} className="w-24 h-24 rounded-3xl object-cover shadow-lg" alt="" />
+                <div className="text-right">
+                  <h3 className="text-2xl font-black">{w.firstName} {w.lastName}</h3>
+                  <p className="text-emerald-600 font-bold">{w.category}</p>
+                </div>
+              </div>
+              <div className="pt-8 border-t border-gray-50 flex justify-between items-center flex-row-reverse">
+                <span className="text-gray-400 font-bold">📍 {w.location.wilaya}</span>
+                <button className="bg-emerald-600 text-white px-8 py-3 rounded-2xl font-black text-sm hover:bg-emerald-700">تواصل</button>
+              </div>
+            </div>
+          ))}
+          {workers.length === 0 && <p className="col-span-full text-center py-20 text-gray-400 font-bold">لا يوجد حرفيون موثقون حالياً.</p>}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const AuthForm: React.FC<{ type: 'login' | 'register', onSuccess: (user: User) => void }> = ({ type, onSuccess }) => {
+  const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    if (phone === '0777117663' && password === 'vampirewahab31') {
+      onSuccess({
+        id: 'admin-wahab',
+        firstName: 'عبد الوهاب',
+        lastName: 'المدير',
+        phone,
+        role: UserRole.ADMIN,
+        location: { wilaya: 'الجزائر', daira: 'الجزائر' },
+        isVerified: true
+      });
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.from('users').select('*').eq('phone', phone).eq('password', password).single();
+      if (error || !data) throw new Error("بيانات غير صحيحة");
+      onSuccess({
+        id: data.id,
+        firstName: data.first_name,
+        lastName: data.last_name,
+        phone: data.phone,
+        role: data.role as UserRole,
+        location: { wilaya: data.wilaya, daira: data.daira },
+        isVerified: data.is_verified
+      });
+    } catch (err) {
+      alert("خطأ في تسجيل الدخول. يرجى التأكد من البيانات.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="max-w-xl mx-auto my-32 p-14 bg-white rounded-[4rem] shadow-2xl text-center border border-gray-100">
+      <Logo />
+      <h2 className="text-3xl font-black my-10">{type === 'login' ? 'مرحباً بعودتك' : 'انضم إلينا'}</h2>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <input type="tel" required value={phone} onChange={e => setPhone(e.target.value)} placeholder="رقم الهاتف" className="w-full p-6 bg-gray-50 border-2 border-gray-100 rounded-3xl outline-none focus:border-emerald-500 font-bold text-right" />
+        <input type="password" required value={password} onChange={e => setPassword(e.target.value)} placeholder="كلمة المرور" className="w-full p-6 bg-gray-50 border-2 border-gray-100 rounded-3xl outline-none focus:border-emerald-500 font-bold text-right" />
+        <button type="submit" disabled={loading} className="w-full py-6 bg-emerald-600 text-white rounded-3xl font-black text-xl shadow-xl hover:bg-emerald-700 transition-all">
+          {loading ? 'جاري التحقق...' : 'دخول'}
+        </button>
+      </form>
+    </div>
+  );
+};
+
+const ProfilePage: React.FC<any> = ({ user, onLogout }) => (
+  <div className="max-w-4xl mx-auto my-32 p-16 bg-white rounded-[5rem] shadow-2xl text-center">
+    <img src={user.avatar || `https://ui-avatars.com/api/?name=${user.firstName}&size=200`} className="w-48 h-48 rounded-[3.5rem] mx-auto mb-10 border-8 border-gray-50 shadow-xl object-cover" alt="" />
+    <h2 className="text-5xl font-black mb-4">{user.firstName} {user.lastName}</h2>
+    <p className="text-emerald-600 font-black text-2xl mb-12 uppercase tracking-widest">{user.role}</p>
+    <button onClick={onLogout} className="px-16 py-5 bg-red-50 text-red-500 rounded-[2rem] font-black text-xl hover:bg-red-500 hover:text-white transition-all shadow-lg">تسجيل الخروج 👋</button>
+  </div>
+);
+
 const AdminDashboard: React.FC<{ ads: Advertisement[], setAds: React.Dispatch<React.SetStateAction<Advertisement[]>>, onExit: () => void }> = ({ ads, setAds, onExit }) => {
   const [unverifiedUsers, setUnverifiedUsers] = useState<User[]>([]);
   const [activeTab, setActiveTab] = useState<'users' | 'ads'>('users');
@@ -141,13 +279,13 @@ const AdminDashboard: React.FC<{ ads: Advertisement[], setAds: React.Dispatch<Re
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white font-sans">
+    <div className="min-h-screen bg-slate-950 text-white font-sans text-right">
       <div className="max-w-7xl mx-auto px-6 py-12">
-        <header className="flex flex-col md:flex-row justify-between items-center mb-16 gap-8 border-b border-white/10 pb-12">
+        <header className="flex flex-col md:flex-row justify-between items-center mb-16 gap-8 border-b border-white/10 pb-12 flex-row-reverse">
           <div className="text-center md:text-right">
             <h1 className="text-5xl font-black mb-4">لوحة التحكم <span className="text-emerald-400">السرية</span> 🤫</h1>
           </div>
-          <div className="flex bg-slate-900 p-2 rounded-3xl border border-white/5 shadow-2xl">
+          <div className="flex bg-slate-900 p-2 rounded-3xl border border-white/5 shadow-2xl flex-row-reverse">
             <button onClick={() => setActiveTab('users')} className={`px-10 py-4 rounded-2xl font-black transition-all ${activeTab === 'users' ? 'bg-emerald-600 shadow-xl' : 'text-slate-400 hover:text-white'}`}>طلبات التوثيق</button>
             <button onClick={() => setActiveTab('ads')} className={`px-10 py-4 rounded-2xl font-black transition-all ${activeTab === 'ads' ? 'bg-emerald-600 shadow-xl' : 'text-slate-400 hover:text-white'}`}>إدارة الإعلانات</button>
             <button onClick={onExit} className="px-6 py-4 text-red-400 hover:text-white transition-all">خروج ✕</button>
@@ -178,13 +316,13 @@ const AdminDashboard: React.FC<{ ads: Advertisement[], setAds: React.Dispatch<Re
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-16">
             <div className="lg:col-span-1 bg-slate-900 p-10 rounded-[3.5rem] border border-white/10">
               <h2 className="text-2xl font-black mb-10">إضافة إعلان 🏷️</h2>
-              <textarea rows={8} value={newAd.content} onChange={e => setNewAd({...newAd, content: e.target.value})} className="w-full p-6 bg-black/50 border border-white/10 rounded-3xl mb-8 outline-none text-emerald-400 font-mono" placeholder="<div...>...</div>" />
+              <textarea rows={8} value={newAd.content} onChange={e => setNewAd({...newAd, content: e.target.value})} className="w-full p-6 bg-black/50 border border-white/10 rounded-3xl mb-8 outline-none text-emerald-400 font-mono text-left" dir="ltr" placeholder="<div...>...</div>" />
               <button onClick={() => { if(newAd.content) { setAds([...ads, {id: Date.now().toString(), ...newAd, is_active: true}]); setNewAd({...newAd, content: ''}); } }} className="w-full bg-emerald-600 py-6 rounded-3xl font-black">نشر الإعلان</button>
             </div>
             <div className="lg:col-span-2 space-y-6">
               {ads.map(ad => (
-                <div key={ad.id} className="bg-slate-900/50 p-6 rounded-3xl border border-white/5 flex justify-between items-center">
-                  <code className="text-slate-400 text-xs truncate max-w-lg">{ad.content}</code>
+                <div key={ad.id} className="bg-slate-900/50 p-6 rounded-3xl border border-white/5 flex justify-between items-center flex-row-reverse">
+                  <code className="text-slate-400 text-xs truncate max-w-lg" dir="ltr">{ad.content}</code>
                   <button onClick={() => setAds(ads.filter(a => a.id !== ad.id))} className="text-red-500 p-2">✕</button>
                 </div>
               ))}
@@ -196,7 +334,7 @@ const AdminDashboard: React.FC<{ ads: Advertisement[], setAds: React.Dispatch<Re
   );
 };
 
-// --- Main App ---
+// --- Main App Component ---
 export default function App() {
   const [state, setState] = useState<AppState>({ currentUser: null, workers: [], view: 'landing' });
   const [ads, setAds] = useState<Advertisement[]>([]);
@@ -231,134 +369,3 @@ export default function App() {
     </div>
   );
 }
-
-// --- Logic Components ---
-
-const LandingHero: React.FC<{ onStart: (v: any) => void }> = ({ onStart }) => (
-  <div className="relative min-h-[90vh] flex items-center justify-center text-white text-center p-6">
-    <div className="absolute inset-0 bg-slate-900 bg-[url('https://images.unsplash.com/photo-1581094794329-c8112a89af12?q=80&w=2000')] bg-cover bg-center opacity-40"></div>
-    <div className="absolute inset-0 bg-gradient-to-tr from-gray-900 via-emerald-950/70 to-teal-900/80"></div>
-    <div className="relative z-10 max-w-5xl">
-      <Logo size="lg" />
-      <h1 className="text-6xl md:text-8xl font-black mt-16 mb-8 tracking-tighter">ريح بالك، <span className="text-emerald-400">سَلّكني</span> يسلكها</h1>
-      <p className="text-xl md:text-3xl text-slate-300 mb-16 font-medium">المنصة الجزائرية رقم #1 لربط الحرفيين المهرة بالزبائن بكل ثقة وأمان.</p>
-      <div className="flex flex-col sm:flex-row gap-8 justify-center">
-        <button onClick={() => onStart('search')} className="bg-emerald-600 px-16 py-6 rounded-[2.5rem] font-black text-2xl hover:bg-emerald-500 transition-all shadow-2xl active:scale-95">اطلب خدمة الآن 🔍</button>
-        <button onClick={() => onStart('register')} className="bg-white/10 backdrop-blur-md px-16 py-6 rounded-[2.5rem] font-black text-2xl border border-white/20 hover:bg-white/20 transition-all active:scale-95">سجل كحرفي 🛠️</button>
-      </div>
-    </div>
-  </div>
-);
-
-const SearchPage: React.FC<{ user: User | null, ads: Advertisement[] }> = ({ ads }) => {
-  const [workers, setWorkers] = useState<Worker[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    supabase.from('users').select('*').eq('role', 'WORKER').eq('is_verified', true).then(({ data, error }) => {
-      if (!error && data) {
-        setWorkers(data.map(w => ({
-          ...w,
-          firstName: w.first_name || '',
-          lastName: w.last_name || '',
-          location: { wilaya: w.wilaya || 'غير محدد', daira: w.daira || '' },
-          category: w.category || 'عام'
-        })) as Worker[]);
-      }
-      setLoading(false);
-    });
-  }, []);
-
-  return (
-    <div className="max-w-7xl mx-auto px-6 py-20">
-      <h2 className="text-4xl font-black mb-12">الحرفيين الموثوقين 🇩🇿</h2>
-      {loading ? (
-        <div className="flex justify-center py-40"><div className="loading-spinner"></div></div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-          {workers.map(w => (
-            <div key={w.id} className="bg-white p-10 rounded-[3.5rem] shadow-xl border border-gray-100 group hover:-translate-y-2 transition-all">
-              <div className="flex gap-6 items-center mb-8">
-                <img src={w.avatar || `https://ui-avatars.com/api/?name=${w.firstName}`} className="w-24 h-24 rounded-3xl object-cover shadow-lg" alt="" />
-                <div>
-                  <h3 className="text-2xl font-black">{w.firstName} {w.lastName}</h3>
-                  <p className="text-emerald-600 font-bold">{w.category}</p>
-                </div>
-              </div>
-              <div className="pt-8 border-t border-gray-50 flex justify-between items-center">
-                <span className="text-gray-400 font-bold">📍 {w.location.wilaya}</span>
-                <button className="bg-emerald-600 text-white px-8 py-3 rounded-2xl font-black text-sm hover:bg-emerald-700">تواصل</button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
-
-const AuthForm: React.FC<{ type: 'login' | 'register', onSuccess: (user: User) => void }> = ({ type, onSuccess }) => {
-  const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-
-    if (phone === '0777117663' && password === 'vampirewahab31') {
-      onSuccess({
-        id: 'admin',
-        firstName: 'عبد الوهاب',
-        lastName: 'المدير',
-        phone,
-        role: UserRole.ADMIN,
-        location: { wilaya: 'الجزائر', daira: 'الجزائر' },
-        isVerified: true
-      });
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const { data, error } = await supabase.from('users').select('*').eq('phone', phone).eq('password', password).single();
-      if (error || !data) throw new Error("بيانات غير صحيحة");
-      onSuccess({
-        id: data.id,
-        firstName: data.first_name,
-        lastName: data.last_name,
-        phone: data.phone,
-        role: data.role as UserRole,
-        location: { wilaya: data.wilaya, daira: data.daira },
-        isVerified: data.is_verified
-      });
-    } catch (err) {
-      alert("خطأ في تسجيل الدخول");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="max-w-xl mx-auto my-32 p-14 bg-white rounded-[4rem] shadow-2xl text-center border border-gray-100">
-      <Logo />
-      <h2 className="text-3xl font-black my-10">{type === 'login' ? 'مرحباً بعودتك' : 'انضم إلينا'}</h2>
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <input type="tel" required value={phone} onChange={e => setPhone(e.target.value)} placeholder="رقم الهاتف" className="w-full p-6 bg-gray-50 border-2 border-gray-100 rounded-3xl outline-none focus:border-emerald-500 font-bold" />
-        <input type="password" required value={password} onChange={e => setPassword(e.target.value)} placeholder="كلمة المرور" className="w-full p-6 bg-gray-50 border-2 border-gray-100 rounded-3xl outline-none focus:border-emerald-500 font-bold" />
-        <button type="submit" disabled={loading} className="w-full py-6 bg-emerald-600 text-white rounded-3xl font-black text-xl shadow-xl hover:bg-emerald-700 transition-all">
-          {loading ? 'جاري التحقق...' : 'دخول'}
-        </button>
-      </form>
-    </div>
-  );
-};
-
-const ProfilePage: React.FC<any> = ({ user, onLogout }) => (
-  <div className="max-w-4xl mx-auto my-32 p-16 bg-white rounded-[5rem] shadow-2xl text-center">
-    <img src={`https://ui-avatars.com/api/?name=${user.firstName}&size=200`} className="w-48 h-48 rounded-[3.5rem] mx-auto mb-10 border-8 border-gray-50 shadow-xl" alt="" />
-    <h2 className="text-5xl font-black mb-4">{user.firstName} {user.lastName}</h2>
-    <p className="text-emerald-600 font-black text-2xl mb-12 uppercase tracking-widest">{user.role}</p>
-    <button onClick={onLogout} className="px-16 py-5 bg-red-50 text-red-500 rounded-[2rem] font-black text-xl hover:bg-red-500 hover:text-white transition-all shadow-lg">تسجيل الخروج 👋</button>
-  </div>
-);
