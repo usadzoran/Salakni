@@ -66,7 +66,7 @@ const LandingHero: React.FC<{ onStart: (v: AppState['view']) => void }> = ({ onS
       <p className="text-lg md:text-3xl text-slate-300 mb-10 md:mb-16 font-medium max-w-3xl mx-auto leading-relaxed px-4">المنصة الجزائرية رقم #1 لربط الحرفيين المهرة بالزبائن بكل ثقة وأمان. خدمتك في جيبك بضغطة زر.</p>
       <div className="flex flex-col sm:flex-row gap-4 md:gap-8 justify-center items-center px-4 w-full">
         <button onClick={() => onStart('search')} className="w-full sm:w-auto bg-emerald-600 px-8 md:px-16 py-4 md:py-6 rounded-2xl md:rounded-[2.5rem] font-black text-lg md:text-2xl hover:bg-emerald-500 transition-all shadow-xl active:scale-95 group">
-          اطلب خدمة الآن 🔍
+          ابحث عن حرفي 🔍
         </button>
         <button onClick={() => onStart('register')} className="w-full sm:w-auto bg-white/10 backdrop-blur-md px-8 md:px-16 py-4 md:py-6 rounded-2xl md:rounded-[2.5rem] font-black text-lg md:text-2xl border border-white/20 hover:bg-white/20 transition-all active:scale-95">
           سجل كحرفي 🛠️
@@ -267,8 +267,8 @@ const AuthForm: React.FC<{ type: 'login' | 'register' | 'admin', onSuccess: (use
                 <input required type="text" placeholder="اللقب" className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl text-gray-900 outline-none focus:border-emerald-500" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} />
               </div>
               <div className="flex bg-gray-100 p-1.5 rounded-2xl gap-2">
-                <button type="button" onClick={() => setFormData({...formData, role: UserRole.SEEKER})} className={`flex-1 py-3 rounded-xl font-black text-sm md:text-base transition-all ${formData.role === UserRole.SEEKER ? 'bg-white shadow-sm text-emerald-600' : 'text-gray-500'}`}>أبحث عن حرفي</button>
-                <button type="button" onClick={() => setFormData({...formData, role: UserRole.WORKER})} className={`flex-1 py-3 rounded-xl font-black text-sm md:text-base transition-all ${formData.role === UserRole.WORKER ? 'bg-white shadow-sm text-emerald-600' : 'text-gray-500'}`}>أنا حرفي</button>
+                <button type="button" onClick={() => setFormData({...formData, role: UserRole.SEEKER})} className={`flex-1 py-3 rounded-xl font-black text-sm md:text-base transition-all ${formData.role === UserRole.SEEKER ? 'bg-white shadow-sm text-emerald-600' : 'text-gray-500'}`}>ابحث عن حرفي</button>
+                <button type="button" onClick={() => setFormData({...formData, role: UserRole.WORKER})} className={`flex-1 py-3 rounded-xl font-black text-sm md:text-base transition-all ${formData.role === UserRole.WORKER ? 'bg-white shadow-sm text-emerald-600' : 'text-gray-500'}`}>أنا حرفي (سجل عملك)</button>
               </div>
             </>
           )}
@@ -480,7 +480,7 @@ const AdminDashboard: React.FC<{ onExit: () => void }> = ({ onExit }) => {
         )}
       </div>
 
-      {/* مودال إضافة حرفي جديد */}
+      {/* مودال إضافة حرفي جديد يدوياً */}
       {showAddModal && (
         <div className="fixed inset-0 z-[110] bg-black/95 flex items-center justify-center p-4 backdrop-blur-md">
           <div className="bg-slate-900 w-full max-w-xl rounded-[3rem] p-8 md:p-10 border border-white/10 text-right shadow-2xl overflow-y-auto max-h-[90vh] custom-scrollbar">
