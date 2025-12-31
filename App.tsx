@@ -27,7 +27,7 @@ const GlobalStyles = () => (
   `}</style>
 );
 
-const REQ_IMAGE = "https://images.unsplash.com/photo-1581244277943-fe4a9c777189?q=80&w=2000";
+const REQ_IMAGE = "https://images.unsplash.com/photo-1621905252507-b354bcadcabc?q=80&w=2000";
 
 const Logo: React.FC<{ size?: 'sm' | 'lg', onClick?: () => void, inverse?: boolean }> = ({ size = 'sm', onClick, inverse }) => (
   <div onClick={onClick} className={`flex items-center gap-2 md:gap-3 group cursor-pointer transition-all ${size === 'lg' ? 'scale-100 md:scale-110' : ''}`}>
@@ -95,7 +95,7 @@ export default function App() {
   return (
     <div className={`min-h-screen flex flex-col arabic-text transition-colors duration-700 ${isManagementView ? 'bg-slate-950' : 'bg-gray-50'}`} dir="rtl">
       <GlobalStyles />
-      <nav className="h-20 md:h-24 flex items-center px-4 md:px-6 sticky top-0 z-50 backdrop-blur-xl border-b bg-white/90 border-gray-100 shadow-sm">
+      <nav className="h-24 flex items-center px-4 md:px-6 sticky top-0 z-50 backdrop-blur-xl border-b bg-white/90 border-gray-100 shadow-sm">
         <div className="max-w-7xl mx-auto w-full flex justify-between items-center">
           <Logo onClick={() => setView('landing')} />
           <div className="flex items-center gap-4">
@@ -183,17 +183,12 @@ export default function App() {
       <footer className="bg-slate-900 text-white py-12 text-center mt-auto border-t border-white/5">
         <Logo size="sm" inverse />
         <p className="mt-4 text-slate-500 font-bold">سلكني - منصتكم الموثوقة للحرف والمهن في الجزائر 🇩🇿</p>
-        <div className="mt-8 flex justify-center gap-6 text-slate-600 font-bold text-sm">
-           <a href="#" className="hover:text-emerald-400 transition-colors">سياسة الخصوصية</a>
-           <a href="#" className="hover:text-emerald-400 transition-colors">شروط الاستخدام</a>
-           <a href="#" className="hover:text-emerald-400 transition-colors">اتصل بنا</a>
-        </div>
       </footer>
     </div>
   );
 }
 
-// --- لوحة تسجيل الحرفي المتصلة بقاعدة البيانات ---
+// --- لوحة تسجيل الحرفي المعدلة ---
 const WorkerRegistrationForm: React.FC<{ onSuccess: (u: User) => void, onBack: () => void }> = ({ onSuccess, onBack }) => {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({ 
@@ -207,38 +202,51 @@ const WorkerRegistrationForm: React.FC<{ onSuccess: (u: User) => void, onBack: (
     
     setLoading(true);
     try {
+      console.log("إرسال بيانات التسجيل...", formData);
       const { data, error } = await supabase.from('users').insert([{
         first_name: formData.firstName,
         last_name: formData.lastName,
         phone: formData.phone,
-        password: formData.password, // في تطبيق حقيقي يجب تشفيرها
+        password: formData.password,
         role: UserRole.WORKER,
         wilaya: formData.wilaya,
         daira: formData.daira,
         category: formData.category,
         bio: formData.bio,
         is_verified: false
-      }]).select().single();
+      }]).select();
 
       if (error) {
-        if (error.code === '23505') alert("رقم الهاتف مسجل مسبقاً!");
-        else throw error;
-      } else if (data) {
-        onSuccess({ 
-          id: data.id, 
-          firstName: data.first_name, 
-          lastName: data.last_name, 
-          phone: data.phone,
+        console.error("خطأ Supabase:", error);
+        if (error.code === '23505') alert("هذا الرقم مسجل بالفعل في قاعدة البيانات!");
+        else alert(`حدث خطأ في قاعدة البيانات: ${error.message}`);
+      } else {
+        const newUser = data?.[0] || { 
+          id: 'temp-' + Date.now(), 
+          first_name: formData.firstName, 
+          last_name: formData.lastName,
+          phone: formData.phone,
           role: UserRole.WORKER,
-          location: { wilaya: data.wilaya, daira: data.daira },
-          category: data.category,
-          bio: data.bio,
-          isVerified: data.is_verified
+          wilaya: formData.wilaya,
+          daira: formData.daira,
+          category: formData.category,
+          is_verified: false 
+        };
+        onSuccess({ 
+          id: newUser.id, 
+          firstName: newUser.first_name, 
+          lastName: newUser.last_name, 
+          phone: newUser.phone,
+          role: UserRole.WORKER,
+          location: { wilaya: newUser.wilaya, daira: newUser.daira },
+          category: newUser.category,
+          bio: newUser.bio,
+          isVerified: newUser.is_verified
         });
       }
     } catch (err) {
-      console.error(err);
-      alert("حدث خطأ أثناء الاتصال بقاعدة البيانات. حاول مجدداً.");
+      console.error("خطأ تقني:", err);
+      alert("تعذر الاتصال بقاعدة البيانات. تأكد من إعدادات Supabase والاتصال بالإنترنت.");
     } finally {
       setLoading(false);
     }
@@ -247,71 +255,32 @@ const WorkerRegistrationForm: React.FC<{ onSuccess: (u: User) => void, onBack: (
   return (
     <div className="max-w-3xl mx-auto my-12 px-6 animate-in slide-in-from-left duration-500">
       <div className="bg-white p-8 md:p-12 rounded-[3.5rem] shadow-2xl border border-emerald-100 text-right">
-        <button onClick={onBack} className="text-emerald-600 font-bold mb-6 hover:underline flex items-center gap-2"><span>←</span> الرجوع لاختيار نوع الحساب</button>
+        <button onClick={onBack} className="text-emerald-600 font-bold mb-6 hover:underline flex items-center gap-2"><span>←</span> الرجوع</button>
         <h2 className="text-3xl font-black mb-2 text-slate-900">انضم كحرفي محترف ⚒️</h2>
-        <p className="text-slate-500 mb-10 font-medium">أنشئ ملفك المهني الآن وابدأ في استقبال عروض العمل في منطقتك.</p>
+        <p className="text-slate-500 mb-10 font-medium">أنشئ ملفك المهني الآن وابدأ في استقبال عروض العمل.</p>
         
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <label className="font-black text-slate-700 pr-2">الاسم الشخصي</label>
-              <input required className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 transition-all font-bold" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} />
-            </div>
-            <div className="space-y-2">
-              <label className="font-black text-slate-700 pr-2">اللقب (العائلة)</label>
-              <input required className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 transition-all font-bold" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} />
-            </div>
+            <input required placeholder="الاسم" className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 transition-all font-bold" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} />
+            <input required placeholder="اللقب" className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 transition-all font-bold" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} />
           </div>
-          
-          <div className="space-y-2">
-            <label className="font-black text-slate-700 pr-2">رقم الهاتف الجوال</label>
-            <input required type="tel" className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 transition-all font-mono font-bold" placeholder="05 / 06 / 07" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
-          </div>
-
+          <input required type="tel" placeholder="رقم الهاتف (05/06/07)" className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 transition-all font-mono font-bold" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <label className="font-black text-slate-700 pr-2">الولاية</label>
-              <select className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 font-bold" value={formData.wilaya} onChange={e => setFormData({...formData, wilaya: e.target.value, daira: ''})}>
-                {WILAYAS.map(w => <option key={w} value={w}>{w}</option>)}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <label className="font-black text-slate-700 pr-2">الدائرة</label>
-              <select required className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 font-bold" value={formData.daira} onChange={e => setFormData({...formData, daira: e.target.value})}>
-                <option value="">اختر الدائرة القريبة منك</option>
-                {DAIRAS[formData.wilaya]?.map(d => <option key={d} value={d}>{d}</option>)}
-              </select>
-            </div>
+            <select className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 font-bold" value={formData.wilaya} onChange={e => setFormData({...formData, wilaya: e.target.value, daira: ''})}>
+              {WILAYAS.map(w => <option key={w} value={w}>{w}</option>)}
+            </select>
+            <select required className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 font-bold" value={formData.daira} onChange={e => setFormData({...formData, daira: e.target.value})}>
+              <option value="">اختر الدائرة</option>
+              {DAIRAS[formData.wilaya]?.map(d => <option key={d} value={d}>{d}</option>)}
+            </select>
           </div>
-
-          <div className="space-y-2">
-            <label className="font-black text-slate-700 pr-2">مجال تخصصك الرئيسي</label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {SERVICE_CATEGORIES.map(c => (
-                <div 
-                  key={c.id} 
-                  onClick={() => setFormData({...formData, category: c.name})}
-                  className={`p-4 border-2 rounded-2xl text-center cursor-pointer transition-all ${formData.category === c.name ? 'border-emerald-600 bg-emerald-50' : 'border-gray-100 hover:border-emerald-200'}`}
-                >
-                  <div className="text-2xl mb-1">{c.icon}</div>
-                  <div className="text-[9px] font-black leading-tight text-slate-800">{c.name}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <label className="font-black text-slate-700 pr-2">نبذة مهنية عنك</label>
-            <textarea className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 h-32 font-medium" placeholder="اذكر مهاراتك، سنوات خبرتك، والخدمات التي تقدمها لتميز نفسك..." value={formData.bio} onChange={e => setFormData({...formData, bio: e.target.value})} />
-          </div>
-
-          <div className="space-y-2">
-            <label className="font-black text-slate-700 pr-2">كلمة المرور</label>
-            <input type="password" required className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 font-bold" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
-          </div>
-
-          <button type="submit" disabled={loading} className="w-full bg-emerald-600 text-white py-5 rounded-2xl font-black text-xl shadow-xl hover:bg-emerald-500 hover:-translate-y-1 transition-all active:scale-95 disabled:opacity-50">
-            {loading ? 'جاري ربط حسابك بقاعدة البيانات...' : 'تأكيد إنشاء حساب حرفي ✅'}
+          <select className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 font-bold" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
+            {SERVICE_CATEGORIES.map(c => <option key={c.id} value={c.name}>{c.icon} {c.name}</option>)}
+          </select>
+          <textarea className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 h-32 font-medium" placeholder="نبذة مهنية عنك..." value={formData.bio} onChange={e => setFormData({...formData, bio: e.target.value})} />
+          <input type="password" required placeholder="كلمة المرور" className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 font-bold" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
+          <button type="submit" disabled={loading} className="w-full bg-emerald-600 text-white py-5 rounded-2xl font-black text-xl shadow-xl active:scale-95 disabled:opacity-50">
+            {loading ? 'جاري الربط...' : 'تأكيد التسجيل ✅'}
           </button>
         </form>
       </div>
@@ -319,7 +288,7 @@ const WorkerRegistrationForm: React.FC<{ onSuccess: (u: User) => void, onBack: (
   );
 };
 
-// --- لوحة تسجيل الزبون المتصلة بقاعدة البيانات ---
+// --- لوحة تسجيل الزبون المعدلة ---
 const SeekerRegistrationForm: React.FC<{ onSuccess: (u: User) => void, onBack: () => void }> = ({ onSuccess, onBack }) => {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({ firstName: '', lastName: '', phone: '', password: '', wilaya: WILAYAS[0] });
@@ -335,26 +304,27 @@ const SeekerRegistrationForm: React.FC<{ onSuccess: (u: User) => void, onBack: (
         password: formData.password,
         role: UserRole.SEEKER,
         wilaya: formData.wilaya,
-        is_verified: true // الزبائن موثقون تلقائياً
-      }]).select().single();
+        is_verified: true
+      }]).select();
 
       if (error) {
-        if (error.code === '23505') alert("هذا الرقم مسجل بالفعل!");
-        else throw error;
-      } else if (data) {
+        console.error("خطأ Supabase:", error);
+        alert(`فشل التسجيل: ${error.message}`);
+      } else {
+        const u = data?.[0] || { id: 'temp', first_name: formData.firstName, last_name: formData.lastName, phone: formData.phone, role: UserRole.SEEKER, wilaya: formData.wilaya };
         onSuccess({ 
-          id: data.id, 
-          firstName: data.first_name, 
-          lastName: data.last_name, 
-          phone: data.phone,
+          id: u.id, 
+          firstName: u.first_name, 
+          lastName: u.last_name, 
+          phone: u.phone,
           role: UserRole.SEEKER,
-          location: { wilaya: data.wilaya, daira: '' },
+          location: { wilaya: u.wilaya, daira: '' },
           isVerified: true
         });
       }
     } catch (err) {
       console.error(err);
-      alert("حدث خطأ ما، يرجى المحاولة لاحقاً.");
+      alert("حدث خطأ تقني غير متوقع.");
     } finally {
       setLoading(false);
     }
@@ -365,24 +335,18 @@ const SeekerRegistrationForm: React.FC<{ onSuccess: (u: User) => void, onBack: (
       <div className="bg-white p-8 md:p-12 rounded-[3rem] shadow-2xl border border-blue-100 text-right">
         <button onClick={onBack} className="text-blue-600 font-bold mb-6 hover:underline flex items-center gap-2"><span>←</span> الرجوع</button>
         <h2 className="text-3xl font-black mb-2 text-blue-900">سجل كزبون جديد 👤</h2>
-        <p className="text-slate-500 mb-10 font-medium">ابدأ الآن في التواصل مع الحرفيين الموثوقين في مدينتك.</p>
-        
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-2 gap-4">
              <input placeholder="الاسم" required className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-blue-500 font-bold" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} />
              <input placeholder="اللقب" required className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-blue-500 font-bold" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} />
           </div>
           <input placeholder="رقم الهاتف" required type="tel" className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-blue-500 font-bold font-mono" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
-          <div className="space-y-2">
-            <label className="font-black text-slate-700 pr-2">الولاية الحالية</label>
-            <select className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-blue-500 font-bold" value={formData.wilaya} onChange={e => setFormData({...formData, wilaya: e.target.value})}>
-              {WILAYAS.map(w => <option key={w} value={w}>{w}</option>)}
-            </select>
-          </div>
+          <select className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-blue-500 font-bold" value={formData.wilaya} onChange={e => setFormData({...formData, wilaya: e.target.value})}>
+            {WILAYAS.map(w => <option key={w} value={w}>{w}</option>)}
+          </select>
           <input type="password" placeholder="كلمة المرور" required className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-blue-500 font-bold" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
-          
-          <button type="submit" disabled={loading} className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black text-xl shadow-xl hover:bg-blue-500 transition-all active:scale-95 disabled:opacity-50">
-            {loading ? 'جاري الحفظ...' : 'تأكيد إنشاء الحساب 🚀'}
+          <button type="submit" disabled={loading} className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black text-xl shadow-xl active:scale-95 disabled:opacity-50">
+            {loading ? 'جاري الحفظ...' : 'تأكيد الحساب 🚀'}
           </button>
         </form>
       </div>
@@ -390,7 +354,7 @@ const SeekerRegistrationForm: React.FC<{ onSuccess: (u: User) => void, onBack: (
   );
 };
 
-// --- نموذج تسجيل الدخول المتصل بقاعدة البيانات ---
+// --- نموذج الدخول المعدل ---
 const AuthForm: React.FC<{ type: 'login', onSuccess: (u: User) => void }> = ({ onSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({ phone: '', password: '' });
@@ -400,9 +364,8 @@ const AuthForm: React.FC<{ type: 'login', onSuccess: (u: User) => void }> = ({ o
     setLoading(true);
     try {
       const { data, error } = await supabase.from('users').select('*').eq('phone', formData.phone).eq('password', formData.password).single();
-      
       if (error) {
-        alert("رقم الهاتف أو كلمة المرور غير صحيحة ❌");
+        alert("بيانات الدخول غير صحيحة ❌");
       } else if (data) {
         onSuccess({ 
           id: data.id, 
@@ -428,15 +391,9 @@ const AuthForm: React.FC<{ type: 'login', onSuccess: (u: User) => void }> = ({ o
       <div className="bg-white p-12 rounded-[3.5rem] shadow-2xl w-full max-w-md text-right border border-emerald-50">
         <h2 className="text-3xl font-black mb-8 text-slate-900 border-r-4 border-emerald-500 pr-4">مرحباً بك مجدداً 👋</h2>
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="space-y-2">
-            <label className="font-black text-slate-700 pr-2 text-sm">رقم الهاتف</label>
-            <input required className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 font-bold font-mono" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
-          </div>
-          <div className="space-y-2">
-            <label className="font-black text-slate-700 pr-2 text-sm">كلمة المرور</label>
-            <input type="password" required className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 font-bold" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
-          </div>
-          <button type="submit" disabled={loading} className="w-full bg-emerald-600 text-white py-5 rounded-2xl font-black text-xl hover:bg-emerald-500 transition-all shadow-lg active:scale-95 disabled:opacity-50">
+          <input required placeholder="رقم الهاتف" className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 font-bold font-mono" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
+          <input type="password" required placeholder="كلمة المرور" className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 font-bold" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
+          <button type="submit" disabled={loading} className="w-full bg-emerald-600 text-white py-5 rounded-2xl font-black text-xl shadow-lg active:scale-95 disabled:opacity-50">
             {loading ? 'جاري التحقق...' : 'تسجيل الدخول'}
           </button>
         </form>
@@ -448,7 +405,6 @@ const AuthForm: React.FC<{ type: 'login', onSuccess: (u: User) => void }> = ({ o
 const ProfileView: React.FC<{ user: User, onLogout: () => void }> = ({ user, onLogout }) => (
   <div className="max-w-4xl mx-auto my-12 md:my-20 px-4 animate-in fade-in duration-700">
     <div className="bg-white p-12 rounded-[4rem] shadow-2xl text-center border border-emerald-50 relative overflow-hidden">
-       <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-bl-full opacity-50"></div>
        <div className="relative inline-block mb-6">
           <img src={user.avatar || `https://ui-avatars.com/api/?name=${user.firstName}&size=200`} className="w-40 h-40 rounded-[3rem] border-4 border-white shadow-2xl object-cover" />
           {user.isVerified && <span className="absolute bottom-2 right-2 bg-emerald-500 text-white w-10 h-10 rounded-full flex items-center justify-center border-4 border-white text-xl shadow-lg">✓</span>}
@@ -457,16 +413,6 @@ const ProfileView: React.FC<{ user: User, onLogout: () => void }> = ({ user, onL
        <p className="text-emerald-600 font-black mb-8 text-xl">
          {user.role === UserRole.WORKER ? `حرفي متميز (${user.category})` : 'زبون وفيّ لـ سلكني'}
        </p>
-       <div className="grid grid-cols-2 gap-4 max-w-sm mx-auto mb-10">
-          <div className="bg-gray-50 p-4 rounded-3xl border border-gray-100">
-             <p className="text-[10px] text-gray-400 font-bold">الولاية</p>
-             <p className="font-black text-slate-700">{user.location.wilaya}</p>
-          </div>
-          <div className="bg-gray-50 p-4 rounded-3xl border border-gray-100">
-             <p className="text-[10px] text-gray-400 font-bold">رقم الهاتف</p>
-             <p className="font-black text-slate-700 font-mono">{user.phone}</p>
-          </div>
-       </div>
        <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <button className="bg-slate-900 text-white px-12 py-4 rounded-2xl font-black hover:bg-emerald-600 transition-colors shadow-lg">تعديل الملف الشخصي</button>
           <button onClick={onLogout} className="bg-red-50 text-red-500 px-12 py-4 rounded-2xl font-black border border-red-100 hover:bg-red-500 hover:text-white transition-all shadow-sm">تسجيل الخروج</button>
@@ -535,7 +481,7 @@ const ChatView: React.FC<{ currentUser: User, targetUser?: User | null }> = ({ c
       <div className={`${showConvList ? 'flex' : 'hidden md:flex'} w-full md:w-1/3 border-l bg-gray-50 flex-col h-full`}>
         <div className="p-4 md:p-6 border-b bg-white flex justify-between items-center flex-row-reverse">
           <h2 className="text-lg md:text-xl font-black">المحادثات</h2>
-          {activeChat && <button className="md:hidden text-emerald-600 font-bold" onClick={() => setShowConvList(false)}>رجوع للدردشة</button>}
+          {activeChat && <button className="md:hidden text-emerald-600 font-bold" onClick={() => setShowConvList(false)}>رجوع</button>}
         </div>
         <div className="flex-1 overflow-y-auto custom-scrollbar">
           {conversations.map((conv: any) => (
@@ -547,7 +493,7 @@ const ChatView: React.FC<{ currentUser: User, targetUser?: User | null }> = ({ c
               </div>
             </div>
           ))}
-          {conversations.length === 0 && <p className="text-center py-10 text-gray-400 font-bold">لا توجد محادثات نشطة.</p>}
+          {conversations.length === 0 && <p className="text-center py-10 text-gray-400 font-bold">لا توجد محادثات.</p>}
         </div>
       </div>
       <div className={`${!showConvList ? 'flex' : 'hidden md:flex'} flex-1 flex-col bg-white h-full`}>
@@ -561,7 +507,7 @@ const ChatView: React.FC<{ currentUser: User, targetUser?: User | null }> = ({ c
                   <p className="text-[10px] text-emerald-500 font-bold">نشط الآن</p>
                 </div>
               </div>
-              <button className="md:hidden text-gray-500 font-bold text-xs" onClick={() => setShowConvList(true)}>قائمة المحادثات</button>
+              <button className="md:hidden text-gray-500 font-bold text-xs" onClick={() => setShowConvList(true)}>القائمة</button>
             </div>
             <div className="flex-1 p-4 md:p-6 overflow-y-auto custom-scrollbar space-y-4">
               {messages.map((m) => (
@@ -579,7 +525,7 @@ const ChatView: React.FC<{ currentUser: User, targetUser?: User | null }> = ({ c
             </form>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center text-gray-400 font-bold px-10 text-center">اختر محادثة لبدء التواصل مع الحرفي أو الزبون.</div>
+          <div className="flex-1 flex items-center justify-center text-gray-400 font-bold px-10 text-center">اختر محادثة لبدء المراسلة.</div>
         )}
       </div>
     </div>
