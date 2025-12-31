@@ -1,7 +1,5 @@
 
-import { UserRole } from './types.ts';
-
-export const WILAYA_DATA: Record<string, string[]> = {
+export const WILAYA_DATA = {
   "أدرار": ["أدرار", "أولف", "رقان", "تيميمون", "برج باجي مختار", "زاوية كنتة", "أقبلي", "تسابيت", "أولاد سعيد", "تيمقتن"],
   "الشلف": ["الشلف", "تنس", "بوقادير", "وادي الفضة", "أبو الحسن", "المرسى", "الكريمية", "تاوقريت", "بني حواء", "الظهرة"],
   "الأغواط": ["الأغواط", "قصر الحيران", "أفلو", "عين ماضي", "حاسي الرمل", "وادي مزي", "تاجرونة"],
@@ -62,8 +60,8 @@ export const WILAYA_DATA: Record<string, string[]> = {
   "المنيعة": ["المنيعة"]
 };
 
+export const DAIRAS = WILAYA_DATA;
 export const WILAYAS = Object.keys(WILAYA_DATA);
-export const DAIRAS: Record<string, string[]> = WILAYA_DATA;
 
 export const SERVICE_CATEGORIES = [
   { id: 'plumbing', name: 'ترصيص صحي (Plomberie)', icon: '🔧' },
