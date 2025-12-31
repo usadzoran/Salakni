@@ -1,0 +1,8 @@
+{
+  "name": "Salakni - سَلّكني",
+  "description": "A modern platform connecting workers and service seekers across Algeria with AI-powered matchmaking and local search by Wilaya and Daira.",
+  "requestFramePermissions": [
+    "geolocation",
+    "camera"
+  ]
+}
