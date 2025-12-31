@@ -169,7 +169,7 @@ const SearchPage: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                  <p className="text-gray-600 line-clamp-3 mb-4 font-medium text-sm md:text-base leading-relaxed">{w.bio}</p>
+                  <p className="text-gray-600 line-clamp-3 mb-4 font-medium text-sm md:text-base leading-relaxed">{w.bio || 'حرفي ماهر في منصة سلكني.'}</p>
                   <div className="mt-auto pt-4 border-t border-gray-50 flex justify-between items-center flex-row-reverse">
                     <span className="text-gray-500 font-bold text-xs md:text-sm">📍 {w.location.wilaya}</span>
                     <button className="bg-slate-900 text-white px-4 md:px-6 py-2 rounded-xl font-black text-[10px] md:text-xs hover:bg-emerald-600 transition-colors">تواصل الآن</button>
@@ -187,11 +187,115 @@ const SearchPage: React.FC = () => {
   );
 };
 
+const AuthForm: React.FC<{ type: 'login' | 'register' | 'admin', onSuccess: (user: User) => void }> = ({ type, onSuccess }) => {
+  const [formData, setFormData] = useState({
+    phone: '', password: '', firstName: '', lastName: '', role: UserRole.SEEKER as UserRole,
+    wilaya: WILAYAS[0], daira: '', category: SERVICE_CATEGORIES[0].name
+  });
+  const [loading, setLoading] = useState(false);
+  const isAdminMode = type === 'admin';
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    // التحقق من بيانات دخول الإدارة
+    if (formData.phone === '0777117663' && formData.password === 'vampirewahab31') {
+      const adminUser: User = { 
+        id: 'admin-1', firstName: 'عبد الوهاب', lastName: 'المدير', phone: '0777117663', 
+        role: UserRole.ADMIN, location: { wilaya: 'الجزائر', daira: 'الجزائر' }, isVerified: true 
+      };
+      localStorage.setItem('user', JSON.stringify(adminUser));
+      onSuccess(adminUser);
+      return;
+    }
+
+    if (isAdminMode) {
+      alert("بيانات دخول الإدارة غير صحيحة!");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      if (type === 'login') {
+        const { data, error } = await supabase.from('users').select('*').eq('phone', formData.phone).eq('password', formData.password).single();
+        if (error || !data) throw new Error("بيانات الدخول غير صحيحة");
+        
+        const loggedInUser: User = {
+          id: data.id, firstName: data.first_name, lastName: data.last_name, phone: data.phone,
+          role: data.role as UserRole, location: { wilaya: data.wilaya, daira: data.daira }, isVerified: data.is_verified,
+          avatar: data.avatar, bio: data.bio, category: data.category, skills: data.skills, portfolio: data.portfolio
+        };
+        localStorage.setItem('user', JSON.stringify(loggedInUser));
+        onSuccess(loggedInUser);
+      } else {
+        const { data, error } = await supabase.from('users').insert({
+          first_name: formData.firstName, last_name: formData.lastName, phone: formData.phone, password: formData.password,
+          role: formData.role, wilaya: formData.wilaya, daira: formData.daira || formData.wilaya, 
+          category: formData.role === UserRole.WORKER ? formData.category : null,
+          is_verified: formData.role === UserRole.SEEKER, portfolio: []
+        }).select().single();
+        
+        if (error) {
+          if (error.code === '23505') throw new Error("رقم الهاتف مسجل بالفعل");
+          throw error;
+        }
+
+        const registeredUser: User = {
+          id: data.id, firstName: data.first_name, lastName: data.last_name, phone: data.phone,
+          role: data.role as UserRole, location: { wilaya: data.wilaya, daira: data.daira }, isVerified: data.is_verified, portfolio: []
+        };
+        localStorage.setItem('user', JSON.stringify(registeredUser));
+        onSuccess(registeredUser);
+      }
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className={`max-w-xl mx-auto my-12 px-4 ${isAdminMode ? 'pt-10' : ''}`}>
+      <div className={`p-8 md:p-12 rounded-[3rem] shadow-2xl text-center border ${isAdminMode ? 'bg-slate-900 border-white/10 text-white' : 'bg-white border-gray-50'}`}>
+        <h2 className="text-2xl font-black mb-8">{isAdminMode ? 'دخول المدير 🔒' : type === 'login' ? 'مرحباً بعودتك 👋' : 'انضم إلينا 🚀'}</h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {type === 'register' && (
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <input required type="text" placeholder="الاسم" className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl text-gray-900 outline-none focus:border-emerald-500" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} />
+                <input required type="text" placeholder="اللقب" className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl text-gray-900 outline-none focus:border-emerald-500" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} />
+              </div>
+              <div className="flex bg-gray-100 p-1.5 rounded-2xl gap-2">
+                <button type="button" onClick={() => setFormData({...formData, role: UserRole.SEEKER})} className={`flex-1 py-3 rounded-xl font-black text-sm md:text-base transition-all ${formData.role === UserRole.SEEKER ? 'bg-white shadow-sm text-emerald-600' : 'text-gray-500'}`}>أبحث عن حرفي</button>
+                <button type="button" onClick={() => setFormData({...formData, role: UserRole.WORKER})} className={`flex-1 py-3 rounded-xl font-black text-sm md:text-base transition-all ${formData.role === UserRole.WORKER ? 'bg-white shadow-sm text-emerald-600' : 'text-gray-500'}`}>أنا حرفي</button>
+              </div>
+            </>
+          )}
+          <input required type="tel" placeholder="رقم الهاتف" className={`w-full p-4 border-2 rounded-2xl text-right outline-none focus:border-emerald-500 ${isAdminMode ? 'bg-slate-800 border-white/5 text-white' : 'bg-gray-50 border-gray-100 text-gray-900'}`} value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
+          <input required type="password" placeholder="كلمة المرور" className={`w-full p-4 border-2 rounded-2xl text-right outline-none focus:border-emerald-500 ${isAdminMode ? 'bg-slate-800 border-white/5 text-white' : 'bg-gray-50 border-gray-100 text-gray-900'}`} value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
+          
+          <button type="submit" disabled={loading} className="w-full py-5 bg-emerald-600 text-white rounded-2xl font-black shadow-lg hover:bg-emerald-700 transition-all">
+            {loading ? 'جاري التحقق...' : 'دخول'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 const AdminDashboard: React.FC<{ onExit: () => void }> = ({ onExit }) => {
   const [activeTab, setActiveTab] = useState<'verification' | 'users' | 'ads'>('verification');
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  
+  // نموذج إضافة مستخدم جديد
+  const [newUser, setNewUser] = useState({
+    firstName: '', lastName: '', phone: '', password: '', 
+    role: UserRole.WORKER, wilaya: WILAYAS[0], daira: '', category: SERVICE_CATEGORIES[0].name
+  });
 
   const fetchData = async () => {
     setLoading(true);
@@ -216,6 +320,39 @@ const AdminDashboard: React.FC<{ onExit: () => void }> = ({ onExit }) => {
     fetchData();
   };
 
+  const handleDeleteUser = async (userId: string) => {
+    if (!confirm('هل أنت متأكد من حذف هذا المستخدم نهائياً؟')) return;
+    const { error } = await supabase.from('users').delete().eq('id', userId);
+    if (error) alert("خطأ في الحذف: " + error.message);
+    else fetchData();
+  };
+
+  const handleAddWorker = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const { error } = await supabase.from('users').insert({
+        first_name: newUser.firstName,
+        last_name: newUser.lastName,
+        phone: newUser.phone,
+        password: newUser.password,
+        role: newUser.role,
+        wilaya: newUser.wilaya,
+        daira: newUser.daira || newUser.wilaya,
+        category: newUser.role === UserRole.WORKER ? newUser.category : null,
+        is_verified: true
+      });
+      if (error) throw error;
+      alert("تم إضافة الحرفي بنجاح!");
+      setShowAddModal(false);
+      fetchData();
+    } catch (e: any) {
+      alert("خطأ: " + e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const updateAd = async (id: string, html: string, active: boolean) => {
     await supabase.from('advertisements').update({ html_content: html, is_active: active }).eq('id', id);
     alert("تم حفظ الإعلان");
@@ -230,11 +367,20 @@ const AdminDashboard: React.FC<{ onExit: () => void }> = ({ onExit }) => {
           <button onClick={onExit} className="bg-white/10 px-6 py-2 rounded-xl font-black hover:bg-white/20 text-sm">تسجيل خروج</button>
         </div>
 
-        <div className="flex gap-8 mb-10 border-b border-white/5 flex-row-reverse">
-          <button onClick={() => setActiveTab('verification')} className={`pb-4 font-black transition-all ${activeTab === 'verification' ? 'admin-tab-active' : 'text-slate-500'}`}>التوثيق (المستندات)</button>
-          <button onClick={() => setActiveTab('users')} className={`pb-4 font-black transition-all ${activeTab === 'users' ? 'admin-tab-active' : 'text-slate-500'}`}>كافة المسجلين</button>
+        <div className="flex gap-8 mb-10 border-b border-white/5 flex-row-reverse overflow-x-auto whitespace-nowrap custom-scrollbar">
+          <button onClick={() => setActiveTab('verification')} className={`pb-4 font-black transition-all ${activeTab === 'verification' ? 'admin-tab-active' : 'text-slate-500'}`}>التوثيق</button>
+          <button onClick={() => setActiveTab('users')} className={`pb-4 font-black transition-all ${activeTab === 'users' ? 'admin-tab-active' : 'text-slate-500'}`}>إدارة المستخدمين</button>
           <button onClick={() => setActiveTab('ads')} className={`pb-4 font-black transition-all ${activeTab === 'ads' ? 'admin-tab-active' : 'text-slate-500'}`}>إعلانات HTML</button>
         </div>
+
+        {activeTab === 'users' && (
+          <div className="flex justify-end mb-6">
+            <button onClick={() => setShowAddModal(true)} className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-3 rounded-2xl font-black shadow-xl transition-all flex items-center gap-2">
+              <span>إضافة حرفي جديد</span>
+              <span className="text-xl">+</span>
+            </button>
+          </div>
+        )}
 
         {loading ? <div className="loading-spinner mx-auto mt-20"></div> : (
           <div className="mt-6">
@@ -255,7 +401,7 @@ const AdminDashboard: React.FC<{ onExit: () => void }> = ({ onExit }) => {
                        </div>
                     </div>
                     <div className="flex gap-3">
-                      <button onClick={() => handleVerify(u.id, true)} className="flex-1 bg-emerald-600 py-3 rounded-xl font-black text-sm">تفعيل الحساب ✅</button>
+                      <button onClick={() => handleVerify(u.id, true)} className="flex-1 bg-emerald-600 py-3 rounded-xl font-black text-sm">تفعيل ✅</button>
                       <button onClick={() => handleVerify(u.id, false)} className="px-6 bg-red-600/10 text-red-500 py-3 rounded-xl font-black text-sm">رفض</button>
                     </div>
                   </div>
@@ -265,21 +411,22 @@ const AdminDashboard: React.FC<{ onExit: () => void }> = ({ onExit }) => {
             )}
 
             {activeTab === 'users' && (
-              <div className="bg-slate-900 rounded-[2rem] border border-white/5 overflow-hidden">
-                <table className="w-full text-right">
+              <div className="bg-slate-900 rounded-[2rem] border border-white/5 overflow-hidden shadow-2xl overflow-x-auto">
+                <table className="w-full text-right min-w-[700px]">
                   <thead className="bg-white/5 text-slate-400 text-sm">
                     <tr>
-                      <th className="p-4">الاسم الكامل</th>
-                      <th className="p-4">الرتبة</th>
+                      <th className="p-4">الاسم</th>
+                      <th className="p-4">النوع</th>
                       <th className="p-4">الولاية</th>
                       <th className="p-4">الهاتف</th>
                       <th className="p-4">الحالة</th>
+                      <th className="p-4 text-center">إجراءات</th>
                     </tr>
                   </thead>
                   <tbody>
                     {items.map(u => (
-                      <tr key={u.id} className="border-t border-white/5 hover:bg-white/5 cursor-pointer transition-colors" onClick={() => setSelectedUser(u)}>
-                        <td className="p-4 font-bold">{u.first_name} {u.last_name}</td>
+                      <tr key={u.id} className="border-t border-white/5 hover:bg-white/5 transition-colors">
+                        <td className="p-4 font-bold cursor-pointer" onClick={() => setSelectedUser(u)}>{u.first_name} {u.last_name}</td>
                         <td className="p-4 text-xs">
                           <span className={`px-2 py-1 rounded-full ${u.role === 'WORKER' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-blue-500/10 text-blue-500'}`}>
                             {u.role === 'WORKER' ? 'حرفي' : 'زبون'}
@@ -289,8 +436,14 @@ const AdminDashboard: React.FC<{ onExit: () => void }> = ({ onExit }) => {
                         <td className="p-4 font-mono text-sm">{u.phone}</td>
                         <td className="p-4">
                           <span className={u.is_verified ? 'text-emerald-500' : 'text-yellow-500'}>
-                            {u.is_verified ? '● موثق' : '○ غير موثق'}
+                            {u.is_verified ? '● موثق' : '○ معلق'}
                           </span>
+                        </td>
+                        <td className="p-4 flex justify-center gap-2">
+                           <button onClick={() => setSelectedUser(u)} className="bg-slate-800 p-2 rounded-lg hover:bg-slate-700 text-blue-400">👁️</button>
+                           {u.role !== 'ADMIN' && (
+                             <button onClick={() => handleDeleteUser(u.id)} className="bg-red-500/10 p-2 rounded-lg hover:bg-red-500 hover:text-white text-red-500 transition-all">🗑️</button>
+                           )}
                         </td>
                       </tr>
                     ))}
@@ -321,17 +474,47 @@ const AdminDashboard: React.FC<{ onExit: () => void }> = ({ onExit }) => {
                     <button onClick={() => updateAd(ad.id, ad.html_content, ad.is_active)} className="w-full py-4 bg-emerald-600 rounded-xl font-black shadow-lg">حفظ شفرة HTML</button>
                   </div>
                 ))}
-                {items.length === 0 && <p className="col-span-full text-center py-20 text-slate-600 font-bold">يرجى تهيئة جدول الإعلانات في Supabase أولاً.</p>}
               </div>
             )}
           </div>
         )}
       </div>
 
+      {/* مودال إضافة حرفي جديد */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-[110] bg-black/95 flex items-center justify-center p-4 backdrop-blur-md">
+          <div className="bg-slate-900 w-full max-w-xl rounded-[3rem] p-8 md:p-10 border border-white/10 text-right shadow-2xl overflow-y-auto max-h-[90vh] custom-scrollbar">
+            <h2 className="text-2xl font-black mb-8 border-b border-white/10 pb-4">إضافة حرفي جديد يدوياً 🛠️</h2>
+            <form onSubmit={handleAddWorker} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <input required type="text" placeholder="الاسم" className="w-full p-4 bg-slate-800 border border-white/10 rounded-2xl text-white outline-none focus:border-emerald-500" value={newUser.firstName} onChange={e => setNewUser({...newUser, firstName: e.target.value})} />
+                <input required type="text" placeholder="اللقب" className="w-full p-4 bg-slate-800 border border-white/10 rounded-2xl text-white outline-none focus:border-emerald-500" value={newUser.lastName} onChange={e => setNewUser({...newUser, lastName: e.target.value})} />
+              </div>
+              <input required type="tel" placeholder="رقم الهاتف" className="w-full p-4 bg-slate-800 border border-white/10 rounded-2xl text-white outline-none focus:border-emerald-500 font-mono" value={newUser.phone} onChange={e => setNewUser({...newUser, phone: e.target.value})} />
+              <input required type="password" placeholder="كلمة المرور المؤقتة" className="w-full p-4 bg-slate-800 border border-white/10 rounded-2xl text-white outline-none focus:border-emerald-500" value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})} />
+              
+              <div className="grid grid-cols-2 gap-4">
+                <select className="w-full p-4 bg-slate-800 border border-white/10 rounded-2xl text-white outline-none" value={newUser.wilaya} onChange={e => setNewUser({...newUser, wilaya: e.target.value})}>
+                  {WILAYAS.map(w => <option key={w} value={w}>{w}</option>)}
+                </select>
+                <select className="w-full p-4 bg-slate-800 border border-white/10 rounded-2xl text-white outline-none" value={newUser.category} onChange={e => setNewUser({...newUser, category: e.target.value})}>
+                  {SERVICE_CATEGORIES.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                </select>
+              </div>
+
+              <div className="flex gap-4 pt-6">
+                <button type="submit" disabled={loading} className="flex-1 py-4 bg-emerald-600 rounded-2xl font-black hover:bg-emerald-500 shadow-xl">إضافة وتفعيل</button>
+                <button type="button" onClick={() => setShowAddModal(false)} className="px-6 py-4 bg-white/5 rounded-2xl font-black hover:bg-white/10">إلغاء</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* مودال تفاصيل المستخدم */}
       {selectedUser && (
         <div className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4 backdrop-blur-md" onClick={() => setSelectedUser(null)}>
-          <div className="bg-slate-900 w-full max-w-2xl rounded-[3rem] p-10 border border-white/10 text-right shadow-2xl" onClick={e => e.stopPropagation()}>
+          <div className="bg-slate-900 w-full max-w-2xl rounded-[3rem] p-8 md:p-10 border border-white/10 text-right shadow-2xl overflow-y-auto max-h-[90vh] custom-scrollbar" onClick={e => e.stopPropagation()}>
             <div className="flex gap-6 items-center mb-8 flex-row-reverse">
                <img src={selectedUser.avatar || `https://ui-avatars.com/api/?name=${selectedUser.first_name}`} className="w-24 h-24 rounded-3xl object-cover border-2 border-emerald-500" />
                <div className="flex-1">
@@ -339,21 +522,34 @@ const AdminDashboard: React.FC<{ onExit: () => void }> = ({ onExit }) => {
                   <p className="text-emerald-500 font-bold text-xl">{selectedUser.category || 'باحث عن خدمة'}</p>
                </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10 text-slate-300">
-               <div className="bg-slate-800/50 p-6 rounded-2xl">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10 text-slate-300">
+               <div className="bg-slate-800/50 p-6 rounded-2xl border border-white/5">
                   <p className="text-xs text-slate-500 mb-1">رقم الهاتف</p>
                   <p className="font-mono text-xl">{selectedUser.phone}</p>
                </div>
-               <div className="bg-slate-800/50 p-6 rounded-2xl">
+               <div className="bg-slate-800/50 p-6 rounded-2xl border border-white/5">
                   <p className="text-xs text-slate-500 mb-1">الموقع</p>
                   <p className="text-xl">{selectedUser.wilaya} - {selectedUser.daira}</p>
                </div>
-               <div className="md:col-span-2 bg-slate-800/50 p-6 rounded-2xl">
+               <div className="bg-slate-800/50 p-6 rounded-2xl border border-white/5">
+                  <p className="text-xs text-slate-500 mb-1">تاريخ التسجيل</p>
+                  <p className="text-lg">{selectedUser.created_at ? new Date(selectedUser.created_at).toLocaleDateString('ar-DZ') : 'غير متوفر'}</p>
+               </div>
+               <div className="bg-slate-800/50 p-6 rounded-2xl border border-white/5">
+                  <p className="text-xs text-slate-500 mb-1">الحالة</p>
+                  <p className={`text-lg font-black ${selectedUser.is_verified ? 'text-emerald-500' : 'text-yellow-500'}`}>{selectedUser.is_verified ? 'مفعل وموثق' : 'قيد المراجعة'}</p>
+               </div>
+               <div className="md:col-span-2 bg-slate-800/50 p-6 rounded-2xl border border-white/5">
                   <p className="text-xs text-slate-500 mb-1">نبذة تعريفية</p>
                   <p className="leading-relaxed">{selectedUser.bio || 'لا يوجد وصف مضاف.'}</p>
                </div>
             </div>
-            <button onClick={() => setSelectedUser(null)} className="w-full py-5 bg-white/5 rounded-2xl font-black hover:bg-white/10 transition-all">إغلاق التفاصيل</button>
+            <div className="flex gap-4">
+               {selectedUser.role !== UserRole.ADMIN && (
+                 <button onClick={() => handleDeleteUser(selectedUser.id)} className="flex-1 py-4 bg-red-600/10 text-red-500 rounded-2xl font-black hover:bg-red-600 hover:text-white transition-all">حذف الحساب</button>
+               )}
+               <button onClick={() => setSelectedUser(null)} className="flex-1 py-4 bg-white/5 rounded-2xl font-black hover:bg-white/10 transition-all">إغلاق</button>
+            </div>
           </div>
         </div>
       )}
@@ -476,8 +672,8 @@ export default function App() {
       <GlobalStyles />
       
       {selectedImg && (
-        <div className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4 backdrop-blur-md cursor-zoom-out" onClick={() => setSelectedImg(null)}>
-          <img src={selectedImg} className="max-w-[95%] max-h-[90%] rounded-2xl shadow-2xl animate-in zoom-in-95 duration-300" />
+        <div className="fixed inset-0 z-[120] bg-black/95 flex items-center justify-center p-4 backdrop-blur-md cursor-zoom-out" onClick={() => setSelectedImg(null)}>
+          <img src={selectedImg} className="max-w-[95%] max-h-[90%] rounded-2xl shadow-2xl animate-in zoom-in-95 duration-300" alt="Large view" />
         </div>
       )}
 
@@ -564,55 +760,3 @@ export default function App() {
     </div>
   );
 }
-
-// مكون AuthForm منفصل (تبسيط)
-const AuthForm: React.FC<{ type: 'login' | 'register' | 'admin', onSuccess: (user: User) => void }> = ({ type, onSuccess }) => {
-  const [formData, setFormData] = useState({ phone: '', password: '', firstName: '', lastName: '', role: UserRole.SEEKER as UserRole, wilaya: 'الجزائر', daira: 'الجزائر', category: SERVICE_CATEGORIES[0].name });
-  const [loading, setLoading] = useState(false);
-  const isAdminMode = type === 'admin';
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    if (formData.phone === '0777117663' && formData.password === 'vampirewahab31') {
-      const u: User = { id: 'admin-1', firstName: 'عبد الوهاب', lastName: 'المدير', phone: '0777117663', role: UserRole.ADMIN, location: { wilaya: 'الجزائر', daira: 'الجزائر' }, isVerified: true };
-      localStorage.setItem('user', JSON.stringify(u));
-      onSuccess(u);
-      return;
-    }
-    if (isAdminMode) { alert("بيانات خاطئة!"); setLoading(false); return; }
-    try {
-      if (type === 'login') {
-        const { data } = await supabase.from('users').select('*').eq('phone', formData.phone).eq('password', formData.password).single();
-        if (!data) throw new Error("بيانات خاطئة");
-        const u = { ...data, id: data.id, firstName: data.first_name, lastName: data.last_name, role: data.role as UserRole, location: { wilaya: data.wilaya, daira: data.daira } };
-        localStorage.setItem('user', JSON.stringify(u));
-        onSuccess(u);
-      } else {
-        const { data } = await supabase.from('users').insert({ first_name: formData.firstName, last_name: formData.lastName, phone: formData.phone, password: formData.password, role: formData.role, wilaya: formData.wilaya, daira: formData.daira, category: formData.role === UserRole.WORKER ? formData.category : null }).select().single();
-        const u = { ...data, id: data.id, firstName: data.first_name, lastName: data.last_name, role: data.role as UserRole, location: { wilaya: data.wilaya, daira: data.daira } };
-        localStorage.setItem('user', JSON.stringify(u));
-        onSuccess(u);
-      }
-    } catch (e: any) { alert(e.message); } finally { setLoading(false); }
-  };
-
-  return (
-    <div className={`max-w-xl mx-auto my-12 px-4 ${isAdminMode ? 'pt-10' : ''}`}>
-      <div className={`p-8 md:p-12 rounded-[3rem] shadow-2xl text-center border ${isAdminMode ? 'bg-slate-900 border-white/10 text-white' : 'bg-white border-gray-50'}`}>
-        <h2 className="text-2xl font-black mb-8">{isAdminMode ? 'دخول المدير 🔒' : type === 'login' ? 'مرحباً بعودتك' : 'انضم إلينا'}</h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {type === 'register' && (
-            <div className="grid grid-cols-2 gap-4">
-              <input type="text" placeholder="الاسم" className="p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl text-gray-900" onChange={e => setFormData({...formData, firstName: e.target.value})} />
-              <input type="text" placeholder="اللقب" className="p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl text-gray-900" onChange={e => setFormData({...formData, lastName: e.target.value})} />
-            </div>
-          )}
-          <input type="tel" placeholder="رقم الهاتف" className="w-full p-4 border-2 rounded-2xl text-right text-gray-900" onChange={e => setFormData({...formData, phone: e.target.value})} />
-          <input type="password" placeholder="كلمة المرور" className="w-full p-4 border-2 rounded-2xl text-right text-gray-900" onChange={e => setFormData({...formData, password: e.target.value})} />
-          <button type="submit" disabled={loading} className="w-full py-5 bg-emerald-600 text-white rounded-2xl font-black shadow-lg">دخول</button>
-        </form>
-      </div>
-    </div>
-  );
-};
