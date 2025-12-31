@@ -26,6 +26,7 @@ export interface User {
   idFront?: string;
   idBack?: string;
   isVerified?: boolean;
+  portfolio?: string[]; // مصفوفة صور معرض الأعمال (بحد أقصى 5)
 }
 
 export interface Review {
