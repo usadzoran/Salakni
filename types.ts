@@ -26,7 +26,7 @@ export interface User {
   idFront?: string;
   idBack?: string;
   isVerified?: boolean;
-  portfolio?: string[]; // مصفوفة صور معرض الأعمال (بحد أقصى 5)
+  portfolio?: string[];
 }
 
 export interface Review {
@@ -46,15 +46,8 @@ export interface Worker extends User {
   reviews?: Review[];
 }
 
-export interface Advertisement {
-  id: string;
-  location: 'hero_bottom' | 'search_sidebar' | 'search_top' | 'footer_top';
-  content: string;
-  is_active: boolean;
-}
-
 export interface AppState {
   currentUser: User | null;
   workers: Worker[];
-  view: 'landing' | 'register' | 'login' | 'dashboard' | 'search' | 'profile' | 'admin' | 'edit-profile';
+  view: 'landing' | 'register' | 'login' | 'dashboard' | 'search' | 'profile' | 'admin' | 'edit-profile' | 'admin-login';
 }
