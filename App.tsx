@@ -18,41 +18,49 @@ const GlobalStyles = () => (
     .custom-scrollbar::-webkit-scrollbar { width: 6px; }
     .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
     .custom-scrollbar::-webkit-scrollbar-thumb { background: #10b981; border-radius: 10px; }
+    
+    /* Mobile-first adjustments */
+    @media (max-width: 640px) {
+      .text-responsive-h1 { font-size: 2.75rem !important; line-height: 1.1 !important; }
+      .text-responsive-p { font-size: 1.1rem !important; }
+      .padding-responsive { padding: 1.5rem !important; }
+      .rounded-responsive { border-radius: 2rem !important; }
+    }
   `}</style>
 );
 
 const Logo: React.FC<{ size?: 'sm' | 'lg', onClick?: () => void }> = ({ size = 'sm', onClick }) => (
-  <div onClick={onClick} className={`flex items-center gap-3 group cursor-pointer transition-all duration-500 ${size === 'lg' ? 'scale-110 md:scale-125' : ''}`}>
-    <div className={`relative ${size === 'lg' ? 'w-24 h-24' : 'w-12 h-12'} flex-shrink-0`}>
-      <div className={`absolute inset-0 bg-gradient-to-tr from-emerald-600 via-teal-500 to-yellow-400 ${size === 'lg' ? 'rounded-[2.5rem]' : 'rounded-2xl'} rotate-3 group-hover:rotate-12 transition-transform duration-500 shadow-xl overflow-hidden`}>
+  <div onClick={onClick} className={`flex items-center gap-2 md:gap-3 group cursor-pointer transition-all duration-500 ${size === 'lg' ? 'scale-100 md:scale-125' : ''}`}>
+    <div className={`relative ${size === 'lg' ? 'w-16 h-16 md:w-24 md:h-24' : 'w-10 h-10 md:w-12 md:h-12'} flex-shrink-0`}>
+      <div className={`absolute inset-0 bg-gradient-to-tr from-emerald-600 via-teal-500 to-yellow-400 ${size === 'lg' ? 'rounded-2xl md:rounded-[2.5rem]' : 'rounded-xl md:rounded-2xl'} rotate-3 group-hover:rotate-12 transition-transform duration-500 shadow-xl overflow-hidden`}>
         <div className="absolute inset-0 bg-white/10 backdrop-blur-[1px]"></div>
       </div>
-      <div className={`absolute inset-0 flex items-center justify-center text-white font-black ${size === 'lg' ? 'text-5xl' : 'text-2xl'} z-10 group-hover:scale-110 transition-transform`}>S</div>
+      <div className={`absolute inset-0 flex items-center justify-center text-white font-black ${size === 'lg' ? 'text-3xl md:text-5xl' : 'text-xl md:text-2xl'} z-10 group-hover:scale-110 transition-transform`}>S</div>
     </div>
     <div className="flex flex-col items-start leading-none gap-0.5">
-      <div className="flex items-baseline gap-1.5">
-        <span className={`${size === 'lg' ? 'text-6xl md:text-8xl' : 'text-3xl'} font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-emerald-950 via-emerald-800 to-teal-700`}>Salakni</span>
-        <span className={`${size === 'lg' ? 'text-4xl' : 'text-xl'} arabic-text font-black text-yellow-500`}>سلكني</span>
+      <div className="flex items-baseline gap-1 md:gap-1.5">
+        <span className={`${size === 'lg' ? 'text-4xl md:text-8xl' : 'text-2xl md:text-3xl'} font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-emerald-950 via-emerald-800 to-teal-700`}>Salakni</span>
+        <span className={`${size === 'lg' ? 'text-2xl md:text-4xl' : 'text-lg md:text-xl'} arabic-text font-black text-yellow-500`}>سلكني</span>
       </div>
     </div>
   </div>
 );
 
 const LandingHero: React.FC<{ onStart: (v: AppState['view']) => void }> = ({ onStart }) => (
-  <div className="relative min-h-[95vh] flex items-center justify-center text-white text-center p-6 overflow-hidden">
+  <div className="relative min-h-[90vh] md:min-h-[95vh] flex items-center justify-center text-white text-center p-4 md:p-6 overflow-hidden">
     <div className="absolute inset-0 bg-slate-900 bg-[url('https://images.unsplash.com/photo-1621905252507-b354bcadcabc?q=80&w=2000')] bg-cover bg-center opacity-40"></div>
     <div className="absolute inset-0 bg-gradient-to-tr from-gray-900 via-emerald-950/70 to-teal-900/80"></div>
-    <div className="relative z-10 max-w-5xl">
-      <div className="mb-12 animate-float inline-block">
+    <div className="relative z-10 max-w-5xl px-2">
+      <div className="mb-8 md:mb-12 animate-float inline-block">
         <Logo size="lg" />
       </div>
-      <h1 className="text-5xl md:text-8xl font-black mb-8 tracking-tighter leading-tight">ريح بالك، <span className="text-emerald-400">سَلّكني</span> يسلكها</h1>
-      <p className="text-xl md:text-3xl text-slate-300 mb-16 font-medium max-w-3xl mx-auto">المنصة الجزائرية رقم #1 لربط الحرفيين المهرة بالزبائن بكل ثقة وأمان. خدمتك في جيبك بضغطة زر.</p>
-      <div className="flex flex-col sm:flex-row gap-8 justify-center items-center">
-        <button onClick={() => onStart('search')} className="bg-emerald-600 px-16 py-6 rounded-[2.5rem] font-black text-2xl hover:bg-emerald-500 transition-all shadow-xl active:scale-95 group">
+      <h1 className="text-4xl md:text-8xl font-black mb-6 md:mb-8 tracking-tighter leading-tight text-responsive-h1">ريح بالك، <span className="text-emerald-400">سَلّكني</span> يسلكها</h1>
+      <p className="text-lg md:text-3xl text-slate-300 mb-10 md:mb-16 font-medium max-w-3xl mx-auto text-responsive-p leading-relaxed px-4">المنصة الجزائرية رقم #1 لربط الحرفيين المهرة بالزبائن بكل ثقة وأمان. خدمتك في جيبك بضغطة زر.</p>
+      <div className="flex flex-col sm:flex-row gap-4 md:gap-8 justify-center items-center px-4 w-full">
+        <button onClick={() => onStart('search')} className="w-full sm:w-auto bg-emerald-600 px-8 md:px-16 py-4 md:py-6 rounded-2xl md:rounded-[2.5rem] font-black text-lg md:text-2xl hover:bg-emerald-500 transition-all shadow-xl active:scale-95 group">
           اطلب خدمة الآن 🔍
         </button>
-        <button onClick={() => onStart('register')} className="bg-white/10 backdrop-blur-md px-16 py-6 rounded-[2.5rem] font-black text-2xl border border-white/20 hover:bg-white/20 transition-all active:scale-95">
+        <button onClick={() => onStart('register')} className="w-full sm:w-auto bg-white/10 backdrop-blur-md px-8 md:px-16 py-4 md:py-6 rounded-2xl md:rounded-[2.5rem] font-black text-lg md:text-2xl border border-white/20 hover:bg-white/20 transition-all active:scale-95">
           سجل كحرفي 🛠️
         </button>
       </div>
@@ -89,7 +97,7 @@ const SearchPage: React.FC = () => {
           skills: w.skills || [],
           bio: w.bio || 'حرفي ماهر مستعد للعمل.',
           category: w.category,
-          rating: 4.8 + Math.random() * 0.2, // محاكاة تقييم
+          rating: 4.8 + Math.random() * 0.2,
           completedJobs: Math.floor(Math.random() * 50) + 10
         })) as Worker[]);
       }
@@ -105,19 +113,19 @@ const SearchPage: React.FC = () => {
   }, [fetchWorkers]);
 
   return (
-    <div className="max-w-7xl mx-auto px-6 py-12 text-right">
-      <div className="bg-emerald-900/5 p-8 md:p-12 rounded-[3rem] md:rounded-[4rem] mb-16 border border-emerald-100 shadow-sm">
-        <h2 className="text-3xl md:text-4xl font-black mb-8">ابحث عن الحرفي المثالي 🔍</h2>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+    <div className="max-w-7xl mx-auto px-4 md:px-6 py-8 md:py-12 text-right">
+      <div className="bg-emerald-900/5 p-6 md:p-12 rounded-[2rem] md:rounded-[4rem] mb-10 md:mb-16 border border-emerald-100 shadow-sm">
+        <h2 className="text-2xl md:text-4xl font-black mb-6 md:mb-8">ابحث عن الحرفي المثالي 🔍</h2>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6">
           <input 
             type="text" 
             placeholder="عن ماذا تبحث؟" 
-            className="md:col-span-2 p-5 bg-white border-2 border-emerald-50 rounded-3xl outline-none focus:border-emerald-500 font-bold"
+            className="md:col-span-2 p-4 md:p-5 bg-white border-2 border-emerald-50 rounded-2xl md:rounded-3xl outline-none focus:border-emerald-500 font-bold"
             value={filters.query}
             onChange={e => setFilters({...filters, query: e.target.value})}
           />
           <select 
-            className="p-5 bg-white border-2 border-emerald-50 rounded-3xl outline-none focus:border-emerald-500 font-bold"
+            className="p-4 md:p-5 bg-white border-2 border-emerald-50 rounded-2xl md:rounded-3xl outline-none focus:border-emerald-500 font-bold"
             value={filters.wilaya}
             onChange={e => setFilters({...filters, wilaya: e.target.value})}
           >
@@ -125,7 +133,7 @@ const SearchPage: React.FC = () => {
             {WILAYAS.map(w => <option key={w} value={w}>{w}</option>)}
           </select>
           <select 
-            className="p-5 bg-white border-2 border-emerald-50 rounded-3xl outline-none focus:border-emerald-500 font-bold"
+            className="p-4 md:p-5 bg-white border-2 border-emerald-50 rounded-2xl md:rounded-3xl outline-none focus:border-emerald-500 font-bold"
             value={filters.category}
             onChange={e => setFilters({...filters, category: e.target.value})}
           >
@@ -136,31 +144,31 @@ const SearchPage: React.FC = () => {
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-40"><div className="loading-spinner"></div></div>
+        <div className="flex justify-center py-20 md:py-40"><div className="loading-spinner"></div></div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-10">
           {workers.map(w => (
-            <div key={w.id} className="bg-white p-8 rounded-[3rem] shadow-xl border border-gray-100 group hover:-translate-y-2 transition-all flex flex-col">
-              <div className="flex gap-6 items-center mb-6 flex-row-reverse">
-                <img src={w.avatar || `https://ui-avatars.com/api/?name=${w.firstName}+${w.lastName}&background=random&size=128`} className="w-20 h-20 rounded-2xl object-cover shadow-md border-2 border-emerald-50" alt="" />
+            <div key={w.id} className="bg-white p-6 md:p-8 rounded-[2rem] md:rounded-[3rem] shadow-xl border border-gray-100 group hover:-translate-y-1 transition-all flex flex-col">
+              <div className="flex gap-4 md:gap-6 items-center mb-4 md:mb-6 flex-row-reverse">
+                <img src={w.avatar || `https://ui-avatars.com/api/?name=${w.firstName}+${w.lastName}&background=random&size=128`} className="w-16 h-16 md:w-20 md:h-20 rounded-xl md:rounded-2xl object-cover shadow-md border-2 border-emerald-50" alt="" />
                 <div className="text-right flex-1">
-                  <h3 className="text-xl font-black">{w.firstName} {w.lastName}</h3>
-                  <div className="flex items-center gap-2 mt-1 flex-row-reverse">
-                    <span className="text-emerald-600 font-bold text-xs bg-emerald-50 px-3 py-1 rounded-full">{w.category}</span>
-                    <span className="text-yellow-500 font-bold text-xs">⭐ {w.rating.toFixed(1)}</span>
+                  <h3 className="text-lg md:text-xl font-black">{w.firstName} {w.lastName}</h3>
+                  <div className="flex flex-wrap items-center gap-2 mt-1 flex-row-reverse">
+                    <span className="text-emerald-600 font-bold text-[10px] md:text-xs bg-emerald-50 px-2 md:px-3 py-1 rounded-full">{w.category}</span>
+                    <span className="text-yellow-500 font-bold text-[10px] md:text-xs">⭐ {w.rating.toFixed(1)}</span>
                   </div>
                 </div>
               </div>
-              <p className="text-gray-600 line-clamp-3 mb-6 font-medium leading-relaxed">{w.bio}</p>
-              <div className="mt-auto pt-6 border-t border-gray-50 flex justify-between items-center flex-row-reverse">
-                <span className="text-gray-500 font-bold text-sm">📍 {w.location.wilaya}</span>
-                <button className="bg-slate-900 text-white px-6 py-2 rounded-xl font-black text-xs hover:bg-emerald-600 transition-colors">تواصل الآن</button>
+              <p className="text-gray-600 line-clamp-3 mb-6 font-medium text-sm md:text-base leading-relaxed">{w.bio}</p>
+              <div className="mt-auto pt-4 md:pt-6 border-t border-gray-50 flex justify-between items-center flex-row-reverse">
+                <span className="text-gray-500 font-bold text-xs md:text-sm">📍 {w.location.wilaya}</span>
+                <button className="bg-slate-900 text-white px-4 md:px-6 py-2 rounded-xl font-black text-[10px] md:text-xs hover:bg-emerald-600 transition-colors">تواصل الآن</button>
               </div>
             </div>
           ))}
           {workers.length === 0 && (
-            <div className="col-span-full text-center py-32">
-              <p className="text-gray-400 text-2xl font-black">لا يوجد حرفيون يطابقون بحثك حالياً.</p>
+            <div className="col-span-full text-center py-20 md:py-32">
+              <p className="text-gray-400 text-xl md:text-2xl font-black">لا يوجد حرفيون يطابقون بحثك حالياً.</p>
             </div>
           )}
         </div>
@@ -180,7 +188,6 @@ const AuthForm: React.FC<{ type: 'login' | 'register', onSuccess: (user: User) =
     e.preventDefault();
     setLoading(true);
 
-    // حساب المدير التجريبي
     if (formData.phone === '0777117663' && formData.password === 'vampirewahab31') {
       onSuccess({ id: 'admin-1', firstName: 'عبد الوهاب', lastName: 'المدير', phone: '0777117663', role: UserRole.ADMIN, location: { wilaya: 'الجزائر', daira: 'الجزائر' }, isVerified: true });
       return;
@@ -222,40 +229,42 @@ const AuthForm: React.FC<{ type: 'login' | 'register', onSuccess: (user: User) =
   };
 
   return (
-    <div className="max-w-xl mx-auto my-12 p-8 md:p-12 bg-white rounded-[3rem] shadow-2xl text-center border border-gray-50">
-      <h2 className="text-3xl font-black mb-8">{type === 'login' ? 'مرحباً بعودتك 👋' : 'انضم إلينا 🚀'}</h2>
-      <form onSubmit={handleSubmit} className="space-y-5">
-        {type === 'register' && (
-          <>
-            <div className="grid grid-cols-2 gap-4">
-              <input type="text" required placeholder="الاسم" className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 font-bold text-right" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} />
-              <input type="text" required placeholder="اللقب" className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 font-bold text-right" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} />
-            </div>
-            <div className="flex bg-gray-100 p-1.5 rounded-2xl gap-2">
-              <button type="button" onClick={() => setFormData({...formData, role: UserRole.SEEKER})} className={`flex-1 py-3 rounded-xl font-black transition-all ${formData.role === UserRole.SEEKER ? 'bg-white shadow-sm text-emerald-600' : 'text-gray-500'}`}>أبحث عن خدمة</button>
-              <button type="button" onClick={() => setFormData({...formData, role: UserRole.WORKER})} className={`flex-1 py-3 rounded-xl font-black transition-all ${formData.role === UserRole.WORKER ? 'bg-white shadow-sm text-emerald-600' : 'text-gray-500'}`}>أنا حرفي</button>
-            </div>
-            {formData.role === UserRole.WORKER && (
-              <select className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl font-bold text-right" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
-                {SERVICE_CATEGORIES.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-              </select>
-            )}
-            <div className="grid grid-cols-2 gap-4">
-               <select className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl font-bold text-right" value={formData.wilaya} onChange={e => setFormData({...formData, wilaya: e.target.value, daira: DAIRAS[e.target.value][0]})}>
-                  {WILAYAS.map(w => <option key={w} value={w}>{w}</option>)}
-               </select>
-               <select className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl font-bold text-right" value={formData.daira} onChange={e => setFormData({...formData, daira: e.target.value})}>
-                  {DAIRAS[formData.wilaya]?.map(d => <option key={d} value={d}>{d}</option>)}
-               </select>
-            </div>
-          </>
-        )}
-        <input type="tel" required placeholder="رقم الهاتف" className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 font-black text-right" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
-        <input type="password" required placeholder="كلمة المرور" className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 font-black text-right" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
-        <button type="submit" disabled={loading} className="w-full py-5 bg-emerald-600 text-white rounded-2xl font-black text-xl shadow-lg hover:bg-emerald-700 transition-all active:scale-95">
-          {loading ? 'جاري المعالجة...' : type === 'login' ? 'دخول' : 'إنشاء حساب'}
-        </button>
-      </form>
+    <div className="max-w-xl mx-auto my-8 md:my-12 px-4 md:px-0">
+      <div className="p-8 md:p-12 bg-white rounded-[2.5rem] md:rounded-[3rem] shadow-2xl text-center border border-gray-50">
+        <h2 className="text-2xl md:text-3xl font-black mb-8">{type === 'login' ? 'مرحباً بعودتك 👋' : 'انضم إلينا 🚀'}</h2>
+        <form onSubmit={handleSubmit} className="space-y-4 md:space-y-5">
+          {type === 'register' && (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <input type="text" required placeholder="الاسم" className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 font-bold text-right" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} />
+                <input type="text" required placeholder="اللقب" className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 font-bold text-right" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} />
+              </div>
+              <div className="flex bg-gray-100 p-1.5 rounded-2xl gap-2">
+                <button type="button" onClick={() => setFormData({...formData, role: UserRole.SEEKER})} className={`flex-1 py-3 rounded-xl font-black text-sm md:text-base transition-all ${formData.role === UserRole.SEEKER ? 'bg-white shadow-sm text-emerald-600' : 'text-gray-500'}`}>أبحث عن خدمة</button>
+                <button type="button" onClick={() => setFormData({...formData, role: UserRole.WORKER})} className={`flex-1 py-3 rounded-xl font-black text-sm md:text-base transition-all ${formData.role === UserRole.WORKER ? 'bg-white shadow-sm text-emerald-600' : 'text-gray-500'}`}>أنا حرفي</button>
+              </div>
+              {formData.role === UserRole.WORKER && (
+                <select className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl font-bold text-right" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
+                  {SERVICE_CATEGORIES.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                </select>
+              )}
+              <div className="grid grid-cols-2 gap-4">
+                 <select className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl font-bold text-right" value={formData.wilaya} onChange={e => setFormData({...formData, wilaya: e.target.value, daira: DAIRAS[e.target.value][0]})}>
+                    {WILAYAS.map(w => <option key={w} value={w}>{w}</option>)}
+                 </select>
+                 <select className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl font-bold text-right" value={formData.daira} onChange={e => setFormData({...formData, daira: e.target.value})}>
+                    {DAIRAS[formData.wilaya]?.map(d => <option key={d} value={d}>{d}</option>)}
+                 </select>
+              </div>
+            </>
+          )}
+          <input type="tel" required placeholder="رقم الهاتف" className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 font-black text-right" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
+          <input type="password" required placeholder="كلمة المرور" className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 font-black text-right" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
+          <button type="submit" disabled={loading} className="w-full py-4 md:py-5 bg-emerald-600 text-white rounded-2xl font-black text-lg md:text-xl shadow-lg hover:bg-emerald-700 transition-all active:scale-95">
+            {loading ? 'جاري المعالجة...' : type === 'login' ? 'دخول' : 'إنشاء حساب'}
+          </button>
+        </form>
+      </div>
     </div>
   );
 };
@@ -281,24 +290,26 @@ const EditProfile: React.FC<{ user: User, onUpdate: (u: User) => void }> = ({ us
   };
 
   return (
-    <div className="max-w-3xl mx-auto my-12 p-10 bg-white rounded-[3rem] shadow-xl text-right">
-      <h2 className="text-3xl font-black mb-8">تعديل الملف الشخصي 🛠️</h2>
-      <div className="space-y-6">
-        <div>
-          <label className="block text-lg font-black mb-2 text-gray-700">التخصص الحالي:</label>
-          <div className="p-4 bg-emerald-50 text-emerald-700 rounded-2xl font-bold">{user.category || 'غير محدد'}</div>
+    <div className="max-w-3xl mx-auto my-8 md:my-12 px-4 md:px-0">
+      <div className="p-8 md:p-10 bg-white rounded-[2rem] md:rounded-[3rem] shadow-xl text-right">
+        <h2 className="text-2xl md:text-3xl font-black mb-8">تعديل الملف الشخصي 🛠️</h2>
+        <div className="space-y-6">
+          <div>
+            <label className="block text-base md:text-lg font-black mb-2 text-gray-700">التخصص الحالي:</label>
+            <div className="p-4 bg-emerald-50 text-emerald-700 rounded-2xl font-bold">{user.category || 'غير محدد'}</div>
+          </div>
+          <div>
+            <label className="block text-base md:text-lg font-black mb-2 text-gray-700">المهارات (افصل بينها بفاصلة):</label>
+            <input type="text" className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl font-bold" value={skills} onChange={e => setSkills(e.target.value)} placeholder="مثلاً: صيانة، تركيب، تلحيم..." />
+          </div>
+          <div>
+            <label className="block text-base md:text-lg font-black mb-2 text-gray-700">وصف الخدمة:</label>
+            <textarea rows={5} className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl font-bold" value={bio} onChange={e => setBio(e.target.value)} placeholder="اكتب نبذة تجذب الزبائن..." />
+          </div>
+          <button onClick={handleSave} disabled={loading} className="w-full py-4 md:py-5 bg-emerald-600 text-white rounded-2xl font-black text-lg md:text-xl shadow-lg hover:bg-emerald-700">
+            {loading ? 'جاري الحفظ...' : 'حفظ التغييرات'}
+          </button>
         </div>
-        <div>
-          <label className="block text-lg font-black mb-2 text-gray-700">المهارات (افصل بينها بفاصلة):</label>
-          <input type="text" className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl font-bold" value={skills} onChange={e => setSkills(e.target.value)} placeholder="مثلاً: صيانة، تركيب، تلحيم..." />
-        </div>
-        <div>
-          <label className="block text-lg font-black mb-2 text-gray-700">وصف الخدمة:</label>
-          <textarea rows={5} className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl font-bold" value={bio} onChange={e => setBio(e.target.value)} placeholder="اكتب نبذة تجذب الزبائن..." />
-        </div>
-        <button onClick={handleSave} disabled={loading} className="w-full py-5 bg-emerald-600 text-white rounded-2xl font-black text-xl shadow-lg hover:bg-emerald-700">
-          {loading ? 'جاري الحفظ...' : 'حفظ التغييرات'}
-        </button>
       </div>
     </div>
   );
@@ -335,22 +346,22 @@ const AdminDashboard: React.FC<{ onExit: () => void }> = ({ onExit }) => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white p-8 md:p-12 text-right">
+    <div className="min-h-screen bg-slate-950 text-white p-4 md:p-12 text-right">
       <div className="max-w-5xl mx-auto">
-        <div className="flex justify-between items-center mb-12 flex-row-reverse">
-          <h1 className="text-4xl font-black">لوحة الإدارة 🔐</h1>
-          <button onClick={onExit} className="bg-white/10 px-6 py-2 rounded-xl font-black hover:bg-white/20 transition-all">خروج</button>
+        <div className="flex justify-between items-center mb-10 flex-row-reverse">
+          <h1 className="text-2xl md:text-4xl font-black">لوحة الإدارة 🔐</h1>
+          <button onClick={onExit} className="bg-white/10 px-4 py-2 rounded-xl font-black hover:bg-white/20 transition-all text-sm">خروج</button>
         </div>
         {loading ? <div className="loading-spinner mx-auto"></div> : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
             {unverifiedUsers.map(u => (
-              <div key={u.id} className="bg-slate-900 p-6 rounded-[2rem] border border-white/5 shadow-2xl">
-                <h3 className="text-xl font-black mb-1">{u.firstName} {u.lastName}</h3>
-                <p className="text-emerald-400 font-bold text-sm mb-4">{u.category} | {u.location.wilaya}</p>
-                <p className="text-slate-500 mb-6 text-sm">{u.phone}</p>
+              <div key={u.id} className="bg-slate-900 p-5 md:p-6 rounded-[1.5rem] md:rounded-[2rem] border border-white/5 shadow-2xl">
+                <h3 className="text-lg md:text-xl font-black mb-1">{u.firstName} {u.lastName}</h3>
+                <p className="text-emerald-400 font-bold text-xs md:text-sm mb-4">{u.category} | {u.location.wilaya}</p>
+                <p className="text-slate-500 mb-6 text-xs md:text-sm">{u.phone}</p>
                 <div className="flex gap-3">
-                  <button onClick={() => handleVerify(u.id, true)} className="flex-1 bg-emerald-600 py-3 rounded-xl font-black text-sm">تفعيل ✅</button>
-                  <button onClick={() => handleVerify(u.id, false)} className="px-6 bg-red-600/10 text-red-500 py-3 rounded-xl font-black text-sm">حذف</button>
+                  <button onClick={() => handleVerify(u.id, true)} className="flex-1 bg-emerald-600 py-3 rounded-xl font-black text-[10px] md:text-sm">تفعيل ✅</button>
+                  <button onClick={() => handleVerify(u.id, false)} className="px-4 md:px-6 bg-red-600/10 text-red-500 py-3 rounded-xl font-black text-[10px] md:text-sm">حذف</button>
                 </div>
               </div>
             ))}
@@ -371,24 +382,38 @@ export default function App() {
   };
   
   const handleLoginSuccess = (user: User) => setState(prev => ({ ...prev, currentUser: user, view: user.role === UserRole.ADMIN ? 'admin' : 'search' }));
-  const handleLogout = () => setState(prev => ({ ...prev, currentUser: null, view: 'landing' }));
+  const handleLogout = () => {
+    localStorage.removeItem('user');
+    setState(prev => ({ ...prev, currentUser: null, view: 'landing' }));
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 overflow-x-hidden arabic-text" dir="rtl">
       <GlobalStyles />
       {state.view !== 'admin' && (
-        <nav className="sticky top-0 z-50 bg-white/90 backdrop-blur-xl shadow-sm border-b border-gray-100 h-20 flex items-center">
-          <div className="max-w-7xl mx-auto px-6 w-full flex justify-between items-center">
+        <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-xl shadow-sm border-b border-gray-100 h-16 md:h-24 flex items-center px-4 md:px-6">
+          <div className="max-w-7xl mx-auto w-full flex justify-between items-center">
             <Logo onClick={() => handleNavigate('landing')} />
-            <div className="hidden md:flex items-center gap-8">
-              <button onClick={() => handleNavigate('landing')} className={`${state.view === 'landing' ? 'text-emerald-600 font-black' : 'text-gray-500'} hover:text-emerald-500 transition font-bold`}>الرئيسية</button>
-              <button onClick={() => handleNavigate('search')} className={`${state.view === 'search' ? 'text-emerald-600 font-black' : 'text-gray-500'} hover:text-emerald-500 transition font-bold`}>تصفح الحرفيين</button>
+            
+            <div className="hidden lg:flex items-center gap-8">
+              <button onClick={() => handleNavigate('landing')} className={`${state.view === 'landing' ? 'text-emerald-600 font-black' : 'text-gray-500'} hover:text-emerald-500 transition font-bold text-lg`}>الرئيسية</button>
+              <button onClick={() => handleNavigate('search')} className={`${state.view === 'search' ? 'text-emerald-600 font-black' : 'text-gray-500'} hover:text-emerald-500 transition font-bold text-lg`}>تصفح الحرفيين</button>
+            </div>
+
+            <div className="flex items-center gap-2 md:gap-3">
               {!state.currentUser ? (
-                <button onClick={() => handleNavigate('register')} className="bg-emerald-600 text-white px-8 py-2.5 rounded-xl font-black shadow-md hover:bg-emerald-500 transition-all">انضم إلينا</button>
+                <div className="flex items-center gap-1.5 md:gap-4">
+                  <button onClick={() => handleNavigate('login')} className="text-gray-600 hover:text-emerald-500 font-bold px-2 py-1 text-sm md:text-base">دخول</button>
+                  <button onClick={() => handleNavigate('login')} className="hidden sm:block border-2 border-emerald-600 text-emerald-600 px-4 md:px-5 py-2 rounded-xl font-black hover:bg-emerald-50 transition-all text-xs md:text-sm">دخول الحرفيين</button>
+                  <button onClick={() => handleNavigate('register')} className="bg-emerald-600 text-white px-4 md:px-8 py-2 md:py-2.5 rounded-xl font-black shadow-md hover:bg-emerald-500 transition-all text-xs md:text-base">انضم إلينا</button>
+                </div>
               ) : (
-                <div className="flex items-center gap-3 bg-gray-50 p-1.5 pr-4 rounded-2xl border border-gray-100 cursor-pointer hover:bg-white transition-all" onClick={() => handleNavigate('profile')}>
-                  <span className="text-sm font-black text-gray-800">{state.currentUser.firstName}</span>
-                  <img src={state.currentUser.avatar || `https://ui-avatars.com/api/?name=${state.currentUser.firstName}&background=random`} className="w-10 h-10 rounded-xl object-cover" />
+                <div className="flex items-center gap-2 md:gap-3 bg-gray-50 p-1 md:p-1.5 pr-3 md:pr-4 rounded-xl md:rounded-2xl border border-gray-100 cursor-pointer hover:bg-white transition-all shadow-sm" onClick={() => handleNavigate('profile')}>
+                  <div className="flex flex-col items-start leading-none">
+                    <span className="text-xs md:text-sm font-black text-gray-800">{state.currentUser.firstName}</span>
+                    <span className="text-[8px] md:text-[10px] text-emerald-600 font-black uppercase">{state.currentUser.role === UserRole.ADMIN ? 'مدير' : 'حسابي'}</span>
+                  </div>
+                  <img src={state.currentUser.avatar || `https://ui-avatars.com/api/?name=${state.currentUser.firstName}&background=random`} className="w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl object-cover border border-white" />
                 </div>
               )}
             </div>
@@ -400,20 +425,22 @@ export default function App() {
         {state.view === 'landing' && <LandingHero onStart={handleNavigate} />}
         {state.view === 'search' && <SearchPage />}
         {state.view === 'profile' && state.currentUser && (
-          <div className="max-w-3xl mx-auto my-12 p-10 md:p-16 bg-white rounded-[3rem] shadow-2xl text-center border border-gray-50">
-            <div className="relative inline-block mb-8">
-              <img src={state.currentUser.avatar || `https://ui-avatars.com/api/?name=${state.currentUser.firstName}&size=256&background=random`} className="w-40 h-40 rounded-[2.5rem] mx-auto border-4 border-gray-50 shadow-lg object-cover" />
-              {state.currentUser.isVerified && <span className="absolute -bottom-1 -right-1 bg-blue-500 text-white w-10 h-10 rounded-full flex items-center justify-center text-xl shadow-lg border-2 border-white">✔</span>}
-            </div>
-            <h2 className="text-3xl font-black mb-2">{state.currentUser.firstName} {state.currentUser.lastName}</h2>
-            <p className="text-emerald-600 font-black text-xl mb-6">{state.currentUser.category || (state.currentUser.role === UserRole.SEEKER ? 'باحث عن خدمة' : 'مدير')}</p>
-            <p className="text-gray-400 font-bold mb-10">📍 {state.currentUser.location.wilaya}، {state.currentUser.location.daira}</p>
-            
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              {state.currentUser.role === UserRole.WORKER && (
-                <button onClick={() => handleNavigate('edit-profile')} className="px-8 py-4 bg-emerald-50 text-emerald-600 rounded-2xl font-black hover:bg-emerald-600 hover:text-white transition-all">تعديل الملف الشخصي</button>
-              )}
-              <button onClick={handleLogout} className="px-8 py-4 bg-red-50 text-red-500 rounded-2xl font-black hover:bg-red-500 hover:text-white transition-all">خروج</button>
+          <div className="max-w-3xl mx-auto my-8 md:my-12 px-4">
+            <div className="p-8 md:p-16 bg-white rounded-[2.5rem] md:rounded-[3rem] shadow-2xl text-center border border-gray-50">
+              <div className="relative inline-block mb-8">
+                <img src={state.currentUser.avatar || `https://ui-avatars.com/api/?name=${state.currentUser.firstName}&size=256&background=random`} className="w-32 h-32 md:w-40 md:h-40 rounded-[2rem] md:rounded-[2.5rem] mx-auto border-4 border-gray-50 shadow-lg object-cover" />
+                {state.currentUser.isVerified && <span className="absolute -bottom-1 -right-1 bg-blue-500 text-white w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center text-lg md:text-xl shadow-lg border-2 border-white">✔</span>}
+              </div>
+              <h2 className="text-2xl md:text-3xl font-black mb-2">{state.currentUser.firstName} {state.currentUser.lastName}</h2>
+              <p className="text-emerald-600 font-black text-lg md:text-xl mb-4 md:mb-6">{state.currentUser.category || (state.currentUser.role === UserRole.SEEKER ? 'باحث عن خدمة' : 'مدير')}</p>
+              <p className="text-gray-400 font-bold mb-8 md:mb-10 text-sm md:text-base">📍 {state.currentUser.location.wilaya}، {state.currentUser.location.daira}</p>
+              
+              <div className="flex flex-col sm:flex-row gap-3 md:gap-4 justify-center">
+                {state.currentUser.role === UserRole.WORKER && (
+                  <button onClick={() => handleNavigate('edit-profile')} className="w-full sm:w-auto px-8 py-4 bg-emerald-50 text-emerald-600 rounded-2xl font-black hover:bg-emerald-600 hover:text-white transition-all text-sm md:text-base">تعديل الملف الشخصي</button>
+                )}
+                <button onClick={handleLogout} className="w-full sm:w-auto px-8 py-4 bg-red-50 text-red-500 rounded-2xl font-black hover:bg-red-500 hover:text-white transition-all text-sm md:text-base">خروج</button>
+              </div>
             </div>
           </div>
         )}
@@ -424,11 +451,11 @@ export default function App() {
         {(state.view === 'login' || state.view === 'register') && <AuthForm type={state.view} onSuccess={handleLoginSuccess} />}
       </main>
 
-      <footer className="bg-slate-900 text-white py-12 px-6 text-center">
+      <footer className="bg-slate-900 text-white py-10 md:py-12 px-4 md:px-6 text-center">
         <div className="max-w-7xl mx-auto">
           <Logo onClick={() => handleNavigate('landing')} />
-          <p className="mt-4 text-slate-400 font-medium">أكبر شبكة للحرفيين في الجزائر 🇩🇿</p>
-          <div className="border-t border-white/5 mt-10 pt-8 text-slate-500 font-bold">
+          <p className="mt-4 text-slate-400 font-medium text-sm md:text-base">أكبر شبكة للحرفيين في الجزائر 🇩🇿</p>
+          <div className="border-t border-white/5 mt-8 md:mt-10 pt-6 md:pt-8 text-slate-500 font-bold text-xs md:text-sm">
             جميع الحقوق محفوظة © {new Date().getFullYear()} سلكني
           </div>
         </div>

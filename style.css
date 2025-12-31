@@ -34,6 +34,13 @@
 
 html {
   scroll-behavior: smooth;
+  font-size: 16px;
+}
+
+@media (max-width: 768px) {
+  html {
+    font-size: 14px;
+  }
 }
 
 body {
@@ -41,6 +48,7 @@ body {
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 .selection-emerald::selection {
@@ -48,11 +56,27 @@ body {
   color: #064e3b;
 }
 
-/* Fix for mobile keyboard pushing content */
+/* Improvement for touch targets on mobile */
+button, select, input {
+  min-height: 44px;
+}
+
+/* Fix for mobile keyboard pushing content and avoiding overflow issues */
 @media (max-height: 600px) {
   .hero-section {
     min-height: auto;
     padding-top: 2rem;
     padding-bottom: 2rem;
   }
+}
+
+/* Ensure images don't stretch in flex/grid */
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Smooth transitions for all hover effects */
+.transition-all {
+  transition-duration: 300ms;
 }
