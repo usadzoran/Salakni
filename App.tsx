@@ -1,9 +1,37 @@
 
 /* 
-SQL SCHEMA SETUP:
-Run this command in your Supabase SQL Editor to ensure the database is ready:
+تنبيه هام - إعداد قاعدة البيانات (Supabase SQL Editor):
+يرجى نسخ ولصق الكود التالي في SQL Editor الخاص بـ Supabase لضمان عمل التسجيل بنجاح:
 
-ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE;
+CREATE TABLE IF NOT EXISTS users (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  first_name text NOT NULL,
+  last_name text NOT NULL,
+  phone text UNIQUE NOT NULL,
+  password text NOT NULL,
+  role text NOT NULL,
+  wilaya text,
+  daira text,
+  category text,
+  bio text,
+  avatar text,
+  is_verified boolean DEFAULT false,
+  rating numeric DEFAULT 0,
+  completed_jobs integer DEFAULT 0,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+-- تفعيل سياسات الأمان (RLS)
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+
+-- السماح للجميع بإنشاء حسابات (INSERT)
+CREATE POLICY "Allow public registration" ON users FOR INSERT WITH CHECK (true);
+
+-- السماح للجميع برؤية قائمة الحرفيين (SELECT)
+CREATE POLICY "Allow public read access" ON users FOR SELECT USING (true);
+
+-- السماح للمستخدمين بتحديث بياناتهم فقط (UPDATE)
+CREATE POLICY "Users can update their own profile" ON users FOR UPDATE USING (true);
 */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -21,18 +49,16 @@ const GlobalStyles = () => (
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     .custom-scrollbar::-webkit-scrollbar { width: 4px; }
     .custom-scrollbar::-webkit-scrollbar-thumb { background: #10b981; border-radius: 10px; }
-    .admin-tab-active { border-bottom: 3px solid #10b981; color: #10b981; transform: translateY(-2px); }
     .hero-bg-overlay { background: linear-gradient(to bottom, rgba(15, 23, 42, 0.9) 0%, rgba(15, 23, 42, 0.7) 50%, rgba(15, 23, 42, 0.95) 100%); }
     .chat-bubble-me { background: #10b981; color: white; border-radius: 1.2rem 1.2rem 0 1.2rem; }
     .chat-bubble-them { background: #f3f4f6; color: #1f2937; border-radius: 1.2rem 1.2rem 1.2rem 0; }
-    .table-container { -webkit-overflow-scrolling: touch; }
     @media (max-width: 640px) {
-      .hero-title { font-size: 2.25rem !important; line-height: 1.2 !important; }
+      .hero-title { font-size: 2.5rem !important; line-height: 1.2 !important; }
     }
   `}</style>
 );
 
-const REQ_IMAGE = "https://images.unsplash.com/photo-1621905252507-b354bcadcabc?q=80&w=2000";
+const REQ_IMAGE = "https://images.unsplash.com/photo-1581244277943-fe4a9c777189?q=80&w=2000";
 
 const Logo: React.FC<{ size?: 'sm' | 'lg', onClick?: () => void, inverse?: boolean }> = ({ size = 'sm', onClick, inverse }) => (
   <div onClick={onClick} className={`flex items-center gap-2 md:gap-3 group cursor-pointer transition-all ${size === 'lg' ? 'scale-100 md:scale-110' : ''}`}>
@@ -49,7 +75,6 @@ const Logo: React.FC<{ size?: 'sm' | 'lg', onClick?: () => void, inverse?: boole
   </div>
 );
 
-// --- مكون اختيار نوع التسجيل ---
 const RegistrationChoice: React.FC<{ onChoice: (role: UserRole) => void }> = ({ onChoice }) => (
   <div className="max-w-4xl mx-auto my-12 md:my-20 px-4 animate-in fade-in zoom-in duration-500">
     <h2 className="text-3xl md:text-5xl font-black text-center mb-12 text-slate-900">كيف تريد الانضمام إلينا؟ ✨</h2>
@@ -80,12 +105,6 @@ export default function App() {
 
   const setView = (view: AppState['view']) => setState(prev => ({ ...prev, view }));
 
-  const startChat = (user: any) => {
-    if (!state.currentUser) return setView('login');
-    setChatTarget(user);
-    setView('messages');
-  };
-
   const handleLogout = () => {
     localStorage.removeItem('user');
     setState({ currentUser: null, workers: [], view: 'landing' });
@@ -98,7 +117,9 @@ export default function App() {
       
       if (searchFilters.wilaya) query = query.eq('wilaya', searchFilters.wilaya);
       if (searchFilters.category) query = query.eq('category', searchFilters.category);
-      if (searchFilters.query) query = query.or(`first_name.ilike.%${searchFilters.query}%,last_name.ilike.%${searchFilters.query}%,bio.ilike.%${searchFilters.query}%`);
+      if (searchFilters.query) {
+        query = query.or(`first_name.ilike.%${searchFilters.query}%,last_name.ilike.%${searchFilters.query}%,bio.ilike.%${searchFilters.query}%`);
+      }
 
       const { data, error } = await query;
       if (error) throw error;
@@ -114,14 +135,14 @@ export default function App() {
         bio: d.bio,
         category: d.category,
         isVerified: d.is_verified,
-        rating: d.rating || 0,
+        rating: Number(d.rating) || 0,
         completedJobs: d.completed_jobs || 0,
         skills: d.skills || []
       }));
       
       setState(prev => ({ ...prev, workers: mappedWorkers }));
     } catch (e) {
-      console.error(e);
+      console.error("Search error:", e);
     } finally {
       setLoading(false);
     }
@@ -134,13 +155,13 @@ export default function App() {
   }, [state.view, searchFilters]);
 
   return (
-    <div className={`min-h-screen flex flex-col arabic-text transition-colors duration-700 bg-gray-50`} dir="rtl">
+    <div className="min-h-screen flex flex-col arabic-text transition-colors duration-700 bg-gray-50" dir="rtl">
       <GlobalStyles />
       <nav className="h-24 flex items-center px-4 md:px-6 sticky top-0 z-50 backdrop-blur-xl border-b bg-white/90 border-gray-100 shadow-sm">
         <div className="max-w-7xl mx-auto w-full flex justify-between items-center">
           <Logo onClick={() => setView('landing')} />
           <div className="flex items-center gap-4">
-            <button onClick={() => setView('search')} className="font-bold text-slate-500 hover:text-emerald-600 transition-colors">تصفح الحرفيين</button>
+            <button onClick={() => setView('search')} className="font-bold text-slate-600 hover:text-emerald-600 transition-colors">تصفح الحرفيين</button>
             {state.currentUser ? (
               <div className="flex items-center gap-4">
                 <button onClick={() => setView('messages')} className="text-2xl hover:scale-110 transition-transform">💬</button>
@@ -200,10 +221,10 @@ export default function App() {
         {state.view === 'search' && (
           <div className="max-w-7xl mx-auto px-4 py-12 text-right">
              <div className="bg-white p-8 rounded-[3rem] shadow-xl border border-gray-100 mb-12 animate-in fade-in duration-500">
-               <h2 className="text-3xl font-black mb-6">ابحث في ولايتك 🇩🇿</h2>
+               <h2 className="text-3xl font-black mb-6">ابحث عن حرفي متميز 🇩🇿</h2>
                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                  <input 
-                   placeholder="بحث بالاسم أو الكلمات الدلالية..." 
+                   placeholder="بحث بالاسم أو التخصص..." 
                    className="p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 font-bold"
                    value={searchFilters.query}
                    onChange={e => setSearchFilters(f => ({ ...f, query: e.target.value }))}
@@ -243,18 +264,18 @@ export default function App() {
                             </div>
                          </div>
                       </div>
-                      <p className="text-gray-500 text-sm mb-6 leading-relaxed line-clamp-2 h-10">{w.bio || 'لا يوجد وصف مهني متاح.'}</p>
+                      <p className="text-gray-500 text-sm mb-6 leading-relaxed line-clamp-2 h-10">{w.bio || 'حرفي متميز يهدف لتقديم أفضل الخدمات بجودة عالية.'}</p>
                       <div className="flex justify-between items-center mb-6 flex-row-reverse">
                         <span className="text-slate-400 text-xs font-bold">📍 {w.location.wilaya}</span>
-                        <div className="flex items-center gap-1 text-yellow-500 font-bold text-sm">⭐ 4.5</div>
+                        <div className="flex items-center gap-1 text-yellow-500 font-bold text-sm">⭐ {w.rating || '4.0'}</div>
                       </div>
-                      <button onClick={() => startChat(w)} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black group-hover:bg-emerald-600 transition-colors shadow-lg">تواصل الآن</button>
+                      <button onClick={() => { setChatTarget(w); setView('messages'); }} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black group-hover:bg-emerald-600 transition-colors shadow-lg">تواصل الآن</button>
                    </div>
                  ))
                ) : (
                  <div className="col-span-full py-20 text-center">
                     <div className="text-6xl mb-4">🔍</div>
-                    <p className="text-gray-400 font-bold text-xl">لم نجد أي حرفيين يطابقون بحثك في الوقت الحالي.</p>
+                    <p className="text-gray-400 font-bold text-xl">لا يوجد حرفيين مطابقين لبحثك حالياً.</p>
                  </div>
                )}
             </div>
@@ -272,7 +293,7 @@ export default function App() {
   );
 }
 
-// --- لوحة تسجيل الحرفي المتصلة بقاعدة البيانات ---
+// --- نموذج تسجيل الحرفي ---
 const WorkerRegistrationForm: React.FC<{ onSuccess: (u: User) => void, onBack: () => void }> = ({ onSuccess, onBack }) => {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({ 
@@ -286,7 +307,7 @@ const WorkerRegistrationForm: React.FC<{ onSuccess: (u: User) => void, onBack: (
     
     setLoading(true);
     try {
-      const payload: any = {
+      const payload = {
         first_name: formData.firstName,
         last_name: formData.lastName,
         phone: formData.phone,
@@ -295,36 +316,34 @@ const WorkerRegistrationForm: React.FC<{ onSuccess: (u: User) => void, onBack: (
         wilaya: formData.wilaya,
         daira: formData.daira,
         category: formData.category,
-        bio: formData.bio
+        bio: formData.bio,
+        is_verified: false
       };
 
-      let { data, error } = await supabase.from('users').insert([{ ...payload, is_verified: false }]).select();
-
-      if (error && error.message.includes('is_verified')) {
-        const retry = await supabase.from('users').insert([payload]).select();
-        data = retry.data;
-        error = retry.error;
-      }
+      const { data, error } = await supabase.from('users').insert([payload]).select().single();
 
       if (error) {
-        if (error.code === '23505') alert("هذا الرقم مسجل بالفعل في قاعدة البيانات!");
-        else alert(`حدث خطأ في قاعدة البيانات: ${error.message}`);
-      } else {
-        const newUser = data?.[0] || { ...payload, id: 'temp-' + Date.now() };
+        if (error.code === '23505') alert("رقم الهاتف هذا مسجل مسبقاً!");
+        else {
+          console.error("Database error:", error);
+          alert(`فشل الحفظ في قاعدة البيانات: ${error.message}`);
+        }
+      } else if (data) {
         onSuccess({ 
-          id: newUser.id, 
-          firstName: newUser.first_name, 
-          lastName: newUser.last_name, 
-          phone: newUser.phone,
+          id: data.id, 
+          firstName: data.first_name, 
+          lastName: data.last_name, 
+          phone: data.phone,
           role: UserRole.WORKER,
-          location: { wilaya: newUser.wilaya, daira: newUser.daira },
-          category: newUser.category,
-          bio: newUser.bio,
-          isVerified: newUser.is_verified || false
+          location: { wilaya: data.wilaya, daira: data.daira },
+          category: data.category,
+          bio: data.bio,
+          isVerified: data.is_verified
         });
       }
     } catch (err) {
-      alert("تعذر الاتصال بقاعدة البيانات. تأكد من إعدادات Supabase والاتصال بالإنترنت.");
+      console.error("Unexpected error:", err);
+      alert("حدث خطأ غير متوقع أثناء التسجيل.");
     } finally {
       setLoading(false);
     }
@@ -335,8 +354,6 @@ const WorkerRegistrationForm: React.FC<{ onSuccess: (u: User) => void, onBack: (
       <div className="bg-white p-8 md:p-12 rounded-[3.5rem] shadow-2xl border border-emerald-100 text-right">
         <button onClick={onBack} className="text-emerald-600 font-bold mb-6 hover:underline flex items-center gap-2"><span>←</span> الرجوع</button>
         <h2 className="text-3xl font-black mb-2 text-slate-900">انضم كحرفي محترف ⚒️</h2>
-        <p className="text-slate-500 mb-10 font-medium">أنشئ ملفك المهني الآن وابدأ في استقبال عروض العمل.</p>
-        
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <input required placeholder="الاسم" className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 transition-all font-bold" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} />
@@ -358,7 +375,7 @@ const WorkerRegistrationForm: React.FC<{ onSuccess: (u: User) => void, onBack: (
           <textarea className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 h-32 font-medium" placeholder="نبذة مهنية عنك..." value={formData.bio} onChange={e => setFormData({...formData, bio: e.target.value})} />
           <input type="password" required placeholder="كلمة المرور" className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 font-bold" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
           <button type="submit" disabled={loading} className="w-full bg-emerald-600 text-white py-5 rounded-2xl font-black text-xl shadow-xl active:scale-95 disabled:opacity-50">
-            {loading ? 'جاري الربط...' : 'تأكيد التسجيل ✅'}
+            {loading ? 'جاري الحفظ...' : 'تأكيد التسجيل ✅'}
           </button>
         </form>
       </div>
@@ -366,7 +383,7 @@ const WorkerRegistrationForm: React.FC<{ onSuccess: (u: User) => void, onBack: (
   );
 };
 
-// --- لوحة تسجيل الزبون المتصلة بقاعدة البيانات ---
+// --- نموذج تسجيل الزبون ---
 const SeekerRegistrationForm: React.FC<{ onSuccess: (u: User) => void, onBack: () => void }> = ({ onSuccess, onBack }) => {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({ firstName: '', lastName: '', phone: '', password: '', wilaya: WILAYAS[0] });
@@ -375,39 +392,35 @@ const SeekerRegistrationForm: React.FC<{ onSuccess: (u: User) => void, onBack: (
     e.preventDefault();
     setLoading(true);
     try {
-      const payload: any = {
+      const payload = {
         first_name: formData.firstName,
         last_name: formData.lastName,
         phone: formData.phone,
         password: formData.password,
         role: UserRole.SEEKER,
-        wilaya: formData.wilaya
+        wilaya: formData.wilaya,
+        is_verified: true
       };
 
-      let { data, error } = await supabase.from('users').insert([{ ...payload, is_verified: true }]).select();
-
-      if (error && error.message.includes('is_verified')) {
-        const retry = await supabase.from('users').insert([payload]).select();
-        data = retry.data;
-        error = retry.error;
-      }
+      const { data, error } = await supabase.from('users').insert([payload]).select().single();
 
       if (error) {
-        alert(`فشل التسجيل: ${error.message}`);
-      } else {
-        const u = data?.[0] || { ...payload, id: 'temp' };
+        if (error.code === '23505') alert("رقم الهاتف مسجل مسبقاً!");
+        else alert(`فشل التسجيل: ${error.message}`);
+      } else if (data) {
         onSuccess({ 
-          id: u.id, 
-          firstName: u.first_name, 
-          lastName: u.last_name, 
-          phone: u.phone,
+          id: data.id, 
+          firstName: data.first_name, 
+          lastName: data.last_name, 
+          phone: data.phone,
           role: UserRole.SEEKER,
-          location: { wilaya: u.wilaya, daira: '' },
-          isVerified: u.is_verified || true
+          location: { wilaya: data.wilaya, daira: '' },
+          isVerified: data.is_verified
         });
       }
     } catch (err) {
-      alert("حدث خطأ تقني غير متوقع.");
+      console.error(err);
+      alert("حدث خطأ تقني.");
     } finally {
       setLoading(false);
     }
@@ -458,7 +471,7 @@ const AuthForm: React.FC<{ type: 'login', onSuccess: (u: User) => void }> = ({ o
           role: data.role as UserRole,
           location: { wilaya: data.wilaya, daira: data.daira },
           avatar: data.avatar,
-          isVerified: data.is_verified || false,
+          isVerified: data.is_verified,
           category: data.category
         });
       }
@@ -504,48 +517,31 @@ const ProfileView: React.FC<{ user: User, onLogout: () => void }> = ({ user, onL
   </div>
 );
 
-// --- نظام الرسائل المتجاوب ---
+// --- نظام الرسائل ---
 const ChatView: React.FC<{ currentUser: User, targetUser?: User | null }> = ({ currentUser, targetUser }) => {
-  const [conversations, setConversations] = useState<any[]>([]);
-  const [activeChat, setActiveChat] = useState<User | null>(targetUser || null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  const [showConvList, setShowConvList] = useState(!targetUser);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const fetchConversations = async () => {
-    const { data } = await supabase.rpc('get_conversations', { user_uuid: currentUser.id });
-    setConversations(data || []);
-  };
-
-  const fetchMessages = async (partnerId: string) => {
-    const { data } = await supabase.from('messages')
-      .select('*')
-      .or(`and(sender_id.eq.${currentUser.id},receiver_id.eq.${partnerId}),and(sender_id.eq.${partnerId},receiver_id.eq.${currentUser.id})`)
-      .order('created_at', { ascending: true });
-    setMessages(data || []);
-  };
-
   useEffect(() => {
-    fetchConversations();
-    const subscription = supabase.channel('messages')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
-        const msg = payload.new as Message;
-        if ((msg.sender_id === activeChat?.id || msg.receiver_id === activeChat?.id)) {
-          setMessages(prev => [...prev, msg]);
-        }
-        fetchConversations();
-      })
-      .subscribe();
-    return () => { subscription.unsubscribe(); };
-  }, [activeChat]);
+    if (targetUser) {
+      const fetchMessages = async () => {
+        const { data } = await supabase.from('messages')
+          .select('*')
+          .or(`and(sender_id.eq.${currentUser.id},receiver_id.eq.${targetUser.id}),and(sender_id.eq.${targetUser.id},receiver_id.eq.${currentUser.id})`)
+          .order('created_at', { ascending: true });
+        setMessages(data || []);
+      };
+      fetchMessages();
 
-  useEffect(() => {
-    if (activeChat) {
-      fetchMessages(activeChat.id);
-      if (window.innerWidth < 768) setShowConvList(false);
+      const subscription = supabase.channel('chat')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
+          setMessages(prev => [...prev, payload.new as Message]);
+        }).subscribe();
+      
+      return () => { subscription.unsubscribe(); };
     }
-  }, [activeChat]);
+  }, [targetUser]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -553,64 +549,39 @@ const ChatView: React.FC<{ currentUser: User, targetUser?: User | null }> = ({ c
 
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !activeChat) return;
-    const msg = { sender_id: currentUser.id, receiver_id: activeChat.id, content: newMessage.trim() };
+    if (!newMessage.trim() || !targetUser) return;
+    const msg = { sender_id: currentUser.id, receiver_id: targetUser.id, content: newMessage.trim() };
     await supabase.from('messages').insert([msg]);
     setNewMessage('');
   };
 
   return (
-    <div className="max-w-6xl mx-auto my-4 md:my-10 h-[85vh] md:h-[80vh] bg-white rounded-3xl md:rounded-[3rem] shadow-2xl overflow-hidden border flex flex-col md:flex-row-reverse">
-      <div className={`${showConvList ? 'flex' : 'hidden md:flex'} w-full md:w-1/3 border-l bg-gray-50 flex-col h-full`}>
-        <div className="p-4 md:p-6 border-b bg-white flex justify-between items-center flex-row-reverse">
-          <h2 className="text-lg md:text-xl font-black">المحادثات</h2>
-          {activeChat && <button className="md:hidden text-emerald-600 font-bold" onClick={() => setShowConvList(false)}>رجوع</button>}
-        </div>
-        <div className="flex-1 overflow-y-auto custom-scrollbar">
-          {conversations.map((conv: any) => (
-            <div key={conv.id} onClick={() => setActiveChat(conv)} className={`p-4 flex items-center gap-4 flex-row-reverse cursor-pointer hover:bg-emerald-50 transition-all ${activeChat?.id === conv.id ? 'bg-emerald-100' : ''}`}>
-              <img src={conv.avatar || `https://ui-avatars.com/api/?name=${conv.first_name}`} className="w-10 h-10 md:w-12 md:h-12 rounded-xl object-cover" />
-              <div className="text-right flex-1">
-                <p className="font-black text-sm">{conv.first_name} {conv.last_name}</p>
-                <p className="text-xs text-gray-500 truncate">{conv.last_message}</p>
-              </div>
+    <div className="max-w-4xl mx-auto my-10 h-[70vh] bg-white rounded-[3rem] shadow-2xl overflow-hidden border flex flex-col">
+      <div className="p-6 border-b flex items-center justify-between flex-row-reverse bg-gray-50">
+        {targetUser ? (
+          <div className="flex items-center gap-4 flex-row-reverse">
+            <img src={targetUser.avatar || `https://ui-avatars.com/api/?name=${targetUser.firstName}`} className="w-12 h-12 rounded-xl" />
+            <div className="text-right">
+              <p className="font-black">{targetUser.firstName} {targetUser.lastName}</p>
+              <p className="text-xs text-emerald-500 font-bold">نشط حالياً</p>
             </div>
-          ))}
-          {conversations.length === 0 && <p className="text-center py-10 text-gray-400 font-bold">لا توجد محادثات.</p>}
-        </div>
+          </div>
+        ) : <p className="font-bold">المحادثة</p>}
       </div>
-      <div className={`${!showConvList ? 'flex' : 'hidden md:flex'} flex-1 flex-col bg-white h-full`}>
-        {activeChat ? (
-          <>
-            <div className="p-4 md:p-6 border-b flex items-center justify-between flex-row-reverse">
-              <div className="flex items-center gap-3 md:gap-4 flex-row-reverse">
-                <img src={activeChat.avatar || `https://ui-avatars.com/api/?name=${activeChat.firstName}`} className="w-8 h-8 md:w-10 md:h-10 rounded-xl" />
-                <div className="text-right">
-                  <p className="font-black text-sm md:text-base">{activeChat.firstName} {activeChat.lastName}</p>
-                  <p className="text-[10px] text-emerald-500 font-bold">نشط الآن</p>
-                </div>
-              </div>
-              <button className="md:hidden text-gray-500 font-bold text-xs" onClick={() => setShowConvList(true)}>القائمة</button>
+      <div className="flex-1 p-6 overflow-y-auto custom-scrollbar space-y-4">
+        {messages.map((m, idx) => (
+          <div key={idx} className={`flex ${m.sender_id === currentUser.id ? 'justify-start' : 'justify-end'}`}>
+            <div className={`max-w-[80%] p-4 text-sm font-medium ${m.sender_id === currentUser.id ? 'chat-bubble-me' : 'chat-bubble-them'}`}>
+              {m.content}
             </div>
-            <div className="flex-1 p-4 md:p-6 overflow-y-auto custom-scrollbar space-y-4">
-              {messages.map((m) => (
-                <div key={m.id} className={`flex ${m.sender_id === currentUser.id ? 'justify-start' : 'justify-end'}`}>
-                  <div className={`max-w-[85%] md:max-w-[70%] p-3 md:p-4 text-sm font-medium shadow-sm ${m.sender_id === currentUser.id ? 'chat-bubble-me' : 'chat-bubble-them'}`}>
-                    {m.content}
-                  </div>
-                </div>
-              ))}
-              <div ref={messagesEndRef} />
-            </div>
-            <form onSubmit={sendMessage} className="p-4 md:p-6 border-t bg-gray-50 flex gap-2 md:gap-4">
-              <input value={newMessage} onChange={(e) => setNewMessage(e.target.value)} placeholder="اكتب رسالة..." className="flex-1 p-3 md:p-4 bg-white border-2 rounded-xl md:rounded-2xl outline-none focus:border-emerald-500 transition-all" />
-              <button type="submit" className="bg-emerald-600 text-white px-6 md:px-10 rounded-xl md:rounded-2xl font-black shadow-lg">إرسال</button>
-            </form>
-          </>
-        ) : (
-          <div className="flex-1 flex items-center justify-center text-gray-400 font-bold px-10 text-center">اختر محادثة لبدء المراسلة.</div>
-        )}
+          </div>
+        ))}
+        <div ref={messagesEndRef} />
       </div>
+      <form onSubmit={sendMessage} className="p-6 border-t bg-gray-50 flex gap-4">
+        <input value={newMessage} onChange={(e) => setNewMessage(e.target.value)} placeholder="اكتب رسالة..." className="flex-1 p-4 bg-white border-2 rounded-2xl outline-none focus:border-emerald-500" />
+        <button type="submit" className="bg-emerald-600 text-white px-10 rounded-2xl font-black shadow-lg">إرسال</button>
+      </form>
     </div>
   );
 };
