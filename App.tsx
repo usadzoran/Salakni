@@ -1,37 +1,25 @@
 
 /* 
 تنبيه هام - إعداد قاعدة البيانات (Supabase SQL Editor):
-يرجى نسخ ولصق الكود التالي في SQL Editor الخاص بـ Supabase لضمان عمل التسجيل بنجاح:
+يرجى إضافة جدول المهام لضمان عمل النظام:
 
-CREATE TABLE IF NOT EXISTS users (
+CREATE TABLE IF NOT EXISTS tasks (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  first_name text NOT NULL,
-  last_name text NOT NULL,
-  phone text UNIQUE NOT NULL,
-  password text NOT NULL,
-  role text NOT NULL,
-  wilaya text,
+  seeker_id uuid REFERENCES users(id) ON DELETE CASCADE,
+  title text NOT NULL,
+  description text NOT NULL,
+  category text NOT NULL,
+  wilaya text NOT NULL,
   daira text,
-  category text,
-  bio text,
-  avatar text,
-  is_verified boolean DEFAULT false,
-  rating numeric DEFAULT 0,
-  completed_jobs integer DEFAULT 0,
+  budget text,
+  status text DEFAULT 'open', -- 'open', 'closed'
   created_at timestamp with time zone DEFAULT now()
 );
 
--- تفعيل سياسات الأمان (RLS)
-ALTER TABLE users ENABLE ROW LEVEL SECURITY;
-
--- السماح للجميع بإنشاء حسابات (INSERT)
-CREATE POLICY "Allow public registration" ON users FOR INSERT WITH CHECK (true);
-
--- السماح للجميع برؤية قائمة الحرفيين (SELECT)
-CREATE POLICY "Allow public read access" ON users FOR SELECT USING (true);
-
--- السماح للمستخدمين بتحديث بياناتهم فقط (UPDATE)
-CREATE POLICY "Users can update their own profile" ON users FOR UPDATE USING (true);
+-- سياسات الأمان للمهام
+ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Everyone can view tasks" ON tasks FOR SELECT USING (true);
+CREATE POLICY "Seekers can insert tasks" ON tasks FOR INSERT WITH CHECK (true);
 */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -52,8 +40,25 @@ import {
   MessageSquare,
   Home,
   Search,
-  PlusCircle
+  PlusCircle,
+  ClipboardList,
+  Clock,
+  DollarSign,
+  Send
 } from 'lucide-react';
+
+interface Task {
+  id: string;
+  seeker_id: string;
+  title: string;
+  description: string;
+  category: string;
+  wilaya: string;
+  daira: string;
+  budget: string;
+  created_at: string;
+  seeker_name?: string;
+}
 
 // --- أنماط مخصصة ---
 const GlobalStyles = () => (
@@ -65,12 +70,11 @@ const GlobalStyles = () => (
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     .custom-scrollbar::-webkit-scrollbar { width: 4px; }
     .custom-scrollbar::-webkit-scrollbar-thumb { background: #10b981; border-radius: 10px; }
-    .hero-bg-overlay { background: linear-gradient(to bottom, rgba(15, 23, 42, 0.9) 0%, rgba(15, 23, 42, 0.7) 50%, rgba(15, 23, 42, 0.95) 100%); }
     .chat-bubble-me { background: #10b981; color: white; border-radius: 1.2rem 1.2rem 0 1.2rem; }
     .chat-bubble-them { background: #f3f4f6; color: #1f2937; border-radius: 1.2rem 1.2rem 1.2rem 0; }
-    .profile-card { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-    .profile-card:hover { transform: translateY(-5px); }
     .bottom-nav-active { color: #10b981; transform: translateY(-4px); }
+    .task-card { transition: all 0.3s ease; }
+    .task-card:hover { transform: scale(1.02); }
     @media (max-width: 640px) {
       .hero-title { font-size: 2.5rem !important; line-height: 1.2 !important; }
     }
@@ -94,29 +98,10 @@ const Logo: React.FC<{ size?: 'sm' | 'lg', onClick?: () => void, inverse?: boole
   </div>
 );
 
-const RegistrationChoice: React.FC<{ onChoice: (role: UserRole) => void }> = ({ onChoice }) => (
-  <div className="max-w-4xl mx-auto my-12 md:my-20 px-4 animate-in fade-in zoom-in duration-500">
-    <h2 className="text-3xl md:text-5xl font-black text-center mb-12 text-slate-900">كيف تريد الانضمام إلينا؟ ✨</h2>
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-      <div onClick={() => onChoice(UserRole.WORKER)} className="bg-white p-10 rounded-[3rem] shadow-2xl border-4 border-transparent hover:border-emerald-500 cursor-pointer transition-all group text-center">
-        <div className="text-7xl mb-6 group-hover:scale-110 transition-transform">🛠️</div>
-        <h3 className="text-2xl font-black mb-4">أنا حرفي محترف</h3>
-        <p className="text-slate-500 font-medium">أريد عرض خدماتي، بناء سمعتي، والوصول لمئات الزبائن في ولايتي.</p>
-        <button className="mt-8 bg-emerald-600 text-white px-8 py-3 rounded-2xl font-black w-full shadow-lg group-hover:bg-emerald-500 transition-colors">سجل كحرفي</button>
-      </div>
-      <div onClick={() => onChoice(UserRole.SEEKER)} className="bg-white p-10 rounded-[3rem] shadow-2xl border-4 border-transparent hover:border-blue-500 cursor-pointer transition-all group text-center">
-        <div className="text-7xl mb-6 group-hover:scale-110 transition-transform">🔍</div>
-        <h3 className="text-2xl font-black mb-4">أنا أبحث عن حرفي</h3>
-        <p className="text-slate-500 font-medium">أبحث عن أفضل المهنيين الموثوقين في منطقتي لإنجاز أعمالي بكل سهولة.</p>
-        <button className="mt-8 bg-blue-600 text-white px-8 py-3 rounded-2xl font-black w-full shadow-lg group-hover:bg-blue-500 transition-colors">سجل كزبون</button>
-      </div>
-    </div>
-  </div>
-);
-
 export default function App() {
   const getInitialUser = () => JSON.parse(localStorage.getItem('user') || 'null');
   const [state, setState] = useState<AppState>(() => ({ currentUser: getInitialUser(), workers: [], view: 'landing' }));
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [chatTarget, setChatTarget] = useState<User | null>(null);
   const [registerRole, setRegisterRole] = useState<UserRole | null>(null);
   const [loading, setLoading] = useState(false);
@@ -129,310 +114,320 @@ export default function App() {
     setState({ currentUser: null, workers: [], view: 'landing' });
   };
 
-  const fetchWorkers = async () => {
+  const fetchTasks = async () => {
     setLoading(true);
     try {
-      let query = supabase.from('users').select('*').eq('role', UserRole.WORKER);
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('*, users(first_name, last_name, avatar)')
+        .order('created_at', { ascending: false });
       
-      if (searchFilters.wilaya) query = query.eq('wilaya', searchFilters.wilaya);
-      if (searchFilters.category) query = query.eq('category', searchFilters.category);
-      if (searchFilters.query) {
-        query = query.or(`first_name.ilike.%${searchFilters.query}%,last_name.ilike.%${searchFilters.query}%,bio.ilike.%${searchFilters.query}%`);
-      }
-
-      const { data, error } = await query;
       if (error) throw error;
-      
-      const mappedWorkers: Worker[] = (data || []).map(d => ({
-        id: d.id,
-        firstName: d.first_name,
-        lastName: d.last_name,
-        phone: d.phone,
-        role: UserRole.WORKER,
-        location: { wilaya: d.wilaya, daira: d.daira },
-        avatar: d.avatar,
-        bio: d.bio,
-        category: d.category,
-        isVerified: d.is_verified,
-        rating: Number(d.rating) || 0,
-        completedJobs: d.completed_jobs || 0,
-        skills: d.skills || []
+      const mappedTasks = (data || []).map(t => ({
+        ...t,
+        seeker_name: `${t.users?.first_name} ${t.users?.last_name}`
       }));
-      
-      setState(prev => ({ ...prev, workers: mappedWorkers }));
+      setTasks(mappedTasks);
     } catch (e) {
-      console.error("Search error:", e);
+      console.error("Tasks error:", e);
     } finally {
       setLoading(false);
     }
   };
 
+  const fetchWorkers = async () => {
+    setLoading(true);
+    try {
+      let query = supabase.from('users').select('*').eq('role', UserRole.WORKER);
+      if (searchFilters.wilaya) query = query.eq('wilaya', searchFilters.wilaya);
+      if (searchFilters.category) query = query.eq('category', searchFilters.category);
+      if (searchFilters.query) query = query.or(`first_name.ilike.%${searchFilters.query}%,last_name.ilike.%${searchFilters.query}%,bio.ilike.%${searchFilters.query}%`);
+
+      const { data, error } = await query;
+      if (error) throw error;
+      
+      const mappedWorkers: Worker[] = (data || []).map(d => ({
+        id: d.id, firstName: d.first_name, lastName: d.last_name, phone: d.phone, role: UserRole.WORKER,
+        location: { wilaya: d.wilaya, daira: d.daira }, avatar: d.avatar, bio: d.bio, category: d.category,
+        isVerified: d.is_verified, rating: Number(d.rating) || 0, completedJobs: d.completed_jobs || 0, skills: d.skills || []
+      }));
+      setState(prev => ({ ...prev, workers: mappedWorkers }));
+    } catch (e) { console.error(e); } finally { setLoading(false); }
+  };
+
   useEffect(() => {
-    if (state.view === 'search') {
-      fetchWorkers();
-    }
+    if (state.view === 'search') fetchWorkers();
+    if (state.view === 'support') fetchTasks(); // Using support view as Tasks for now
   }, [state.view, searchFilters]);
 
   return (
-    <div className="min-h-screen flex flex-col arabic-text transition-colors duration-700 bg-gray-50 pb-24 md:pb-0" dir="rtl">
+    <div className="min-h-screen flex flex-col arabic-text bg-gray-50 pb-24 md:pb-0" dir="rtl">
       <GlobalStyles />
       <nav className="h-20 flex items-center px-4 md:px-6 sticky top-0 z-50 backdrop-blur-xl border-b bg-white/90 border-gray-100 shadow-sm">
         <div className="max-w-7xl mx-auto w-full flex justify-between items-center">
           <Logo onClick={() => setView('landing')} />
           <div className="hidden md:flex items-center gap-6">
             <button onClick={() => setView('search')} className={`font-bold transition-colors ${state.view === 'search' ? 'text-emerald-600' : 'text-slate-600 hover:text-emerald-600'}`}>تصفح الحرفيين</button>
+            <button onClick={() => setView('support')} className={`font-bold transition-colors ${state.view === 'support' ? 'text-emerald-600' : 'text-slate-600 hover:text-emerald-600'}`}>سوق المهام</button>
             {state.currentUser ? (
               <div className="flex items-center gap-4">
-                <button onClick={() => setView('messages')} className={`text-xl transition-all hover:scale-110 ${state.view === 'messages' ? 'text-emerald-600' : 'text-slate-600'}`}>
-                   <MessageSquare size={24} />
-                </button>
-                <div onClick={() => setView('profile')} className={`w-10 h-10 rounded-xl bg-emerald-100 cursor-pointer overflow-hidden border-2 shadow-sm transition-all hover:border-emerald-500 ${state.view === 'profile' ? 'border-emerald-600' : 'border-white'}`}>
+                <button onClick={() => setView('messages')} className={`text-xl ${state.view === 'messages' ? 'text-emerald-600' : 'text-slate-600'}`}><MessageSquare size={24} /></button>
+                <div onClick={() => setView('profile')} className="w-10 h-10 rounded-xl bg-emerald-100 cursor-pointer overflow-hidden border-2 border-white shadow-sm hover:border-emerald-500">
                    <img src={state.currentUser.avatar || `https://ui-avatars.com/api/?name=${state.currentUser.firstName}`} className="w-full h-full object-cover" />
                 </div>
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                 <button onClick={() => setView('login')} className="text-gray-500 font-bold px-4 py-2 hover:text-emerald-600 transition-colors">دخول</button>
-                 <button onClick={() => { setRegisterRole(null); setView('register'); }} className="bg-emerald-600 text-white px-6 py-2 rounded-xl font-black shadow-lg hover:bg-emerald-500 transition-all active:scale-95">سجل الآن</button>
+                 <button onClick={() => setView('login')} className="text-gray-500 font-bold px-4 py-2 hover:text-emerald-600">دخول</button>
+                 <button onClick={() => setView('register')} className="bg-emerald-600 text-white px-6 py-2 rounded-xl font-black shadow-lg">سجل الآن</button>
               </div>
             )}
           </div>
         </div>
       </nav>
 
-      {/* Main Bottom Navigation Menu */}
-      <div className="fixed bottom-0 left-0 right-0 z-[100] bg-white/80 backdrop-blur-xl border-t border-gray-100 px-6 py-4 flex justify-between items-center md:hidden shadow-[0_-4px_20px_rgba(0,0,0,0.05)] rounded-t-[2.5rem]">
-        <button onClick={() => setView('landing')} className={`flex flex-col items-center gap-1 transition-all ${state.view === 'landing' ? 'bottom-nav-active' : 'text-slate-400'}`}>
-          <Home size={24} strokeWidth={state.view === 'landing' ? 3 : 2} />
-          <span className="text-[10px] font-black">الرئيسية</span>
-        </button>
-        <button onClick={() => setView('search')} className={`flex flex-col items-center gap-1 transition-all ${state.view === 'search' ? 'bottom-nav-active' : 'text-slate-400'}`}>
-          <Search size={24} strokeWidth={state.view === 'search' ? 3 : 2} />
-          <span className="text-[10px] font-black">البحث</span>
-        </button>
-        <div className="relative -mt-12">
-           <button onClick={() => { setRegisterRole(null); setView('register'); }} className="bg-gradient-to-tr from-emerald-600 to-teal-400 text-white p-4 rounded-full shadow-2xl border-4 border-white transition-transform active:scale-90">
-             <PlusCircle size={32} />
-           </button>
+      {/* Bottom Nav */}
+      <div className="fixed bottom-0 left-0 right-0 z-[100] bg-white/80 backdrop-blur-xl border-t border-gray-100 px-6 py-4 flex justify-between items-center md:hidden rounded-t-[2.5rem] shadow-2xl">
+        <button onClick={() => setView('landing')} className={`flex flex-col items-center gap-1 ${state.view === 'landing' ? 'bottom-nav-active' : 'text-slate-400'}`}><Home size={22} /><span className="text-[10px] font-black">الرئيسية</span></button>
+        <button onClick={() => setView('search')} className={`flex flex-col items-center gap-1 ${state.view === 'search' ? 'bottom-nav-active' : 'text-slate-400'}`}><Search size={22} /><span className="text-[10px] font-black">البحث</span></button>
+        <div className="relative -mt-10">
+           <button onClick={() => setView('support')} className={`p-4 rounded-full shadow-2xl transition-all active:scale-90 ${state.view === 'support' ? 'bg-emerald-600 text-white' : 'bg-white text-emerald-600 border border-emerald-100'}`}><ClipboardList size={28} /></button>
         </div>
-        <button onClick={() => state.currentUser ? setView('messages') : setView('login')} className={`flex flex-col items-center gap-1 transition-all ${state.view === 'messages' ? 'bottom-nav-active' : 'text-slate-400'}`}>
-          <div className="relative">
-            <MessageSquare size={24} strokeWidth={state.view === 'messages' ? 3 : 2} />
-            <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full border border-white"></span>
-          </div>
-          <span className="text-[10px] font-black">الرسائل</span>
-        </button>
-        <button onClick={() => state.currentUser ? setView('profile') : setView('login')} className={`flex flex-col items-center gap-1 transition-all ${state.view === 'profile' ? 'bottom-nav-active' : 'text-slate-400'}`}>
-          <UserIcon size={24} strokeWidth={state.view === 'profile' ? 3 : 2} />
-          <span className="text-[10px] font-black">حسابي</span>
-        </button>
+        <button onClick={() => state.currentUser ? setView('messages') : setView('login')} className={`flex flex-col items-center gap-1 ${state.view === 'messages' ? 'bottom-nav-active' : 'text-slate-400'}`}><MessageSquare size={22} /><span className="text-[10px] font-black">الرسائل</span></button>
+        <button onClick={() => state.currentUser ? setView('profile') : setView('login')} className={`flex flex-col items-center gap-1 ${state.view === 'profile' ? 'bottom-nav-active' : 'text-slate-400'}`}><UserIcon size={22} /><span className="text-[10px] font-black">حسابي</span></button>
       </div>
 
-      <main className="flex-grow">
-        {state.view === 'landing' && (
-          <div className="relative min-h-[90vh] flex items-center justify-center overflow-hidden bg-slate-950">
-            <div className="absolute inset-0 bg-cover bg-center opacity-30 animate-pulse duration-[10s]" style={{ backgroundImage: `url(${REQ_IMAGE})` }}></div>
-            <div className="absolute inset-0 hero-bg-overlay"></div>
-            <div className="relative z-10 max-w-5xl mx-auto px-6 text-center animate-in fade-in slide-in-from-bottom-10 duration-1000">
-              <h1 className="hero-title text-4xl md:text-8xl font-black text-white leading-tight tracking-tighter">ريح بالك، <span className="text-emerald-400">سَلّكني</span> يسلكها</h1>
-              <p className="text-lg md:text-3xl text-slate-300 mt-6 font-medium max-w-3xl mx-auto">المنصة الأولى والوحيدة في الجزائر لربط أفضل الحرفيين بالزبائن بضمان واحترافية.</p>
-              <div className="flex flex-col sm:flex-row gap-6 mt-12 justify-center">
-                <button onClick={() => setView('search')} className="bg-emerald-600 px-12 py-5 rounded-3xl font-black text-white text-xl shadow-2xl hover:bg-emerald-500 hover:-translate-y-1 transition-all active:scale-95">اطلب حرفي الآن 🔍</button>
-                <button onClick={() => { setRegisterRole(null); setView('register'); }} className="bg-white/10 backdrop-blur-md px-12 py-5 rounded-3xl font-black text-white text-xl border border-white/20 hover:bg-white/20 transition-all active:scale-95">أنا حرفي، سجلني 🛠️</button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {state.view === 'register' && !registerRole && <RegistrationChoice onChoice={(role) => setRegisterRole(role)} />}
+      <main className="flex-grow pb-12">
+        {state.view === 'landing' && <LandingView onSearch={() => setView('search')} onPost={() => setView('support')} />}
         
-        {state.view === 'register' && registerRole === UserRole.WORKER && (
-          <WorkerRegistrationForm onSuccess={(user) => { 
-            localStorage.setItem('user', JSON.stringify(user)); 
-            setState(prev => ({ ...prev, currentUser: user, view: 'profile' })); 
-          }} onBack={() => setRegisterRole(null)} />
+        {state.view === 'support' && (
+          <TasksMarketView 
+            tasks={tasks} 
+            loading={loading} 
+            currentUser={state.currentUser} 
+            onRefresh={fetchTasks}
+            onPostTask={() => { if(!state.currentUser) setView('login'); }}
+            onContact={(seekerId) => {
+               setChatTarget({ id: seekerId, firstName: 'صاحب', lastName: 'المهمة', role: UserRole.SEEKER } as User);
+               setView('messages');
+            }}
+          />
         )}
 
-        {state.view === 'register' && registerRole === UserRole.SEEKER && (
-          <SeekerRegistrationForm onSuccess={(user) => { 
-            localStorage.setItem('user', JSON.stringify(user)); 
-            setState(prev => ({ ...prev, currentUser: user, view: 'profile' })); 
-          }} onBack={() => setRegisterRole(null)} />
-        )}
-
-        {state.view === 'login' && <AuthForm type="login" onSuccess={(u) => { 
-          localStorage.setItem('user', JSON.stringify(u)); 
-          setState(prev => ({ ...prev, currentUser: u, view: u.role === UserRole.ADMIN ? 'admin' : 'profile' })); 
-        }} />}
-
+        {state.view === 'register' && !registerRole && <RegistrationChoice onChoice={setRegisterRole} />}
+        {state.view === 'register' && registerRole === UserRole.WORKER && <WorkerRegistrationForm onSuccess={(u) => { setState(prev => ({ ...prev, currentUser: u, view: 'profile' })); }} onBack={() => setRegisterRole(null)} />}
+        {state.view === 'register' && registerRole === UserRole.SEEKER && <SeekerRegistrationForm onSuccess={(u) => { setState(prev => ({ ...prev, currentUser: u, view: 'profile' })); }} onBack={() => setRegisterRole(null)} />}
+        {state.view === 'login' && <AuthForm onSuccess={(u) => { setState(prev => ({ ...prev, currentUser: u, view: 'profile' })); }} />}
         {state.view === 'profile' && state.currentUser && <ProfileView user={state.currentUser} onLogout={handleLogout} />}
-        
-        {state.view === 'search' && (
-          <div className="max-w-7xl mx-auto px-4 py-12 text-right">
-             <div className="bg-white p-8 rounded-[3rem] shadow-xl border border-gray-100 mb-12 animate-in fade-in duration-500">
-               <h2 className="text-3xl font-black mb-6">ابحث عن حرفي متميز 🇩🇿</h2>
-               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                 <input 
-                   placeholder="بحث بالاسم أو التخصص..." 
-                   className="p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 font-bold"
-                   value={searchFilters.query}
-                   onChange={e => setSearchFilters(f => ({ ...f, query: e.target.value }))}
-                 />
-                 <select 
-                   className="p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 font-bold"
-                   value={searchFilters.wilaya}
-                   onChange={e => setSearchFilters(f => ({ ...f, wilaya: e.target.value }))}
-                 >
-                   <option value="">كل الولايات</option>
-                   {WILAYAS.map(w => <option key={w} value={w}>{w}</option>)}
-                 </select>
-                 <select 
-                   className="p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 font-bold"
-                   value={searchFilters.category}
-                   onChange={e => setSearchFilters(f => ({ ...f, category: e.target.value }))}
-                 >
-                   <option value="">كل التخصصات</option>
-                   {SERVICE_CATEGORIES.map(c => <option key={c.id} value={c.name}>{c.icon} {c.name}</option>)}
-                 </select>
-               </div>
-             </div>
-
-             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-               {loading ? (
-                 <div className="col-span-full py-20 flex justify-center"><div className="loading-spinner"></div></div>
-               ) : state.workers.length > 0 ? (
-                 state.workers.map(w => (
-                   <div key={w.id} className="bg-white p-8 rounded-[3rem] shadow-xl border border-gray-100 hover:shadow-2xl transition-all group animate-in slide-in-from-bottom-5">
-                      <div className="flex gap-4 items-center mb-6 flex-row-reverse">
-                         <img src={w.avatar || `https://ui-avatars.com/api/?name=${w.firstName}&background=random`} className="w-20 h-20 rounded-3xl shadow-lg group-hover:rotate-3 transition-transform object-cover" />
-                         <div className="text-right flex-1">
-                            <h3 className="font-black text-xl">{w.firstName} {w.lastName}</h3>
-                            <div className="flex items-center gap-2 justify-end">
-                              <span className="text-emerald-600 text-sm font-bold bg-emerald-50 px-3 py-1 rounded-full">{w.category}</span>
-                              {w.isVerified && <span className="bg-blue-100 text-blue-600 text-[10px] px-2 py-0.5 rounded-full font-black">موثق ✓</span>}
-                            </div>
-                         </div>
-                      </div>
-                      <p className="text-gray-500 text-sm mb-6 leading-relaxed line-clamp-2 h-10">{w.bio || 'حرفي متميز يهدف لتقديم أفضل الخدمات بجودة عالية.'}</p>
-                      <div className="flex justify-between items-center mb-6 flex-row-reverse">
-                        <span className="text-slate-400 text-xs font-bold">📍 {w.location.wilaya}</span>
-                        <div className="flex items-center gap-1 text-yellow-500 font-bold text-sm">⭐ {w.rating || '4.0'}</div>
-                      </div>
-                      <button onClick={() => { setChatTarget(w); setView('messages'); }} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black group-hover:bg-emerald-600 transition-colors shadow-lg">تواصل الآن</button>
-                   </div>
-                 ))
-               ) : (
-                 <div className="col-span-full py-20 text-center">
-                    <div className="text-6xl mb-4">🔍</div>
-                    <p className="text-gray-400 font-bold text-xl">لا يوجد حرفيين مطابقين لبحثك حالياً.</p>
-                 </div>
-               )}
-            </div>
-          </div>
-        )}
-
+        {state.view === 'search' && <SearchWorkersView loading={loading} workers={state.workers} filters={searchFilters} onFilterChange={setSearchFilters} onContact={(w) => { setChatTarget(w); setView('messages'); }} />}
         {state.view === 'messages' && state.currentUser && <ChatView currentUser={state.currentUser} targetUser={chatTarget} />}
       </main>
-
-      <footer className="hidden md:block bg-slate-900 text-white py-12 text-center mt-auto border-t border-white/5">
-        <Logo size="sm" inverse />
-        <p className="mt-4 text-slate-500 font-bold">سلكني - منصتكم الموثوقة للحرف والمهن في الجزائر 🇩🇿</p>
-      </footer>
     </div>
   );
 }
 
-// --- نموذج تسجيل الحرفي ---
-const WorkerRegistrationForm: React.FC<{ onSuccess: (u: User) => void, onBack: () => void }> = ({ onSuccess, onBack }) => {
-  const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({ 
-    firstName: '', lastName: '', phone: '', password: '', 
-    wilaya: WILAYAS[0], daira: '', category: SERVICE_CATEGORIES[0].name, bio: '' 
-  });
+// --- مكونات الصفحات ---
 
-  const handleSubmit = async (e: React.FormEvent) => {
+const LandingView: React.FC<{ onSearch: () => void, onPost: () => void }> = ({ onSearch, onPost }) => (
+  <div className="relative min-h-[90vh] flex items-center justify-center overflow-hidden bg-slate-950">
+    <div className="absolute inset-0 bg-cover bg-center opacity-30 animate-pulse" style={{ backgroundImage: `url(${REQ_IMAGE})` }}></div>
+    <div className="absolute inset-0 bg-gradient-to-tr from-gray-900/90 to-emerald-900/40"></div>
+    <div className="relative z-10 max-w-5xl mx-auto px-6 text-center animate-in fade-in slide-in-from-bottom-10 duration-1000">
+      <h1 className="hero-title text-4xl md:text-8xl font-black text-white leading-tight">ريح بالك، <span className="text-emerald-400">سَلّكني</span> يسلكها</h1>
+      <p className="text-lg md:text-2xl text-slate-300 mt-6 font-medium max-w-2xl mx-auto">تواصل مع أفضل الحرفيين في منطقتك، أو انشر مهمة واترك الباقي لنا.</p>
+      <div className="flex flex-col sm:flex-row gap-6 mt-12 justify-center">
+        <button onClick={onSearch} className="bg-emerald-600 px-10 py-5 rounded-3xl font-black text-white text-xl shadow-2xl active:scale-95">تصفح الحرفيين 🔍</button>
+        <button onClick={onPost} className="bg-white/10 backdrop-blur-md px-10 py-5 rounded-3xl font-black text-white text-xl border border-white/20 active:scale-95">نشر مهمة عمل ⚒️</button>
+      </div>
+    </div>
+  </div>
+);
+
+const TasksMarketView: React.FC<{ 
+  tasks: Task[], 
+  loading: boolean, 
+  currentUser: User | null, 
+  onRefresh: () => void,
+  onPostTask: () => void,
+  onContact: (id: string) => void
+}> = ({ tasks, loading, currentUser, onRefresh, onPostTask, onContact }) => {
+  const [showForm, setShowForm] = useState(false);
+  const [taskData, setTaskData] = useState({ title: '', description: '', category: SERVICE_CATEGORIES[0].name, wilaya: WILAYAS[0], budget: '' });
+
+  const handlePost = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.daira) return alert("يرجى اختيار الدائرة");
-    
-    setLoading(true);
-    try {
-      const payload = {
-        first_name: formData.firstName,
-        last_name: formData.lastName,
-        phone: formData.phone,
-        password: formData.password,
-        role: UserRole.WORKER,
-        wilaya: formData.wilaya,
-        daira: formData.daira,
-        category: formData.category,
-        bio: formData.bio,
-        is_verified: false
-      };
-
-      const { data, error } = await supabase.from('users').insert([payload]).select().single();
-
-      if (error) {
-        if (error.code === '23505') alert("رقم الهاتف هذا مسجل مسبقاً!");
-        else {
-          console.error("Database error:", error);
-          alert(`فشل الحفظ في قاعدة البيانات: ${error.message}`);
-        }
-      } else if (data) {
-        onSuccess({ 
-          id: data.id, 
-          firstName: data.first_name, 
-          lastName: data.last_name, 
-          phone: data.phone,
-          role: UserRole.WORKER,
-          location: { wilaya: data.wilaya, daira: data.daira },
-          category: data.category,
-          bio: data.bio,
-          isVerified: data.is_verified
-        });
-      }
-    } catch (err) {
-      console.error("Unexpected error:", err);
-      alert("حدث خطأ غير متوقع أثناء التسجيل.");
-    } finally {
-      setLoading(false);
+    if (!currentUser) return onPostTask();
+    const { error } = await supabase.from('tasks').insert([{
+      seeker_id: currentUser.id,
+      ...taskData
+    }]);
+    if (error) alert(error.message);
+    else {
+      setShowForm(false);
+      onRefresh();
     }
   };
 
   return (
-    <div className="max-w-3xl mx-auto my-12 px-6 animate-in slide-in-from-left duration-500">
-      <div className="bg-white p-8 md:p-12 rounded-[3.5rem] shadow-2xl border border-emerald-100 text-right">
-        <button onClick={onBack} className="text-emerald-600 font-bold mb-6 hover:underline flex items-center gap-2"><span>←</span> الرجوع</button>
-        <h2 className="text-3xl font-black mb-2 text-slate-900">انضم كحرفي محترف ⚒️</h2>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <input required placeholder="الاسم" className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 transition-all font-bold" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} />
-            <input required placeholder="اللقب" className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 transition-all font-bold" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} />
-          </div>
-          <input required type="tel" placeholder="رقم الهاتف (05/06/07)" className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 transition-all font-mono font-bold" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <select className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 font-bold" value={formData.wilaya} onChange={e => setFormData({...formData, wilaya: e.target.value, daira: ''})}>
-              {WILAYAS.map(w => <option key={w} value={w}>{w}</option>)}
-            </select>
-            <select required className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 font-bold" value={formData.daira} onChange={e => setFormData({...formData, daira: e.target.value})}>
-              <option value="">اختر الدائرة</option>
-              {DAIRAS[formData.wilaya]?.map(d => <option key={d} value={d}>{d}</option>)}
-            </select>
-          </div>
-          <select className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 font-bold" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
+    <div className="max-w-6xl mx-auto px-4 py-8 md:py-16">
+      <div className="flex justify-between items-center mb-12 flex-row-reverse">
+        <div>
+           <h2 className="text-3xl md:text-5xl font-black text-slate-900">سوق المهام ⚒️</h2>
+           <p className="text-slate-500 font-bold mt-2">طلبات عمل من زبائن حقيقيين في الجزائر</p>
+        </div>
+        <button onClick={() => setShowForm(!showForm)} className="bg-emerald-600 text-white px-8 py-4 rounded-2xl font-black shadow-xl hover:bg-emerald-500 transition-all">
+          {showForm ? 'إلغاء' : 'نشر طلب عمل +'}
+        </button>
+      </div>
+
+      {showForm && (
+        <div className="bg-white p-8 rounded-[3rem] shadow-2xl border border-emerald-100 mb-12 animate-in slide-in-from-top duration-500 text-right">
+           <h3 className="text-2xl font-black mb-6">ما الذي تحتاجه اليوم؟ ✨</h3>
+           <form onSubmit={handlePost} className="space-y-6">
+              <input required placeholder="عنوان الطلب (مثلاً: تصليح سخان ماء)" className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl font-bold" value={taskData.title} onChange={e => setTaskData({...taskData, title: e.target.value})} />
+              <textarea required placeholder="صف المشكلة أو الخدمة المطلوبة بالتفصيل..." className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl font-medium h-32" value={taskData.description} onChange={e => setTaskData({...taskData, description: e.target.value})} />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <select className="p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl font-bold" value={taskData.category} onChange={e => setTaskData({...taskData, category: e.target.value})}>
+                  {SERVICE_CATEGORIES.map(c => <option key={c.id} value={c.name}>{c.icon} {c.name}</option>)}
+                </select>
+                <select className="p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl font-bold" value={taskData.wilaya} onChange={e => setTaskData({...taskData, wilaya: e.target.value})}>
+                  {WILAYAS.map(w => <option key={w} value={w}>{w}</option>)}
+                </select>
+                <input placeholder="الميزانية التقريبية (اختياري)" className="p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl font-bold" value={taskData.budget} onChange={e => setTaskData({...taskData, budget: e.target.value})} />
+              </div>
+              <button type="submit" className="w-full bg-emerald-600 text-white py-5 rounded-2xl font-black text-xl shadow-lg">نشر الآن ✅</button>
+           </form>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex justify-center py-20"><div className="loading-spinner"></div></div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {tasks.map(t => (
+            <div key={t.id} className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-gray-50 task-card flex flex-col text-right">
+              <div className="flex justify-between items-start mb-4 flex-row-reverse">
+                <span className="bg-emerald-50 text-emerald-600 px-4 py-1.5 rounded-full text-xs font-black">{t.category}</span>
+                <span className="text-gray-400 text-xs flex items-center gap-1"><Clock size={14} /> {new Date(t.created_at).toLocaleDateString('ar-DZ')}</span>
+              </div>
+              <h3 className="text-xl font-black text-slate-900 mb-4">{t.title}</h3>
+              <p className="text-gray-500 mb-6 flex-grow leading-relaxed">{t.description}</p>
+              <div className="flex flex-wrap gap-4 mb-8 flex-row-reverse">
+                 <div className="flex items-center gap-2 text-slate-600 font-bold bg-gray-50 px-3 py-2 rounded-xl text-sm"><MapPin size={16} /> {t.wilaya}</div>
+                 {t.budget && <div className="flex items-center gap-2 text-yellow-600 font-black bg-yellow-50 px-3 py-2 rounded-xl text-sm"><DollarSign size={16} /> {t.budget} دج</div>}
+              </div>
+              <div className="pt-6 border-t border-gray-100 flex items-center justify-between flex-row-reverse">
+                 <div className="flex items-center gap-3 flex-row-reverse">
+                   <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center font-black text-emerald-600">👤</div>
+                   <span className="font-bold text-slate-800">{t.seeker_name}</span>
+                 </div>
+                 {currentUser?.role === UserRole.WORKER && (
+                    <button onClick={() => onContact(t.seeker_id)} className="bg-slate-900 text-white px-6 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-emerald-600 transition-colors">
+                      اتفاق <Send size={16} />
+                    </button>
+                 )}
+              </div>
+            </div>
+          ))}
+          {tasks.length === 0 && (
+            <div className="col-span-full py-20 text-center opacity-50">
+               <ClipboardList size={64} className="mx-auto mb-4" />
+               <p className="text-2xl font-black">لا توجد مهام منشورة حالياً</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const SearchWorkersView: React.FC<{ loading: boolean, workers: Worker[], filters: any, onFilterChange: (f: any) => void, onContact: (w: Worker) => void }> = ({ loading, workers, filters, onFilterChange, onContact }) => (
+  <div className="max-w-7xl mx-auto px-4 py-12 text-right">
+    <div className="bg-white p-8 rounded-[3rem] shadow-xl border border-gray-100 mb-12 animate-in fade-in">
+       <h2 className="text-3xl font-black mb-6">ابحث عن حرفي متميز 🇩🇿</h2>
+       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <input placeholder="بحث بالاسم أو التخصص..." className="p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl font-bold" value={filters.query} onChange={e => onFilterChange({...filters, query: e.target.value})} />
+          <select className="p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl font-bold" value={filters.wilaya} onChange={e => onFilterChange({...filters, wilaya: e.target.value})}>
+            <option value="">كل الولايات</option>
+            {WILAYAS.map(w => <option key={w} value={w}>{w}</option>)}
+          </select>
+          <select className="p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl font-bold" value={filters.category} onChange={e => onFilterChange({...filters, category: e.target.value})}>
+            <option value="">كل التخصصات</option>
             {SERVICE_CATEGORIES.map(c => <option key={c.id} value={c.name}>{c.icon} {c.name}</option>)}
           </select>
-          <textarea className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 h-32 font-medium" placeholder="نبذة مهنية عنك..." value={formData.bio} onChange={e => setFormData({...formData, bio: e.target.value})} />
-          <input type="password" required placeholder="كلمة المرور" className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 font-bold" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
-          <button type="submit" disabled={loading} className="w-full bg-emerald-600 text-white py-5 rounded-2xl font-black text-xl shadow-xl active:scale-95 disabled:opacity-50">
-            {loading ? 'جاري الحفظ...' : 'تأكيد التسجيل ✅'}
-          </button>
+       </div>
+    </div>
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+       {loading ? <div className="col-span-full py-20 flex justify-center"><div className="loading-spinner"></div></div> : workers.map(w => (
+         <div key={w.id} className="bg-white p-8 rounded-[3rem] shadow-xl border border-gray-50 hover:shadow-2xl transition-all text-right group animate-in slide-in-from-bottom-5">
+            <div className="flex gap-4 items-center mb-6 flex-row-reverse">
+               <img src={w.avatar || `https://ui-avatars.com/api/?name=${w.firstName}`} className="w-20 h-20 rounded-3xl object-cover" />
+               <div className="flex-1">
+                  <h3 className="font-black text-xl">{w.firstName} {w.lastName}</h3>
+                  <div className="flex items-center gap-2 justify-end">
+                    <span className="text-emerald-600 text-xs font-bold bg-emerald-50 px-3 py-1 rounded-full">{w.category}</span>
+                    {w.isVerified && <span className="bg-blue-100 text-blue-600 text-[10px] px-2 py-0.5 rounded-full font-black">موثق ✓</span>}
+                  </div>
+               </div>
+            </div>
+            <p className="text-gray-500 text-sm mb-6 line-clamp-2 h-10">{w.bio || 'حرفي متميز يهدف لتقديم أفضل الخدمات.'}</p>
+            <div className="flex justify-between items-center mb-6 flex-row-reverse">
+              <span className="text-slate-400 text-xs font-bold">📍 {w.location.wilaya}</span>
+              <div className="flex items-center gap-1 text-yellow-500 font-bold text-sm">⭐ 4.5</div>
+            </div>
+            <button onClick={() => onContact(w)} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black group-hover:bg-emerald-600 transition-colors">تواصل الآن</button>
+         </div>
+       ))}
+    </div>
+  </div>
+);
+
+// --- بقية النماذج ---
+
+const WorkerRegistrationForm: React.FC<{ onSuccess: (u: User) => void, onBack: () => void }> = ({ onSuccess, onBack }) => {
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({ firstName: '', lastName: '', phone: '', password: '', wilaya: WILAYAS[0], daira: '', category: SERVICE_CATEGORIES[0].name, bio: '' });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    const { data, error } = await supabase.from('users').insert([{ ...formData, first_name: formData.firstName, last_name: formData.lastName, role: UserRole.WORKER }]).select().single();
+    if (error) alert(error.message);
+    else if (data) {
+      const u = { id: data.id, firstName: data.first_name, lastName: data.last_name, phone: data.phone, role: data.role as UserRole, location: { wilaya: data.wilaya, daira: data.daira }, category: data.category };
+      localStorage.setItem('user', JSON.stringify(u));
+      onSuccess(u);
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto my-12 px-6">
+      <div className="bg-white p-10 rounded-[3rem] shadow-2xl text-right">
+        <button onClick={onBack} className="text-emerald-600 font-bold mb-6 hover:underline">← رجوع</button>
+        <h2 className="text-3xl font-black mb-8">انضم كحرفي محترف ⚒️</h2>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="grid grid-cols-2 gap-4">
+            <input required placeholder="الاسم" className="p-4 bg-gray-50 border-2 rounded-2xl font-bold" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} />
+            <input required placeholder="اللقب" className="p-4 bg-gray-50 border-2 rounded-2xl font-bold" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} />
+          </div>
+          <input required placeholder="رقم الهاتف" className="w-full p-4 bg-gray-50 border-2 rounded-2xl font-bold" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
+          <div className="grid grid-cols-2 gap-4">
+            <select className="p-4 bg-gray-50 border-2 rounded-2xl font-bold" value={formData.wilaya} onChange={e => setFormData({...formData, wilaya: e.target.value})}>
+              {WILAYAS.map(w => <option key={w} value={w}>{w}</option>)}
+            </select>
+            <select className="p-4 bg-gray-50 border-2 rounded-2xl font-bold" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
+              {SERVICE_CATEGORIES.map(c => <option key={c.id} value={c.name}>{c.icon} {c.name}</option>)}
+            </select>
+          </div>
+          <input type="password" required placeholder="كلمة المرور" className="w-full p-4 bg-gray-50 border-2 rounded-2xl font-bold" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
+          <button disabled={loading} className="w-full bg-emerald-600 text-white py-5 rounded-2xl font-black shadow-lg">تأكيد التسجيل ✅</button>
         </form>
       </div>
     </div>
   );
 };
 
-// --- نموذج تسجيل الزبون ---
 const SeekerRegistrationForm: React.FC<{ onSuccess: (u: User) => void, onBack: () => void }> = ({ onSuccess, onBack }) => {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({ firstName: '', lastName: '', phone: '', password: '', wilaya: WILAYAS[0] });
@@ -440,235 +435,105 @@ const SeekerRegistrationForm: React.FC<{ onSuccess: (u: User) => void, onBack: (
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    try {
-      const payload = {
-        first_name: formData.firstName,
-        last_name: formData.lastName,
-        phone: formData.phone,
-        password: formData.password,
-        role: UserRole.SEEKER,
-        wilaya: formData.wilaya,
-        is_verified: true
-      };
-
-      const { data, error } = await supabase.from('users').insert([payload]).select().single();
-
-      if (error) {
-        if (error.code === '23505') alert("رقم الهاتف مسجل مسبقاً!");
-        else alert(`فشل التسجيل: ${error.message}`);
-      } else if (data) {
-        onSuccess({ 
-          id: data.id, 
-          firstName: data.first_name, 
-          lastName: data.last_name, 
-          phone: data.phone,
-          role: UserRole.SEEKER,
-          location: { wilaya: data.wilaya, daira: '' },
-          isVerified: data.is_verified
-        });
-      }
-    } catch (err) {
-      console.error(err);
-      alert("حدث خطأ تقني.");
-    } finally {
-      setLoading(false);
+    const { data, error } = await supabase.from('users').insert([{ ...formData, first_name: formData.firstName, last_name: formData.lastName, role: UserRole.SEEKER }]).select().single();
+    if (error) alert(error.message);
+    else if (data) {
+      const u = { id: data.id, firstName: data.first_name, lastName: data.last_name, phone: data.phone, role: data.role as UserRole, location: { wilaya: data.wilaya, daira: '' } };
+      localStorage.setItem('user', JSON.stringify(u));
+      onSuccess(u);
     }
+    setLoading(false);
   };
 
   return (
-    <div className="max-w-xl mx-auto my-12 px-4 animate-in slide-in-from-right duration-500">
-      <div className="bg-white p-8 md:p-12 rounded-[3rem] shadow-2xl border border-blue-100 text-right">
-        <button onClick={onBack} className="text-blue-600 font-bold mb-6 hover:underline flex items-center gap-2"><span>←</span> الرجوع</button>
-        <h2 className="text-3xl font-black mb-2 text-blue-900">سجل كزبون جديد 👤</h2>
+    <div className="max-w-xl mx-auto my-12 px-6">
+      <div className="bg-white p-10 rounded-[3rem] shadow-2xl text-right">
+        <button onClick={onBack} className="text-blue-600 font-bold mb-6 hover:underline">← رجوع</button>
+        <h2 className="text-3xl font-black mb-8 text-blue-900">سجل كزبون جديد 👤</h2>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-2 gap-4">
-             <input placeholder="الاسم" required className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-blue-500 font-bold" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} />
-             <input placeholder="اللقب" required className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-blue-500 font-bold" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} />
+            <input required placeholder="الاسم" className="p-4 bg-gray-50 border-2 rounded-2xl font-bold" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} />
+            <input required placeholder="اللقب" className="p-4 bg-gray-50 border-2 rounded-2xl font-bold" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} />
           </div>
-          <input placeholder="رقم الهاتف" required type="tel" className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-blue-500 font-bold font-mono" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
-          <select className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-blue-500 font-bold" value={formData.wilaya} onChange={e => setFormData({...formData, wilaya: e.target.value})}>
+          <input required placeholder="رقم الهاتف" className="w-full p-4 bg-gray-50 border-2 rounded-2xl font-bold" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
+          <select className="w-full p-4 bg-gray-50 border-2 rounded-2xl font-bold" value={formData.wilaya} onChange={e => setFormData({...formData, wilaya: e.target.value})}>
             {WILAYAS.map(w => <option key={w} value={w}>{w}</option>)}
           </select>
-          <input type="password" placeholder="كلمة المرور" required className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-blue-500 font-bold" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
-          <button type="submit" disabled={loading} className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black text-xl shadow-xl active:scale-95 disabled:opacity-50">
-            {loading ? 'جاري الحفظ...' : 'تأكيد الحساب 🚀'}
-          </button>
+          <input type="password" required placeholder="كلمة المرور" className="w-full p-4 bg-gray-50 border-2 rounded-2xl font-bold" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
+          <button disabled={loading} className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black shadow-lg">تأكيد الحساب 🚀</button>
         </form>
       </div>
     </div>
   );
 };
 
-// --- نموذج الدخول ---
-const AuthForm: React.FC<{ type: 'login', onSuccess: (u: User) => void }> = ({ onSuccess }) => {
+const RegistrationChoice: React.FC<{ onChoice: (role: UserRole) => void }> = ({ onChoice }) => (
+  <div className="max-w-4xl mx-auto my-20 px-4 text-center">
+    <h2 className="text-4xl font-black mb-12">كيف تريد الانضمام إلينا؟ ✨</h2>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div onClick={() => onChoice(UserRole.WORKER)} className="bg-white p-10 rounded-[3rem] shadow-2xl border-4 border-transparent hover:border-emerald-500 cursor-pointer transition-all">
+        <div className="text-6xl mb-6">🛠️</div>
+        <h3 className="text-2xl font-black mb-4">أنا حرفي محترف</h3>
+        <p className="text-gray-500">أريد عرض خدماتي واستقبال عروض العمل.</p>
+      </div>
+      <div onClick={() => onChoice(UserRole.SEEKER)} className="bg-white p-10 rounded-[3rem] shadow-2xl border-4 border-transparent hover:border-blue-500 cursor-pointer transition-all">
+        <div className="text-6xl mb-6">🔍</div>
+        <h3 className="text-2xl font-black mb-4">أنا أبحث عن حرفي</h3>
+        <p className="text-gray-500">أريد طلب خدمات أو نشر مهمة عمل.</p>
+      </div>
+    </div>
+  </div>
+);
+
+const AuthForm: React.FC<{ onSuccess: (u: User) => void }> = ({ onSuccess }) => {
+  const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({ phone: '', password: '' });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    try {
-      const { data, error } = await supabase.from('users').select('*').eq('phone', formData.phone).eq('password', formData.password).single();
-      if (error) {
-        alert("بيانات الدخول غير صحيحة ❌");
-      } else if (data) {
-        onSuccess({ 
-          id: data.id, 
-          firstName: data.first_name, 
-          lastName: data.last_name, 
-          phone: data.phone,
-          role: data.role as UserRole,
-          location: { wilaya: data.wilaya, daira: data.daira },
-          avatar: data.avatar,
-          isVerified: data.is_verified,
-          category: data.category
-        });
-      }
-    } catch (err) {
-      alert("حدث خطأ أثناء تسجيل الدخول.");
-    } finally {
-      setLoading(false);
+    const { data, error } = await supabase.from('users').select('*').eq('phone', phone).eq('password', password).single();
+    if (error) alert("بيانات الدخول خاطئة ❌");
+    else if (data) {
+      const u = { id: data.id, firstName: data.first_name, lastName: data.last_name, phone: data.phone, role: data.role as UserRole, location: { wilaya: data.wilaya, daira: data.daira }, category: data.category };
+      localStorage.setItem('user', JSON.stringify(u));
+      onSuccess(u);
     }
+    setLoading(false);
   };
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center p-4">
-      <div className="bg-white p-12 rounded-[3.5rem] shadow-2xl w-full max-md text-right border border-emerald-50">
-        <h2 className="text-3xl font-black mb-8 text-slate-900 border-r-4 border-emerald-500 pr-4">مرحباً بك مجدداً 👋</h2>
+    <div className="min-h-[70vh] flex items-center justify-center p-4">
+      <div className="bg-white p-10 rounded-[3rem] shadow-2xl w-full max-w-md text-right">
+        <h2 className="text-3xl font-black mb-8 border-r-4 border-emerald-500 pr-4">تسجيل الدخول 👋</h2>
         <form onSubmit={handleSubmit} className="space-y-6">
-          <input required placeholder="رقم الهاتف" className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 font-bold font-mono" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
-          <input type="password" required placeholder="كلمة المرور" className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 font-bold" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
-          <button type="submit" disabled={loading} className="w-full bg-emerald-600 text-white py-5 rounded-2xl font-black text-xl shadow-lg active:scale-95 disabled:opacity-50">
-            {loading ? 'جاري التحقق...' : 'تسجيل الدخول'}
-          </button>
+          <input required placeholder="رقم الهاتف" className="w-full p-4 bg-gray-50 border-2 rounded-2xl font-bold" value={phone} onChange={e => setPhone(e.target.value)} />
+          <input type="password" required placeholder="كلمة المرور" className="w-full p-4 bg-gray-50 border-2 rounded-2xl font-bold" value={password} onChange={e => setPassword(e.target.value)} />
+          <button disabled={loading} className="w-full bg-emerald-600 text-white py-5 rounded-2xl font-black text-xl shadow-lg">دخول</button>
         </form>
       </div>
     </div>
   );
 };
 
-// --- واجهة البروفايل المحدثة ---
 const ProfileView: React.FC<{ user: User, onLogout: () => void }> = ({ user, onLogout }) => (
-  <div className="max-w-4xl mx-auto my-8 md:my-16 px-4 animate-in fade-in slide-in-from-bottom-10 duration-700">
-    <div className="bg-white rounded-[3.5rem] shadow-2xl overflow-hidden border border-gray-100 flex flex-col profile-card">
-      
-      {/* Header / Cover */}
-      <div className="h-40 md:h-56 bg-gradient-to-r from-emerald-600 via-teal-500 to-blue-500 relative">
-        <div className="absolute inset-0 bg-white/10 backdrop-blur-[2px]"></div>
-      </div>
-
-      {/* Profile Info Section */}
-      <div className="px-6 md:px-12 pb-12 relative">
-        
-        {/* Avatar Area */}
-        <div className="flex flex-col md:flex-row items-center md:items-end -mt-20 md:-mt-24 mb-8 gap-6">
-          <div className="relative">
-            <img 
-              src={user.avatar || `https://ui-avatars.com/api/?name=${user.firstName}&size=256&background=10b981&color=fff`} 
-              className="w-40 h-40 md:w-48 md:h-48 rounded-[3rem] border-8 border-white shadow-2xl object-cover bg-white" 
-            />
-            {user.isVerified && (
-              <div className="absolute -bottom-2 -right-2 bg-blue-500 text-white p-2 rounded-2xl border-4 border-white shadow-lg animate-bounce duration-[3s]">
-                <ShieldCheck size={28} />
-              </div>
-            )}
-          </div>
-          
-          <div className="text-center md:text-right flex-1 mb-2">
-            <h2 className="text-3xl md:text-5xl font-black text-slate-900 mb-2 flex items-center justify-center md:justify-start gap-3">
-              {user.firstName} {user.lastName}
-            </h2>
-            <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
-              <span className="bg-emerald-100 text-emerald-700 px-4 py-1.5 rounded-full font-black text-sm md:text-base flex items-center gap-2">
-                <Briefcase size={18} />
-                {user.role === UserRole.WORKER ? user.category : 'زبون مميز'}
-              </span>
-              <span className="bg-slate-100 text-slate-600 px-4 py-1.5 rounded-full font-bold text-sm md:text-base flex items-center gap-2">
-                <MapPin size={18} />
-                {user.location.wilaya} {user.location.daira ? `• ${user.location.daira}` : ''}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row gap-4 mb-12">
-          <button className="flex-1 bg-slate-900 text-white px-8 py-4 rounded-2xl font-black hover:bg-emerald-600 transition-all shadow-xl flex items-center justify-center gap-3 active:scale-95">
-            <Settings size={22} />
-            تعديل الملف الشخصي
-          </button>
-          <button onClick={onLogout} className="bg-red-50 text-red-500 px-8 py-4 rounded-2xl font-black border border-red-100 hover:bg-red-500 hover:text-white transition-all shadow-sm flex items-center justify-center gap-3 active:scale-95">
-            <LogOut size={22} />
-            خروج
-          </button>
-        </div>
-
-        {/* Content Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          
-          {/* Stats Column */}
-          <div className="md:col-span-1 space-y-6">
-            <div className="bg-gray-50 p-6 rounded-[2.5rem] border border-gray-100 text-center">
-              <p className="text-slate-400 font-bold mb-1">التقييم العام</p>
-              <div className="text-3xl font-black text-yellow-500 flex items-center justify-center gap-2">
-                <Star size={32} fill="currentColor" />
-                4.9
-              </div>
-            </div>
-            <div className="bg-gray-50 p-6 rounded-[2.5rem] border border-gray-100 text-center">
-              <p className="text-slate-400 font-bold mb-1">مهام مكتملة</p>
-              <div className="text-3xl font-black text-emerald-600 flex items-center justify-center gap-2">
-                <CheckCircle size={32} />
-                +24
-              </div>
-            </div>
-            <div className="bg-gray-50 p-6 rounded-[2.5rem] border border-gray-100">
-               <h4 className="font-black text-slate-800 mb-4 flex items-center gap-2">
-                 <Phone size={18} className="text-emerald-500" />
-                 معلومات التواصل
-               </h4>
-               <p className="text-slate-600 font-mono font-bold text-lg">{user.phone}</p>
-               <p className="text-xs text-slate-400 mt-2 flex items-center gap-1">
-                 <Calendar size={14} />
-                 انضم في {new Date().toLocaleDateString('ar-DZ')}
-               </p>
-            </div>
-          </div>
-
-          {/* About Column */}
-          <div className="md:col-span-2 space-y-6">
-            <div className="bg-emerald-50/50 p-8 rounded-[3rem] border border-emerald-100 h-full">
-               <h4 className="text-xl font-black text-emerald-900 mb-4 flex items-center gap-2">
-                 <UserIcon size={24} />
-                 نبذة عني
-               </h4>
-               <p className="text-slate-700 leading-relaxed text-lg font-medium whitespace-pre-line">
-                 {user.bio || (user.role === UserRole.WORKER 
-                   ? `أنا حرفي متخصص في مجال ${user.category}. أقدم خدماتي بأعلى جودة وبكل أمانة وإتقان في ولاية ${user.location.wilaya}. هدفي دائماً هو رضا الزبون وتقديم حلول سريعة ومبتكرة.`
-                   : "زبون وفي لمنصة سلكني، أبحث دائماً عن الجودة والاحترافية في التعامل مع الحرفيين المهرة.")}
-               </p>
-               
-               {user.role === UserRole.WORKER && (
-                 <div className="mt-8">
-                   <h5 className="font-black text-slate-800 mb-4 flex items-center gap-2">
-                     <MessageSquare size={18} className="text-emerald-500" />
-                     ما يقوله الزبائن
-                   </h5>
-                   <div className="bg-white p-4 rounded-2xl border border-emerald-100 italic text-slate-500 text-sm">
-                     "تعامل جد محترف، العمل متقن جداً وأنصح به بشدة."
-                   </div>
-                 </div>
-               )}
-            </div>
-          </div>
-
+  <div className="max-w-4xl mx-auto my-12 px-4 text-center animate-in fade-in duration-700">
+    <div className="bg-white rounded-[3.5rem] shadow-2xl overflow-hidden border border-gray-100 flex flex-col">
+      <div className="h-40 bg-gradient-to-r from-emerald-600 to-blue-500"></div>
+      <div className="px-12 pb-12 relative -mt-20">
+        <img src={user.avatar || `https://ui-avatars.com/api/?name=${user.firstName}&background=10b981&color=fff`} className="w-40 h-40 rounded-[3rem] border-8 border-white shadow-2xl mx-auto object-cover" />
+        <h2 className="text-3xl font-black mt-6 text-slate-900">{user.firstName} {user.lastName}</h2>
+        <p className="text-emerald-600 font-black mt-2 text-xl">{user.role === UserRole.WORKER ? `حرفي (${user.category})` : 'زبون مميز'}</p>
+        <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
+          <button className="bg-slate-900 text-white px-10 py-4 rounded-2xl font-black shadow-xl flex items-center justify-center gap-2"><Settings size={20} /> تعديل الملف</button>
+          <button onClick={onLogout} className="bg-red-50 text-red-500 px-10 py-4 rounded-2xl font-black border border-red-100"><LogOut size={20} className="inline ml-2" /> خروج</button>
         </div>
       </div>
     </div>
   </div>
 );
 
-// --- نظام الرسائل ---
 const ChatView: React.FC<{ currentUser: User, targetUser?: User | null }> = ({ currentUser, targetUser }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -684,54 +549,38 @@ const ChatView: React.FC<{ currentUser: User, targetUser?: User | null }> = ({ c
         setMessages(data || []);
       };
       fetchMessages();
-
-      const subscription = supabase.channel('chat')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
-          setMessages(prev => [...prev, payload.new as Message]);
-        }).subscribe();
-      
-      return () => { subscription.unsubscribe(); };
+      const sub = supabase.channel('chat').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
+        setMessages(prev => [...prev, payload.new as Message]);
+      }).subscribe();
+      return () => { sub.unsubscribe(); };
     }
   }, [targetUser]);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
-  const sendMessage = async (e: React.FormEvent) => {
+  const send = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim() || !targetUser) return;
-    const msg = { sender_id: currentUser.id, receiver_id: targetUser.id, content: newMessage.trim() };
-    await supabase.from('messages').insert([msg]);
+    await supabase.from('messages').insert([{ sender_id: currentUser.id, receiver_id: targetUser.id, content: newMessage.trim() }]);
     setNewMessage('');
   };
 
   return (
-    <div className="max-w-4xl mx-auto my-10 h-[70vh] bg-white rounded-[3rem] shadow-2xl overflow-hidden border flex flex-col">
+    <div className="max-w-4xl mx-auto my-4 md:my-10 h-[80vh] bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border flex flex-col">
       <div className="p-6 border-b flex items-center justify-between flex-row-reverse bg-gray-50">
-        {targetUser ? (
-          <div className="flex items-center gap-4 flex-row-reverse">
-            <img src={targetUser.avatar || `https://ui-avatars.com/api/?name=${targetUser.firstName}`} className="w-12 h-12 rounded-xl" />
-            <div className="text-right">
-              <p className="font-black">{targetUser.firstName} {targetUser.lastName}</p>
-              <p className="text-xs text-emerald-500 font-bold">نشط حالياً</p>
-            </div>
-          </div>
-        ) : <p className="font-bold">المحادثة</p>}
+        {targetUser ? <div className="flex items-center gap-4 flex-row-reverse"><img src={`https://ui-avatars.com/api/?name=${targetUser.firstName}`} className="w-10 h-10 rounded-xl" /><div className="text-right font-black">{targetUser.firstName} {targetUser.lastName}</div></div> : <p>المحادثة</p>}
       </div>
       <div className="flex-1 p-6 overflow-y-auto custom-scrollbar space-y-4">
         {messages.map((m, idx) => (
           <div key={idx} className={`flex ${m.sender_id === currentUser.id ? 'justify-start' : 'justify-end'}`}>
-            <div className={`max-w-[80%] p-4 text-sm font-medium ${m.sender_id === currentUser.id ? 'chat-bubble-me' : 'chat-bubble-them'}`}>
-              {m.content}
-            </div>
+            <div className={`max-w-[80%] p-4 text-sm font-medium ${m.sender_id === currentUser.id ? 'chat-bubble-me' : 'chat-bubble-them'}`}>{m.content}</div>
           </div>
         ))}
         <div ref={messagesEndRef} />
       </div>
-      <form onSubmit={sendMessage} className="p-6 border-t bg-gray-50 flex gap-4">
-        <input value={newMessage} onChange={(e) => setNewMessage(e.target.value)} placeholder="اكتب رسالة..." className="flex-1 p-4 bg-white border-2 rounded-2xl outline-none focus:border-emerald-500" />
-        <button type="submit" className="bg-emerald-600 text-white px-10 rounded-2xl font-black shadow-lg">إرسال</button>
+      <form onSubmit={send} className="p-6 border-t bg-gray-50 flex gap-4">
+        <input value={newMessage} onChange={e => setNewMessage(e.target.value)} placeholder="اكتب رسالة..." className="flex-1 p-4 bg-white border-2 rounded-2xl outline-none" />
+        <button type="submit" className="bg-emerald-600 text-white px-8 rounded-2xl font-black"><Send size={24} /></button>
       </form>
     </div>
   );
