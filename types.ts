@@ -7,6 +7,8 @@ export const UserRole = {
 
 export type UserRole = typeof UserRole[keyof typeof UserRole];
 
+export type VerificationStatus = 'none' | 'pending' | 'verified' | 'rejected';
+
 export interface Location {
   wilaya: string;
   daira: string;
@@ -23,7 +25,9 @@ export interface User {
   bio?: string;
   categories?: string[]; 
   skills?: string[];
-  isVerified?: boolean;
+  verificationStatus?: VerificationStatus;
+  idFront?: string;
+  idBack?: string;
   portfolio?: string[];
   createdAt?: string;
   rating?: number;
@@ -42,7 +46,7 @@ export interface Message {
 export interface AppState {
   currentUser: User | null;
   workers: Worker[];
-  view: 'landing' | 'register' | 'login' | 'dashboard' | 'search' | 'profile' | 'edit-profile' | 'messages' | 'support';
+  view: 'landing' | 'register' | 'login' | 'dashboard' | 'search' | 'profile' | 'edit-profile' | 'messages' | 'support' | 'admin-panel';
 }
 
 export interface Worker extends User {
