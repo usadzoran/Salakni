@@ -9,6 +9,8 @@ export type UserRole = typeof UserRole[keyof typeof UserRole];
 
 export type VerificationStatus = 'none' | 'pending' | 'verified' | 'rejected';
 
+export type TaskStatus = 'open' | 'in_progress' | 'completed' | 'cancelled';
+
 export interface Location {
   wilaya: string;
   daira: string;
@@ -32,6 +34,20 @@ export interface User {
   createdAt?: string;
   rating?: number;
   ratingCount?: number;
+}
+
+export interface Task {
+  id: string;
+  seeker_id: string;
+  title: string;
+  description: string;
+  category: string;
+  wilaya: string;
+  budget: number;
+  status: TaskStatus;
+  created_at: string;
+  seeker_name?: string;
+  seeker_avatar?: string;
 }
 
 export interface Message {
