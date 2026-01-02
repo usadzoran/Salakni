@@ -1,6 +1,6 @@
 {
   "name": "Salakni - سَلّكني",
-  "description": "A modern platform connecting workers and service seekers across Algeria with localized search by Wilaya and Daira.",
+  "description": "منصة جزائرية حديثة تربط الحرفيين المهرة والباحثين عن الخدمات مع إمكانية البحث المحلي حسب الولاية.",
   "requestFramePermissions": [
     "geolocation",
     "camera"

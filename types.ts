@@ -25,16 +25,16 @@ export interface User {
   location: Location;
   avatar?: string;
   bio?: string;
-  categories?: string[]; 
-  skills?: string[];
-  verificationStatus?: VerificationStatus;
+  categories: string[]; 
+  skills: string[];
+  verificationStatus: VerificationStatus;
   idFront?: string;
   idBack?: string;
-  portfolio?: string[];
+  portfolio: string[];
   createdAt?: string;
-  rating?: number;
-  ratingCount?: number;
-  completedJobs?: number;
+  rating: number;
+  ratingCount: number;
+  completedJobs: number;
 }
 
 export interface Task {
@@ -54,5 +54,5 @@ export interface Task {
 export interface AppState {
   currentUser: User | null;
   workers: User[];
-  view: 'landing' | 'register' | 'login' | 'dashboard' | 'search' | 'profile' | 'edit-profile' | 'messages' | 'support' | 'admin-panel';
+  view: 'landing' | 'register' | 'login' | 'dashboard' | 'search' | 'profile' | 'edit-profile' | 'support' | 'admin-panel';
 }
