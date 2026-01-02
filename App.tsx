@@ -38,6 +38,19 @@ import React, { useState, useEffect, useRef } from 'react';
 import { UserRole, AppState, User, Message, Notification, Advertisement, SupportRequest, Worker } from './types.ts';
 import { SERVICE_CATEGORIES, WILAYAS, DAIRAS } from './constants.tsx';
 import { supabase } from './lib/supabase.ts';
+import { 
+  MapPin, 
+  Star, 
+  CheckCircle, 
+  Briefcase, 
+  User as UserIcon, 
+  LogOut, 
+  Settings, 
+  Phone, 
+  ShieldCheck, 
+  Calendar,
+  MessageSquare
+} from 'lucide-react';
 
 // --- أنماط مخصصة ---
 const GlobalStyles = () => (
@@ -52,6 +65,8 @@ const GlobalStyles = () => (
     .hero-bg-overlay { background: linear-gradient(to bottom, rgba(15, 23, 42, 0.9) 0%, rgba(15, 23, 42, 0.7) 50%, rgba(15, 23, 42, 0.95) 100%); }
     .chat-bubble-me { background: #10b981; color: white; border-radius: 1.2rem 1.2rem 0 1.2rem; }
     .chat-bubble-them { background: #f3f4f6; color: #1f2937; border-radius: 1.2rem 1.2rem 1.2rem 0; }
+    .profile-card { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+    .profile-card:hover { transform: translateY(-5px); }
     @media (max-width: 640px) {
       .hero-title { font-size: 2.5rem !important; line-height: 1.2 !important; }
     }
@@ -484,7 +499,7 @@ const AuthForm: React.FC<{ type: 'login', onSuccess: (u: User) => void }> = ({ o
 
   return (
     <div className="min-h-[80vh] flex items-center justify-center p-4">
-      <div className="bg-white p-12 rounded-[3.5rem] shadow-2xl w-full max-w-md text-right border border-emerald-50">
+      <div className="bg-white p-12 rounded-[3.5rem] shadow-2xl w-full max-md text-right border border-emerald-50">
         <h2 className="text-3xl font-black mb-8 text-slate-900 border-r-4 border-emerald-500 pr-4">مرحباً بك مجدداً 👋</h2>
         <form onSubmit={handleSubmit} className="space-y-6">
           <input required placeholder="رقم الهاتف" className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none focus:border-emerald-500 font-bold font-mono" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
@@ -498,21 +513,123 @@ const AuthForm: React.FC<{ type: 'login', onSuccess: (u: User) => void }> = ({ o
   );
 };
 
+// --- واجهة البروفايل المحدثة ---
 const ProfileView: React.FC<{ user: User, onLogout: () => void }> = ({ user, onLogout }) => (
-  <div className="max-w-4xl mx-auto my-12 md:my-20 px-4 animate-in fade-in duration-700">
-    <div className="bg-white p-12 rounded-[4rem] shadow-2xl text-center border border-emerald-50 relative overflow-hidden">
-       <div className="relative inline-block mb-6">
-          <img src={user.avatar || `https://ui-avatars.com/api/?name=${user.firstName}&size=200`} className="w-40 h-40 rounded-[3rem] border-4 border-white shadow-2xl object-cover" />
-          {user.isVerified && <span className="absolute bottom-2 right-2 bg-emerald-500 text-white w-10 h-10 rounded-full flex items-center justify-center border-4 border-white text-xl shadow-lg">✓</span>}
-       </div>
-       <h2 className="text-4xl font-black mb-2 text-slate-900">{user.firstName} {user.lastName}</h2>
-       <p className="text-emerald-600 font-black mb-8 text-xl">
-         {user.role === UserRole.WORKER ? `حرفي متميز (${user.category})` : 'زبون وفيّ لـ سلكني'}
-       </p>
-       <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <button className="bg-slate-900 text-white px-12 py-4 rounded-2xl font-black hover:bg-emerald-600 transition-colors shadow-lg">تعديل الملف الشخصي</button>
-          <button onClick={onLogout} className="bg-red-50 text-red-500 px-12 py-4 rounded-2xl font-black border border-red-100 hover:bg-red-500 hover:text-white transition-all shadow-sm">تسجيل الخروج</button>
-       </div>
+  <div className="max-w-4xl mx-auto my-8 md:my-16 px-4 animate-in fade-in slide-in-from-bottom-10 duration-700">
+    <div className="bg-white rounded-[3.5rem] shadow-2xl overflow-hidden border border-gray-100 flex flex-col profile-card">
+      
+      {/* Header / Cover */}
+      <div className="h-40 md:h-56 bg-gradient-to-r from-emerald-600 via-teal-500 to-blue-500 relative">
+        <div className="absolute inset-0 bg-white/10 backdrop-blur-[2px]"></div>
+      </div>
+
+      {/* Profile Info Section */}
+      <div className="px-6 md:px-12 pb-12 relative">
+        
+        {/* Avatar Area */}
+        <div className="flex flex-col md:flex-row items-center md:items-end -mt-20 md:-mt-24 mb-8 gap-6">
+          <div className="relative">
+            <img 
+              src={user.avatar || `https://ui-avatars.com/api/?name=${user.firstName}&size=256&background=10b981&color=fff`} 
+              className="w-40 h-40 md:w-48 md:h-48 rounded-[3rem] border-8 border-white shadow-2xl object-cover bg-white" 
+            />
+            {user.isVerified && (
+              <div className="absolute -bottom-2 -right-2 bg-blue-500 text-white p-2 rounded-2xl border-4 border-white shadow-lg animate-bounce duration-[3s]">
+                <ShieldCheck size={28} />
+              </div>
+            )}
+          </div>
+          
+          <div className="text-center md:text-right flex-1 mb-2">
+            <h2 className="text-3xl md:text-5xl font-black text-slate-900 mb-2 flex items-center justify-center md:justify-start gap-3">
+              {user.firstName} {user.lastName}
+            </h2>
+            <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
+              <span className="bg-emerald-100 text-emerald-700 px-4 py-1.5 rounded-full font-black text-sm md:text-base flex items-center gap-2">
+                <Briefcase size={18} />
+                {user.role === UserRole.WORKER ? user.category : 'زبون مميز'}
+              </span>
+              <span className="bg-slate-100 text-slate-600 px-4 py-1.5 rounded-full font-bold text-sm md:text-base flex items-center gap-2">
+                <MapPin size={18} />
+                {user.location.wilaya} {user.location.daira ? `• ${user.location.daira}` : ''}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex flex-col sm:flex-row gap-4 mb-12">
+          <button className="flex-1 bg-slate-900 text-white px-8 py-4 rounded-2xl font-black hover:bg-emerald-600 transition-all shadow-xl flex items-center justify-center gap-3 active:scale-95">
+            <Settings size={22} />
+            تعديل الملف الشخصي
+          </button>
+          <button onClick={onLogout} className="bg-red-50 text-red-500 px-8 py-4 rounded-2xl font-black border border-red-100 hover:bg-red-500 hover:text-white transition-all shadow-sm flex items-center justify-center gap-3 active:scale-95">
+            <LogOut size={22} />
+            خروج
+          </button>
+        </div>
+
+        {/* Content Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          
+          {/* Stats Column */}
+          <div className="md:col-span-1 space-y-6">
+            <div className="bg-gray-50 p-6 rounded-[2.5rem] border border-gray-100 text-center">
+              <p className="text-slate-400 font-bold mb-1">التقييم العام</p>
+              <div className="text-3xl font-black text-yellow-500 flex items-center justify-center gap-2">
+                <Star size={32} fill="currentColor" />
+                4.9
+              </div>
+            </div>
+            <div className="bg-gray-50 p-6 rounded-[2.5rem] border border-gray-100 text-center">
+              <p className="text-slate-400 font-bold mb-1">مهام مكتملة</p>
+              <div className="text-3xl font-black text-emerald-600 flex items-center justify-center gap-2">
+                <CheckCircle size={32} />
+                +24
+              </div>
+            </div>
+            <div className="bg-gray-50 p-6 rounded-[2.5rem] border border-gray-100">
+               <h4 className="font-black text-slate-800 mb-4 flex items-center gap-2">
+                 <Phone size={18} className="text-emerald-500" />
+                 معلومات التواصل
+               </h4>
+               <p className="text-slate-600 font-mono font-bold text-lg">{user.phone}</p>
+               <p className="text-xs text-slate-400 mt-2 flex items-center gap-1">
+                 <Calendar size={14} />
+                 انضم في {new Date().toLocaleDateString('ar-DZ')}
+               </p>
+            </div>
+          </div>
+
+          {/* About Column */}
+          <div className="md:col-span-2 space-y-6">
+            <div className="bg-emerald-50/50 p-8 rounded-[3rem] border border-emerald-100 h-full">
+               <h4 className="text-xl font-black text-emerald-900 mb-4 flex items-center gap-2">
+                 <UserIcon size={24} />
+                 نبذة عني
+               </h4>
+               <p className="text-slate-700 leading-relaxed text-lg font-medium whitespace-pre-line">
+                 {user.bio || (user.role === UserRole.WORKER 
+                   ? `أنا حرفي متخصص في مجال ${user.category}. أقدم خدماتي بأعلى جودة وبكل أمانة وإتقان في ولاية ${user.location.wilaya}. هدفي دائماً هو رضا الزبون وتقديم حلول سريعة ومبتكرة.`
+                   : "زبون وفي لمنصة سلكني، أبحث دائماً عن الجودة والاحترافية في التعامل مع الحرفيين المهرة.")}
+               </p>
+               
+               {user.role === UserRole.WORKER && (
+                 <div className="mt-8">
+                   <h5 className="font-black text-slate-800 mb-4 flex items-center gap-2">
+                     <MessageSquare size={18} className="text-emerald-500" />
+                     ما يقوله الزبائن
+                   </h5>
+                   <div className="bg-white p-4 rounded-2xl border border-emerald-100 italic text-slate-500 text-sm">
+                     "تعامل جد محترف، العمل متقن جداً وأنصح به بشدة."
+                   </div>
+                 </div>
+               )}
+            </div>
+          </div>
+
+        </div>
+      </div>
     </div>
   </div>
 );
