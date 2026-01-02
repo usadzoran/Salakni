@@ -44,7 +44,9 @@ import {
   ClipboardList,
   Clock,
   DollarSign,
-  Send
+  Send,
+  AlertCircle,
+  RefreshCcw
 } from 'lucide-react';
 
 interface Task {
@@ -58,6 +60,7 @@ interface Task {
   budget: string;
   created_at: string;
   seeker_name?: string;
+  seeker_avatar?: string;
 }
 
 // --- أنماط مخصصة ---
@@ -105,6 +108,7 @@ export default function App() {
   const [chatTarget, setChatTarget] = useState<User | null>(null);
   const [registerRole, setRegisterRole] = useState<UserRole | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [searchFilters, setSearchFilters] = useState({ query: '', wilaya: '', category: '' });
 
   const setView = (view: AppState['view']) => setState(prev => ({ ...prev, view }));
@@ -116,20 +120,32 @@ export default function App() {
 
   const fetchTasks = async () => {
     setLoading(true);
+    setError(null);
     try {
-      const { data, error } = await supabase
+      // استخدام alias لربط seeker_id بجدول المستخدمين بشكل صريح
+      const { data, error: dbError } = await supabase
         .from('tasks')
-        .select('*, users(first_name, last_name, avatar)')
+        .select(`
+          *,
+          users:seeker_id (
+            first_name,
+            last_name,
+            avatar
+          )
+        `)
         .order('created_at', { ascending: false });
       
-      if (error) throw error;
+      if (dbError) throw dbError;
+
       const mappedTasks = (data || []).map(t => ({
         ...t,
-        seeker_name: `${t.users?.first_name} ${t.users?.last_name}`
+        seeker_name: t.users ? `${t.users.first_name} ${t.users.last_name}` : 'زبون سلكني',
+        seeker_avatar: t.users?.avatar
       }));
       setTasks(mappedTasks);
-    } catch (e) {
-      console.error("Tasks error:", e);
+    } catch (e: any) {
+      console.error("Tasks error details:", e);
+      setError(e.message || "حدث خطأ أثناء تحميل المهام. تأكد من إعداد جدول tasks في Supabase.");
     } finally {
       setLoading(false);
     }
@@ -137,14 +153,15 @@ export default function App() {
 
   const fetchWorkers = async () => {
     setLoading(true);
+    setError(null);
     try {
       let query = supabase.from('users').select('*').eq('role', UserRole.WORKER);
       if (searchFilters.wilaya) query = query.eq('wilaya', searchFilters.wilaya);
       if (searchFilters.category) query = query.eq('category', searchFilters.category);
       if (searchFilters.query) query = query.or(`first_name.ilike.%${searchFilters.query}%,last_name.ilike.%${searchFilters.query}%,bio.ilike.%${searchFilters.query}%`);
 
-      const { data, error } = await query;
-      if (error) throw error;
+      const { data, error: dbError } = await query;
+      if (dbError) throw dbError;
       
       const mappedWorkers: Worker[] = (data || []).map(d => ({
         id: d.id, firstName: d.first_name, lastName: d.last_name, phone: d.phone, role: UserRole.WORKER,
@@ -152,13 +169,21 @@ export default function App() {
         isVerified: d.is_verified, rating: Number(d.rating) || 0, completedJobs: d.completed_jobs || 0, skills: d.skills || []
       }));
       setState(prev => ({ ...prev, workers: mappedWorkers }));
-    } catch (e) { console.error(e); } finally { setLoading(false); }
+    } catch (e: any) { 
+      console.error("Workers error details:", e);
+      setError(e.message || "حدث خطأ أثناء البحث عن الحرفيين.");
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   useEffect(() => {
     if (state.view === 'search') fetchWorkers();
-    if (state.view === 'support') fetchTasks(); // Using support view as Tasks for now
   }, [state.view, searchFilters]);
+
+  useEffect(() => {
+    if (state.view === 'support') fetchTasks();
+  }, [state.view]);
 
   return (
     <div className="min-h-screen flex flex-col arabic-text bg-gray-50 pb-24 md:pb-0" dir="rtl">
@@ -204,11 +229,12 @@ export default function App() {
           <TasksMarketView 
             tasks={tasks} 
             loading={loading} 
+            error={error}
             currentUser={state.currentUser} 
             onRefresh={fetchTasks}
             onPostTask={() => { if(!state.currentUser) setView('login'); }}
-            onContact={(seekerId) => {
-               setChatTarget({ id: seekerId, firstName: 'صاحب', lastName: 'المهمة', role: UserRole.SEEKER } as User);
+            onContact={(seekerId, seekerName) => {
+               setChatTarget({ id: seekerId, firstName: seekerName, lastName: '', role: UserRole.SEEKER } as User);
                setView('messages');
             }}
           />
@@ -219,7 +245,7 @@ export default function App() {
         {state.view === 'register' && registerRole === UserRole.SEEKER && <SeekerRegistrationForm onSuccess={(u) => { setState(prev => ({ ...prev, currentUser: u, view: 'profile' })); }} onBack={() => setRegisterRole(null)} />}
         {state.view === 'login' && <AuthForm onSuccess={(u) => { setState(prev => ({ ...prev, currentUser: u, view: 'profile' })); }} />}
         {state.view === 'profile' && state.currentUser && <ProfileView user={state.currentUser} onLogout={handleLogout} />}
-        {state.view === 'search' && <SearchWorkersView loading={loading} workers={state.workers} filters={searchFilters} onFilterChange={setSearchFilters} onContact={(w) => { setChatTarget(w); setView('messages'); }} />}
+        {state.view === 'search' && <SearchWorkersView loading={loading} error={error} workers={state.workers} filters={searchFilters} onFilterChange={setSearchFilters} onContact={(w) => { setChatTarget(w); setView('messages'); }} />}
         {state.view === 'messages' && state.currentUser && <ChatView currentUser={state.currentUser} targetUser={chatTarget} />}
       </main>
     </div>
@@ -246,11 +272,12 @@ const LandingView: React.FC<{ onSearch: () => void, onPost: () => void }> = ({ o
 const TasksMarketView: React.FC<{ 
   tasks: Task[], 
   loading: boolean, 
+  error: string | null,
   currentUser: User | null, 
   onRefresh: () => void,
   onPostTask: () => void,
-  onContact: (id: string) => void
-}> = ({ tasks, loading, currentUser, onRefresh, onPostTask, onContact }) => {
+  onContact: (id: string, name: string) => void
+}> = ({ tasks, loading, error, currentUser, onRefresh, onPostTask, onContact }) => {
   const [showForm, setShowForm] = useState(false);
   const [taskData, setTaskData] = useState({ title: '', description: '', category: SERVICE_CATEGORIES[0].name, wilaya: WILAYAS[0], budget: '' });
 
@@ -300,7 +327,15 @@ const TasksMarketView: React.FC<{
         </div>
       )}
 
-      {loading ? (
+      {error ? (
+        <div className="bg-red-50 border-2 border-red-100 p-12 rounded-[3rem] text-center">
+           <AlertCircle size={64} className="text-red-500 mx-auto mb-4" />
+           <p className="text-xl font-black text-red-700 mb-6">{error}</p>
+           <button onClick={onRefresh} className="flex items-center gap-2 mx-auto bg-red-600 text-white px-8 py-3 rounded-2xl font-bold hover:bg-red-700 transition-colors">
+             إعادة المحاولة <RefreshCcw size={20} />
+           </button>
+        </div>
+      ) : loading ? (
         <div className="flex justify-center py-20"><div className="loading-spinner"></div></div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -318,11 +353,11 @@ const TasksMarketView: React.FC<{
               </div>
               <div className="pt-6 border-t border-gray-100 flex items-center justify-between flex-row-reverse">
                  <div className="flex items-center gap-3 flex-row-reverse">
-                   <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center font-black text-emerald-600">👤</div>
+                   <img src={t.seeker_avatar || `https://ui-avatars.com/api/?name=${t.seeker_name}&background=random`} className="w-10 h-10 rounded-full object-cover" />
                    <span className="font-bold text-slate-800">{t.seeker_name}</span>
                  </div>
-                 {currentUser?.role === UserRole.WORKER && (
-                    <button onClick={() => onContact(t.seeker_id)} className="bg-slate-900 text-white px-6 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-emerald-600 transition-colors">
+                 {currentUser?.role === UserRole.WORKER && currentUser.id !== t.seeker_id && (
+                    <button onClick={() => onContact(t.seeker_id, t.seeker_name || 'صاحب المهمة')} className="bg-slate-900 text-white px-6 py-2 rounded-xl font-bold flex items-center gap-2 hover:bg-emerald-600 transition-colors">
                       اتفاق <Send size={16} />
                     </button>
                  )}
@@ -341,7 +376,7 @@ const TasksMarketView: React.FC<{
   );
 };
 
-const SearchWorkersView: React.FC<{ loading: boolean, workers: Worker[], filters: any, onFilterChange: (f: any) => void, onContact: (w: Worker) => void }> = ({ loading, workers, filters, onFilterChange, onContact }) => (
+const SearchWorkersView: React.FC<{ loading: boolean, error: string | null, workers: Worker[], filters: any, onFilterChange: (f: any) => void, onContact: (w: Worker) => void }> = ({ loading, error, workers, filters, onFilterChange, onContact }) => (
   <div className="max-w-7xl mx-auto px-4 py-12 text-right">
     <div className="bg-white p-8 rounded-[3rem] shadow-xl border border-gray-100 mb-12 animate-in fade-in">
        <h2 className="text-3xl font-black mb-6">ابحث عن حرفي متميز 🇩🇿</h2>
@@ -357,28 +392,41 @@ const SearchWorkersView: React.FC<{ loading: boolean, workers: Worker[], filters
           </select>
        </div>
     </div>
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-       {loading ? <div className="col-span-full py-20 flex justify-center"><div className="loading-spinner"></div></div> : workers.map(w => (
-         <div key={w.id} className="bg-white p-8 rounded-[3rem] shadow-xl border border-gray-50 hover:shadow-2xl transition-all text-right group animate-in slide-in-from-bottom-5">
-            <div className="flex gap-4 items-center mb-6 flex-row-reverse">
-               <img src={w.avatar || `https://ui-avatars.com/api/?name=${w.firstName}`} className="w-20 h-20 rounded-3xl object-cover" />
-               <div className="flex-1">
-                  <h3 className="font-black text-xl">{w.firstName} {w.lastName}</h3>
-                  <div className="flex items-center gap-2 justify-end">
-                    <span className="text-emerald-600 text-xs font-bold bg-emerald-50 px-3 py-1 rounded-full">{w.category}</span>
-                    {w.isVerified && <span className="bg-blue-100 text-blue-600 text-[10px] px-2 py-0.5 rounded-full font-black">موثق ✓</span>}
-                  </div>
-               </div>
-            </div>
-            <p className="text-gray-500 text-sm mb-6 line-clamp-2 h-10">{w.bio || 'حرفي متميز يهدف لتقديم أفضل الخدمات.'}</p>
-            <div className="flex justify-between items-center mb-6 flex-row-reverse">
-              <span className="text-slate-400 text-xs font-bold">📍 {w.location.wilaya}</span>
-              <div className="flex items-center gap-1 text-yellow-500 font-bold text-sm">⭐ 4.5</div>
-            </div>
-            <button onClick={() => onContact(w)} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black group-hover:bg-emerald-600 transition-colors">تواصل الآن</button>
-         </div>
-       ))}
-    </div>
+    
+    {error ? (
+      <div className="text-center py-20">
+         <AlertCircle size={48} className="text-red-500 mx-auto mb-4" />
+         <p className="text-xl font-bold text-red-600">{error}</p>
+      </div>
+    ) : (
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        {loading ? <div className="col-span-full py-20 flex justify-center"><div className="loading-spinner"></div></div> : workers.map(w => (
+          <div key={w.id} className="bg-white p-8 rounded-[3rem] shadow-xl border border-gray-50 hover:shadow-2xl transition-all text-right group animate-in slide-in-from-bottom-5">
+              <div className="flex gap-4 items-center mb-6 flex-row-reverse">
+                <img src={w.avatar || `https://ui-avatars.com/api/?name=${w.firstName}`} className="w-20 h-20 rounded-3xl object-cover" />
+                <div className="flex-1">
+                    <h3 className="font-black text-xl">{w.firstName} {w.lastName}</h3>
+                    <div className="flex items-center gap-2 justify-end">
+                      <span className="text-emerald-600 text-xs font-bold bg-emerald-50 px-3 py-1 rounded-full">{w.category}</span>
+                      {w.isVerified && <span className="bg-blue-100 text-blue-600 text-[10px] px-2 py-0.5 rounded-full font-black">موثق ✓</span>}
+                    </div>
+                </div>
+              </div>
+              <p className="text-gray-500 text-sm mb-6 line-clamp-2 h-10">{w.bio || 'حرفي متميز يهدف لتقديم أفضل الخدمات.'}</p>
+              <div className="flex justify-between items-center mb-6 flex-row-reverse">
+                <span className="text-slate-400 text-xs font-bold">📍 {w.location.wilaya}</span>
+                <div className="flex items-center gap-1 text-yellow-500 font-bold text-sm">⭐ 4.5</div>
+              </div>
+              <button onClick={() => onContact(w)} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black group-hover:bg-emerald-600 transition-colors">تواصل الآن</button>
+          </div>
+        ))}
+        {!loading && workers.length === 0 && (
+          <div className="col-span-full py-20 text-center opacity-50">
+              <p className="text-2xl font-black">لا يوجد حرفيين مطابقين لخيارات البحث</p>
+          </div>
+        )}
+      </div>
+    )}
   </div>
 );
 
