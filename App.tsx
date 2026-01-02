@@ -52,6 +52,7 @@ const GlobalStyles = () => (
     .no-scrollbar::-webkit-scrollbar { display: none; }
     .glass-morphism { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.2); }
     input, select, textarea { -webkit-appearance: none; appearance: none; }
+    .custom-shadow { box-shadow: 0 15px 40px -10px rgba(16, 185, 129, 0.2); }
   `}</style>
 );
 
@@ -95,25 +96,39 @@ export default function App() {
   const [searchFilters, setSearchFilters] = useState({ query: '', wilaya: '', category: '' });
   const [chatTarget, setChatTarget] = useState<User | null>(null);
 
+  // Helper function to safely render strings and avoid [object Object]
+  const s = (val: any): string => {
+    if (val === null || val === undefined) return '';
+    if (typeof val === 'string') return val;
+    if (typeof val === 'object') {
+      if (val.name) return val.name;
+      if (val.title) return val.title;
+      // If it's an array, join it
+      if (Array.isArray(val)) return val.join(', ');
+      return '';
+    }
+    return String(val);
+  };
+
+  const toArray = (val: any): any[] => Array.isArray(val) ? val : (val ? [val] : []);
+
   const setView = (view: AppState['view']) => {
     setState(prev => ({ ...prev, view }));
     window.scrollTo(0, 0);
   };
 
-  const toArray = (val: any): any[] => Array.isArray(val) ? val : (val ? [val] : []);
-
   const mapDbUser = (d: any): User => ({
     ...d,
-    id: d.id,
-    firstName: d.first_name || '',
-    lastName: d.last_name || '',
-    phone: d.phone || '',
+    id: s(d.id),
+    firstName: s(d.first_name),
+    lastName: s(d.last_name),
+    phone: s(d.phone),
     role: d.role || UserRole.SEEKER,
-    location: { wilaya: d.wilaya || '', daira: d.daira || '' },
+    location: { wilaya: s(d.wilaya), daira: s(d.daira) },
     avatar: d.avatar,
-    bio: d.bio || '',
-    categories: toArray(d.categories),
-    skills: toArray(d.skills),
+    bio: s(d.bio),
+    categories: toArray(d.categories).map(c => s(c)),
+    skills: toArray(d.skills).map(sk => s(sk)),
     portfolio: toArray(d.portfolio),
     verificationStatus: d.verification_status || 'none',
     rating: d.rating || 0,
@@ -147,11 +162,15 @@ export default function App() {
 
       const { data, error } = await query;
       if (error) throw error;
-      setTasks((data || []).map(t => ({
-        ...t,
-        seeker_name: `${t.users?.first_name || ''} ${t.users?.last_name || ''}`,
-        seeker_avatar: t.users?.avatar
-      })));
+
+      setTasks((data || []).map(t => {
+        const u = Array.isArray(t.users) ? t.users[0] : t.users;
+        return {
+          ...t,
+          seeker_name: u ? `${s(u.first_name)} ${s(u.last_name)}`.trim() : 'مستخدم مجهول',
+          seeker_avatar: u?.avatar
+        };
+      }));
     } catch (e) { console.error(e); } finally { setLoading(false); }
   };
 
@@ -186,7 +205,7 @@ export default function App() {
           <div className="flex items-center gap-4">
             {state.currentUser ? (
               <div onClick={() => { setChatTarget(null); setView('profile'); }} className="flex items-center gap-3 cursor-pointer p-1 pr-4 bg-slate-100 rounded-full border border-slate-200 hover:border-emerald-200 transition-all">
-                <span className="font-black text-xs hidden sm:block">{state.currentUser.firstName}</span>
+                <span className="font-black text-xs hidden sm:block">{s(state.currentUser.firstName)}</span>
                 <img src={state.currentUser.avatar || `https://ui-avatars.com/api/?name=${state.currentUser.firstName}`} className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm" />
               </div>
             ) : (
@@ -202,15 +221,15 @@ export default function App() {
       {/* Main Content Area */}
       <main className="flex-grow">
         {state.view === 'landing' && <LandingView onStart={() => setView('search')} onRegister={() => setView('register')} />}
-        {state.view === 'search' && <SearchWorkersView workers={state.workers} loading={loading} filters={searchFilters} onFilterChange={setSearchFilters} onProfile={(w: User) => { setChatTarget(w); setView('profile'); }} />}
-        {state.view === 'support' && <TasksMarketView tasks={tasks} loading={loading} filters={taskFilters} onFilterChange={setTaskFilters} currentUser={state.currentUser} onTaskCreated={fetchTasks} />}
+        {state.view === 'search' && <SearchWorkersView workers={state.workers} loading={loading} filters={searchFilters} onFilterChange={setSearchFilters} onProfile={(w: User) => { setChatTarget(w); setView('profile'); }} safe={s} />}
+        {state.view === 'support' && <TasksMarketView tasks={tasks} loading={loading} filters={taskFilters} onFilterChange={setTaskFilters} currentUser={state.currentUser} onTaskCreated={fetchTasks} safe={s} />}
         {state.view === 'profile' && (state.currentUser || chatTarget) && (
-          <ProfileView user={chatTarget || state.currentUser!} isOwn={!chatTarget || chatTarget?.id === state.currentUser?.id} onEdit={() => setView('edit-profile')} onLogout={() => { updateCurrentUser(null); setView('landing'); }} onBack={() => { setChatTarget(null); setView('search'); }} onDataUpdate={(u: User) => { if (chatTarget) setChatTarget(u); if (state.currentUser?.id === u.id) updateCurrentUser(u); }} />
+          <ProfileView user={chatTarget || state.currentUser!} isOwn={!chatTarget || chatTarget?.id === state.currentUser?.id} onEdit={() => setView('edit-profile')} onLogout={() => { updateCurrentUser(null); setView('landing'); }} onBack={() => { setChatTarget(null); setView('search'); }} onDataUpdate={(u: User) => { if (chatTarget) setChatTarget(u); if (state.currentUser?.id === u.id) updateCurrentUser(u); }} safe={s} />
         )}
         {state.view === 'edit-profile' && state.currentUser && <EditProfileView user={state.currentUser} onSave={(u: User) => { updateCurrentUser(u); setView('profile'); }} onCancel={() => setView('profile')} />}
-        {state.view === 'login' && <AuthForm type="login" onSuccess={(u: User) => { updateCurrentUser(u); setView('profile'); }} onSwitch={() => setView('register')} />}
-        {state.view === 'register' && <AuthForm type="register" onSuccess={(u: User) => { updateCurrentUser(u); setView('profile'); }} onSwitch={() => setView('login')} />}
-        {state.view === 'admin-panel' && state.currentUser?.role === UserRole.ADMIN && <AdminPanelView />}
+        {state.view === 'login' && <AuthForm type="login" onSuccess={(u: User) => { updateCurrentUser(u); setView('profile'); }} onSwitch={() => setView('register')} safe={s} />}
+        {state.view === 'register' && <AuthForm type="register" onSuccess={(u: User) => { updateCurrentUser(u); setView('profile'); }} onSwitch={() => setView('login')} safe={s} />}
+        {state.view === 'admin-panel' && state.currentUser?.role === UserRole.ADMIN && <AdminPanelView safe={s} />}
       </main>
 
       {/* Mobile Tab Bar */}
@@ -258,7 +277,7 @@ const LandingView = ({ onStart, onRegister }: any) => (
   </div>
 );
 
-const SearchWorkersView = ({ workers, loading, filters, onFilterChange, onProfile }: any) => (
+const SearchWorkersView = ({ workers, loading, filters, onFilterChange, onProfile, safe }: any) => (
   <div className="max-w-7xl mx-auto px-4 md:px-10 py-10 md:py-16 animate-in">
     <div className="bg-white p-6 md:p-12 rounded-[3rem] shadow-xl border border-slate-100 mb-12 flex flex-col md:flex-row gap-6">
       <div className="flex-1 relative">
@@ -287,17 +306,17 @@ const SearchWorkersView = ({ workers, loading, filters, onFilterChange, onProfil
           <div className="flex items-center gap-6 mb-8 relative z-10">
             <img src={w.avatar || `https://ui-avatars.com/api/?name=${w.firstName}`} className="w-20 h-20 rounded-[2rem] object-cover border-4 border-white shadow-md bg-slate-100" />
             <div className="text-right flex-1 truncate">
-              <h3 className="text-xl font-black text-slate-900 group-hover:text-emerald-600 transition-colors">{w.firstName} {w.lastName}</h3>
+              <h3 className="text-xl font-black text-slate-900 group-hover:text-emerald-600 transition-colors">{safe(w.firstName)} {safe(w.lastName)}</h3>
               <div className="mt-1 flex gap-2"><VerificationBadge status={w.verificationStatus} size="sm" /></div>
             </div>
           </div>
-          <p className="text-slate-500 text-sm line-clamp-3 h-14 mb-8 font-medium leading-relaxed">{w.bio || 'حرفي متمرس يسعى لتقديم أفضل خدمة لزبائن سلكني.'}</p>
+          <p className="text-slate-500 text-sm line-clamp-3 h-14 mb-8 font-medium leading-relaxed">{safe(w.bio) || 'حرفي متمرس يسعى لتقديم أفضل خدمة لزبائن سلكني.'}</p>
           <div className="flex flex-wrap gap-2 mb-8">
-            {w.categories.slice(0, 2).map(c => <span key={c} className="bg-slate-50 text-slate-600 px-3 py-1 rounded-lg text-[10px] font-black border border-slate-100 uppercase">{c}</span>)}
+            {w.categories.slice(0, 2).map(c => <span key={safe(c)} className="bg-slate-50 text-slate-600 px-3 py-1 rounded-lg text-[10px] font-black border border-slate-100 uppercase">{safe(c)}</span>)}
             {w.categories.length > 2 && <span className="text-slate-300 font-black text-[10px]">+ {w.categories.length - 2}</span>}
           </div>
           <div className="flex justify-between items-center pt-6 border-t border-slate-50">
-            <span className="text-slate-400 text-xs font-black flex items-center gap-1.5"><MapPin size={16} className="text-emerald-500" /> {w.location.wilaya}</span>
+            <span className="text-slate-400 text-xs font-black flex items-center gap-1.5"><MapPin size={16} className="text-emerald-500" /> {safe(w.location.wilaya)}</span>
             <div className="flex items-center gap-1.5 text-yellow-500 font-black text-lg bg-yellow-50 px-4 py-1 rounded-full"><Star size={18} fill="currentColor" /> {w.rating?.toFixed(1) || '0.0'}</div>
           </div>
         </div>
@@ -312,7 +331,7 @@ const SearchWorkersView = ({ workers, loading, filters, onFilterChange, onProfil
   </div>
 );
 
-const AuthForm = ({ type, onSuccess, onSwitch }: any) => {
+const AuthForm = ({ type, onSuccess, onSwitch, safe }: any) => {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({ firstName: '', lastName: '', phone: '', password: '', role: UserRole.SEEKER, wilaya: WILAYAS[0] });
 
@@ -344,20 +363,23 @@ const AuthForm = ({ type, onSuccess, onSwitch }: any) => {
     }
   };
 
-  const mapUser = (d: any): User => ({
-    ...d,
-    id: d.id,
-    firstName: d.first_name,
-    lastName: d.last_name,
-    location: { wilaya: d.wilaya, daira: '' },
-    categories: d.categories || [],
-    skills: d.skills || [],
-    portfolio: d.portfolio || [],
-    verificationStatus: d.verification_status || 'none',
-    rating: d.rating || 0,
-    ratingCount: d.rating_count || 0,
-    completedJobs: d.completed_jobs || 0
-  });
+  const mapUser = (d: any): User => {
+    const toArray = (v: any) => Array.isArray(v) ? v : (v ? [v] : []);
+    return {
+      ...d,
+      id: safe(d.id),
+      firstName: safe(d.first_name),
+      lastName: safe(d.last_name),
+      location: { wilaya: safe(d.wilaya), daira: '' },
+      categories: toArray(d.categories).map(c => safe(c)),
+      skills: toArray(d.skills).map(sk => safe(sk)),
+      portfolio: toArray(d.portfolio),
+      verificationStatus: d.verification_status || 'none',
+      rating: d.rating || 0,
+      ratingCount: d.rating_count || 0,
+      completedJobs: d.completed_jobs || 0
+    };
+  };
 
   return (
     <div className="min-h-[80vh] flex items-center justify-center p-6 animate-in">
@@ -420,8 +442,9 @@ const AuthForm = ({ type, onSuccess, onSwitch }: any) => {
   );
 };
 
-const TasksMarketView = ({ tasks, loading, filters, onFilterChange, currentUser, onTaskCreated }: any) => {
+const TasksMarketView = ({ tasks, loading, filters, onFilterChange, currentUser, onTaskCreated, safe }: any) => {
   const [showCreate, setShowCreate] = useState(false);
+
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-10 py-12 animate-in">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 mb-16">
@@ -449,19 +472,19 @@ const TasksMarketView = ({ tasks, loading, filters, onFilterChange, currentUser,
         {loading ? <div className="col-span-full py-40 flex justify-center"><div className="loading-spinner"></div></div> : (tasks || []).length > 0 ? tasks.map((t: any) => (
           <div key={t.id} className="bg-white p-8 rounded-[3.5rem] shadow-lg border border-slate-100 group hover:shadow-2xl transition-all relative overflow-hidden">
             <div className="flex justify-between items-start mb-6">
-              <span className="bg-emerald-50 text-emerald-700 px-4 py-1.5 rounded-xl text-[10px] font-black border border-emerald-100 uppercase">{t.category}</span>
+              <span className="bg-emerald-50 text-emerald-700 px-4 py-1.5 rounded-xl text-[10px] font-black border border-emerald-100 uppercase">{safe(t.category)}</span>
               <span className="text-emerald-600 font-black text-2xl tracking-tighter">{t.budget > 0 ? `${t.budget.toLocaleString()} دج` : 'سعر مفتوح'}</span>
             </div>
-            <h3 className="text-2xl font-black mb-4 line-clamp-2 leading-tight group-hover:text-emerald-600 transition-colors">{t.title}</h3>
-            <p className="text-slate-500 text-sm line-clamp-3 h-14 mb-8">{t.description}</p>
+            <h3 className="text-2xl font-black mb-4 line-clamp-2 leading-tight group-hover:text-emerald-600 transition-colors">{safe(t.title)}</h3>
+            <p className="text-slate-500 text-sm line-clamp-3 h-14 mb-8">{safe(t.description)}</p>
             <div className="flex items-center gap-4 text-slate-400 text-xs font-black mb-8">
-              <span className="flex items-center gap-1.5"><MapPin size={16} className="text-emerald-500"/> {t.wilaya}</span>
+              <span className="flex items-center gap-1.5"><MapPin size={16} className="text-emerald-500"/> {safe(t.wilaya)}</span>
               <span className="flex items-center gap-1.5"><Calendar size={16} className="text-emerald-500"/> {new Date(t.created_at).toLocaleDateString('ar-DZ')}</span>
             </div>
             <div className="flex items-center justify-between pt-6 border-t border-slate-50">
               <div className="flex items-center gap-3">
                 <img src={t.seeker_avatar || `https://ui-avatars.com/api/?name=${t.seeker_name}`} className="w-10 h-10 rounded-xl object-cover border-2 border-white shadow-sm" />
-                <span className="text-xs font-black text-slate-800">{t.seeker_name}</span>
+                <span className="text-xs font-black text-slate-800">{safe(t.seeker_name)}</span>
               </div>
               <button className="bg-slate-950 text-white px-6 py-3 rounded-2xl font-black text-sm active:scale-95 transition-all">تقديم عرض</button>
             </div>
@@ -510,31 +533,31 @@ const CreateTaskModal = ({ onClose, currentUser, onCreated }: any) => {
         <form onSubmit={submit} className="space-y-8">
           <div className="space-y-3">
             <label className="text-xs font-black text-slate-400 mr-2 uppercase tracking-widest">ماذا تحتاج؟</label>
-            <input required placeholder="عنوان مختصر لطلبك" className="w-full p-5 bg-slate-50 rounded-2xl border-none font-bold" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
+            <input required placeholder="عنوان مختصر لطلبك" className="w-full p-5 bg-slate-50 rounded-2xl border-none font-bold shadow-inner" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-3">
               <label className="text-xs font-black text-slate-400 mr-2 uppercase tracking-widest">التصنيف</label>
-              <select className="w-full p-5 bg-slate-50 rounded-2xl border-none font-black" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
+              <select className="w-full p-5 bg-slate-50 rounded-2xl border-none font-black shadow-inner" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
                 {SERVICE_CATEGORIES.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
               </select>
             </div>
             <div className="space-y-3">
               <label className="text-xs font-black text-slate-400 mr-2 uppercase tracking-widest">الولاية</label>
-              <select className="w-full p-5 bg-slate-50 rounded-2xl border-none font-black" value={formData.wilaya} onChange={e => setFormData({...formData, wilaya: e.target.value})}>
+              <select className="w-full p-5 bg-slate-50 rounded-2xl border-none font-black shadow-inner" value={formData.wilaya} onChange={e => setFormData({...formData, wilaya: e.target.value})}>
                 {WILAYAS.map(w => <option key={w} value={w}>{w}</option>)}
               </select>
             </div>
           </div>
           <div className="space-y-3">
             <label className="text-xs font-black text-slate-400 mr-2 uppercase tracking-widest">الميزانية المقترحة (دج)</label>
-            <input type="number" placeholder="أدخل مبلغ تقريبي" className="w-full p-5 bg-slate-50 rounded-2xl border-none font-bold" value={formData.budget} onChange={e => setFormData({...formData, budget: e.target.value})} />
+            <input type="number" placeholder="أدخل مبلغ تقريبي" className="w-full p-5 bg-slate-50 rounded-2xl border-none font-bold shadow-inner" value={formData.budget} onChange={e => setFormData({...formData, budget: e.target.value})} />
           </div>
           <div className="space-y-3">
             <label className="text-xs font-black text-slate-400 mr-2 uppercase tracking-widest">تفاصيل الطلب</label>
-            <textarea required rows={4} placeholder="اشرح لنا ما الذي يجب فعله..." className="w-full p-5 bg-slate-50 rounded-2xl border-none font-bold resize-none" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
+            <textarea required rows={4} placeholder="اشرح لنا ما الذي يجب فعله..." className="w-full p-5 bg-slate-50 rounded-2xl border-none font-bold resize-none shadow-inner" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
           </div>
-          <button disabled={loading} className="w-full bg-emerald-600 text-white py-6 rounded-[2.5rem] font-black text-2xl shadow-2xl shadow-emerald-900/30">
+          <button disabled={loading} className="w-full bg-emerald-600 text-white py-6 rounded-[2.5rem] font-black text-2xl shadow-2xl shadow-emerald-900/30 transition-all hover:bg-emerald-500 active:scale-95">
             {loading ? 'جاري النشر...' : 'انشر المهمة الآن'}
           </button>
         </form>
@@ -543,7 +566,7 @@ const CreateTaskModal = ({ onClose, currentUser, onCreated }: any) => {
   );
 };
 
-const ProfileView = ({ user, isOwn, onEdit, onLogout, onBack, onDataUpdate }: any) => {
+const ProfileView = ({ user, isOwn, onEdit, onLogout, onBack, onDataUpdate, safe }: any) => {
   const isWorker = user.role === UserRole.WORKER;
   const portfolioInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -569,13 +592,13 @@ const ProfileView = ({ user, isOwn, onEdit, onLogout, onBack, onDataUpdate }: an
     <div className="max-w-6xl mx-auto py-8 px-4 md:px-10 animate-in">
       <div className="mb-8 flex justify-between items-center">
         {!isOwn ? (
-          <button onClick={onBack} className="flex items-center gap-2 text-slate-500 font-bold bg-white px-5 py-2.5 rounded-2xl border border-slate-100 shadow-sm"><ChevronLeft size={20} /> العودة</button>
+          <button onClick={onBack} className="flex items-center gap-2 text-slate-500 font-bold bg-white px-5 py-2.5 rounded-2xl border border-slate-100 shadow-sm transition-all hover:text-emerald-600"><ChevronLeft size={20} /> العودة</button>
         ) : <div className="text-emerald-600 font-black text-sm flex items-center gap-2 bg-emerald-50 px-4 py-2 rounded-2xl border border-emerald-100">حسابي الشخصي</div>}
         <div className="flex gap-2">
           {isOwn && (
             <>
-              <button onClick={onEdit} className="p-3 bg-white border border-slate-100 rounded-2xl text-slate-600 shadow-sm"><Settings size={20} /></button>
-              <button onClick={onLogout} className="p-3 bg-red-50 text-red-500 border border-red-100 rounded-2xl shadow-sm"><LogOut size={20} /></button>
+              <button onClick={onEdit} className="p-3 bg-white border border-slate-100 rounded-2xl text-slate-600 shadow-sm transition-all hover:bg-emerald-50"><Settings size={20} /></button>
+              <button onClick={onLogout} className="p-3 bg-red-50 text-red-500 border border-red-100 rounded-2xl shadow-sm transition-all hover:bg-red-500 hover:text-white"><LogOut size={20} /></button>
             </>
           )}
         </div>
@@ -593,12 +616,12 @@ const ProfileView = ({ user, isOwn, onEdit, onLogout, onBack, onDataUpdate }: an
             </div>
             <div className="flex-1 text-center md:text-right pb-4">
               <div className="flex flex-col md:flex-row items-center justify-center md:justify-start gap-4 mb-4">
-                <h2 className="text-4xl md:text-6xl font-black text-slate-900 tracking-tighter">{user.firstName} {user.lastName}</h2>
+                <h2 className="text-4xl md:text-6xl font-black text-slate-900 tracking-tighter">{safe(user.firstName)} {safe(user.lastName)}</h2>
                 <VerificationBadge status={user.verificationStatus} />
               </div>
               <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
-                {isWorker ? (user.categories || []).map((c: string) => <span key={c} className="bg-emerald-50 text-emerald-700 px-5 py-2 rounded-full text-xs font-black border border-emerald-100 uppercase">{c}</span>) : <span className="bg-blue-50 text-blue-700 px-5 py-2 rounded-full text-xs font-black border border-blue-100">عضو زبون</span>}
-                <span className="flex items-center gap-2 text-slate-400 font-bold text-xs bg-slate-50 px-5 py-2 rounded-full border border-slate-200"><MapPin size={16} className="text-emerald-500" /> {user.location.wilaya}</span>
+                {isWorker ? (user.categories || []).map((c: string) => <span key={safe(c)} className="bg-emerald-50 text-emerald-700 px-5 py-2 rounded-full text-xs font-black border border-emerald-100 uppercase">{safe(c)}</span>) : <span className="bg-blue-50 text-blue-700 px-5 py-2 rounded-full text-xs font-black border border-blue-100">عضو زبون</span>}
+                <span className="flex items-center gap-2 text-slate-400 font-bold text-xs bg-slate-50 px-5 py-2 rounded-full border border-slate-200"><MapPin size={16} className="text-emerald-500" /> {safe(user.location.wilaya)}</span>
               </div>
             </div>
           </div>
@@ -609,7 +632,7 @@ const ProfileView = ({ user, isOwn, onEdit, onLogout, onBack, onDataUpdate }: an
                 <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-600/20 blur-3xl -mr-16 -mt-16 group-hover:scale-150 transition-transform"></div>
                 <h4 className="font-black text-xl mb-8 flex items-center gap-3">اتصل الآن <div className="w-2 h-2 bg-emerald-500 rounded-full animate-ping"></div></h4>
                 <div className="space-y-4">
-                  <div className="text-4xl font-mono text-center py-6 bg-white/5 rounded-3xl tracking-widest border border-white/10 select-all">{user.phone}</div>
+                  <div className="text-4xl font-mono text-center py-6 bg-white/5 rounded-3xl tracking-widest border border-white/10 select-all">{safe(user.phone)}</div>
                   <a href={`tel:${user.phone}`} className="flex items-center justify-center gap-3 w-full bg-emerald-600 py-6 rounded-[2.5rem] font-black text-2xl shadow-xl transition-all active:scale-95"><Phone size={24} /> اتصــال</a>
                 </div>
               </div>
@@ -618,7 +641,7 @@ const ProfileView = ({ user, isOwn, onEdit, onLogout, onBack, onDataUpdate }: an
             <div className="lg:col-span-2 space-y-16">
               <section className="animate-in">
                 <h4 className="text-3xl font-black text-slate-900 flex items-center gap-4 mb-8"><Award size={32} className="text-emerald-500"/> نبذة تعريفية</h4>
-                <div className="bg-slate-50 p-10 rounded-[3.5rem] border border-slate-100 leading-relaxed"><p className="text-slate-600 font-medium text-xl">{user.bio || 'لم يتم إضافة نبذة تعريفية بعد.'}</p></div>
+                <div className="bg-slate-50 p-10 rounded-[3.5rem] border border-slate-100 leading-relaxed"><p className="text-slate-600 font-medium text-xl leading-relaxed">{safe(user.bio) || 'لم يتم إضافة نبذة تعريفية بعد.'}</p></div>
               </section>
 
               {isWorker && (
@@ -701,10 +724,10 @@ const EditProfileView = ({ user, onSave, onCancel }: any) => {
             <p className="text-xs font-black text-slate-400 uppercase tracking-widest">تغيير الصورة الشخصية</p>
           </div>
           <div className="grid grid-cols-2 gap-6">
-            <input required className="w-full p-5 bg-slate-50 rounded-2xl border-none font-bold" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} />
-            <input required className="w-full p-5 bg-slate-50 rounded-2xl border-none font-bold" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} />
+            <input required className="w-full p-5 bg-slate-50 rounded-2xl border-none font-bold shadow-inner" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} />
+            <input required className="w-full p-5 bg-slate-50 rounded-2xl border-none font-bold shadow-inner" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} />
           </div>
-          <textarea className="w-full p-8 bg-slate-50 rounded-[2.5rem] border-none font-medium text-lg leading-relaxed h-56 resize-none" value={formData.bio} onChange={e => setFormData({...formData, bio: e.target.value})} placeholder="اكتب نبذة عن نفسك للزبائن..." />
+          <textarea className="w-full p-8 bg-slate-50 rounded-[2.5rem] border-none font-medium text-lg leading-relaxed h-56 resize-none shadow-inner" value={formData.bio} onChange={e => setFormData({...formData, bio: e.target.value})} placeholder="اكتب نبذة عن نفسك للزبائن..." />
           <div className="flex flex-col sm:flex-row gap-6">
             <button disabled={loading} className="w-full bg-emerald-600 text-white py-6 rounded-[2.5rem] font-black text-2xl shadow-2xl shadow-emerald-900/20 active:scale-95 transition-all">{loading ? 'جاري الحفظ...' : 'حفظ التغييرات'}</button>
             <button type="button" onClick={onCancel} className="w-full bg-slate-100 text-slate-500 py-6 rounded-[2.5rem] font-black text-2xl active:scale-95 transition-all">إلغاء</button>
@@ -715,14 +738,19 @@ const EditProfileView = ({ user, onSave, onCancel }: any) => {
   );
 };
 
-const AdminPanelView = () => {
+const AdminPanelView = ({ safe }: any) => {
   const [pending, setPending] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetch = async () => {
       const { data } = await supabase.from('users').select('*').eq('verification_status', 'pending');
-      setPending((data || []).map(d => ({ ...d, firstName: d.first_name, lastName: d.last_name, location: { wilaya: d.wilaya, daira: '' } } as any)));
+      setPending((data || []).map(d => ({ 
+        ...d, 
+        firstName: safe(d.first_name), 
+        lastName: safe(d.last_name), 
+        location: { wilaya: safe(d.wilaya), daira: '' } 
+      } as any)));
       setLoading(false);
     };
     fetch();
@@ -743,7 +771,7 @@ const AdminPanelView = () => {
               <img src={u.avatar || `https://ui-avatars.com/api/?name=${u.firstName}`} className="w-24 h-24 rounded-3xl object-cover" />
               <div className="flex-1 text-center md:text-right">
                 <h3 className="text-3xl font-black">{u.firstName} {u.lastName}</h3>
-                <p className="text-slate-500 font-bold">{u.phone} | {u.location.wilaya}</p>
+                <p className="text-slate-500 font-bold">{safe(u.phone)} | {safe(u.location.wilaya)}</p>
               </div>
               <div className="flex gap-4">
                 <button onClick={() => handle(u.id, 'verified')} className="bg-emerald-600 text-white px-10 py-4 rounded-2xl font-black active:scale-95 shadow-lg shadow-emerald-900/20 transition-all">قبول ✅</button>
