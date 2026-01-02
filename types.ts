@@ -21,11 +21,8 @@ export interface User {
   location: Location;
   avatar?: string;
   bio?: string;
-  category?: string; // Keep for legacy, but we'll use categories array
   categories?: string[]; 
   skills?: string[];
-  idFront?: string;
-  idBack?: string;
   isVerified?: boolean;
   portfolio?: string[];
   createdAt?: string;
@@ -42,39 +39,10 @@ export interface Message {
   is_read: boolean;
 }
 
-export interface Notification {
-  id: string;
-  user_id: string;
-  title: string;
-  content: string;
-  type: 'message' | 'system' | 'verification' | 'support';
-  created_at: string;
-  is_read: boolean;
-}
-
-export interface SupportRequest {
-  id: string;
-  user_id: string;
-  description: string;
-  image_data?: string;
-  status: 'pending' | 'resolved';
-  created_at: string;
-  user_name?: string;
-  user_phone?: string;
-}
-
-export interface Advertisement {
-  id: string;
-  title?: string;
-  placement: 'hero_bottom' | 'search_top' | 'search_sidebar' | 'footer_top';
-  html_content: string;
-  is_active: boolean;
-}
-
 export interface AppState {
   currentUser: User | null;
   workers: Worker[];
-  view: 'landing' | 'register' | 'login' | 'dashboard' | 'search' | 'profile' | 'admin' | 'edit-profile' | 'admin-login' | 'messages' | 'notifications' | 'support';
+  view: 'landing' | 'register' | 'login' | 'dashboard' | 'search' | 'profile' | 'edit-profile' | 'messages' | 'support';
 }
 
 export interface Worker extends User {
