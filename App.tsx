@@ -32,7 +32,6 @@ import {
   ShieldCheck,
   ShieldAlert,
   ShieldQuestion,
-  // Fix: Added missing icons
   ClipboardList,
   Camera
 } from 'lucide-react';
@@ -49,30 +48,24 @@ const GlobalStyles = () => (
     .profile-banner { background: linear-gradient(135deg, #065f46 0%, #0d9488 100%); position: relative; overflow: hidden; }
     .profile-banner::after { content: ''; position: absolute; inset: 0; background: url('https://www.transparenttextures.com/patterns/cubes.png'); opacity: 0.1; }
     .no-scrollbar::-webkit-scrollbar { display: none; }
-    .custom-shadow { shadow: 0 10px 40px -10px rgba(16, 185, 129, 0.2); }
+    .custom-shadow { box-shadow: 0 10px 40px -10px rgba(16, 185, 129, 0.2); }
   `}</style>
 );
 
 const VerificationBadge = ({ status, size = 'md' }: { status?: VerificationStatus, size?: 'sm' | 'md' }) => {
   const isSm = size === 'sm';
-  switch (status) {
-    case 'verified':
-      return (
-        <div className={`flex items-center gap-1.5 text-emerald-600 bg-emerald-50 ${isSm ? 'px-2 py-0.5 rounded-lg' : 'px-4 py-1.5 rounded-full'} border border-emerald-100 font-black ${isSm ? 'text-[9px]' : 'text-xs'}`}>
-          <span className={`${isSm ? 'w-1.5 h-1.5' : 'w-2.5 h-2.5'} bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.5)]`}></span>
-          {isSm ? 'مفعل' : 'حساب موثق'}
-        </div>
-      );
-    case 'pending':
-      return (
-        <div className={`flex items-center gap-1.5 text-orange-600 bg-orange-50 ${isSm ? 'px-2 py-0.5 rounded-lg' : 'px-4 py-1.5 rounded-full'} border border-orange-100 font-black ${isSm ? 'text-[9px]' : 'text-xs'}`}>
-          <span className={`${isSm ? 'w-1.5 h-1.5' : 'w-2.5 h-2.5'} bg-orange-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(249,115,22,0.5)]`}></span>
-          {isSm ? 'انتظار' : 'قيد المراجعة'}
-        </div>
-      );
-    default:
-      return null;
-  }
+  if (status !== 'verified' && status !== 'pending') return null;
+  
+  const colors = status === 'verified' ? 'text-emerald-600 bg-emerald-50 border-emerald-100' : 'text-orange-600 bg-orange-50 border-orange-100';
+  const dot = status === 'verified' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-orange-500 animate-pulse shadow-[0_0_8px_rgba(249,115,22,0.5)]';
+  const text = status === 'verified' ? (isSm ? 'مفعل' : 'حساب موثق') : (isSm ? 'انتظار' : 'قيد المراجعة');
+
+  return (
+    <div className={`flex items-center gap-1.5 ${colors} ${isSm ? 'px-2 py-0.5 rounded-lg' : 'px-4 py-1.5 rounded-full'} border font-black ${isSm ? 'text-[9px]' : 'text-xs'}`}>
+      <span className={`${isSm ? 'w-1.5 h-1.5' : 'w-2.5 h-2.5'} rounded-full ${dot}`}></span>
+      {text}
+    </div>
+  );
 };
 
 const Logo = ({ onClick, size = 'md' }: { onClick?: () => void, size?: 'sm' | 'md' }) => (
@@ -100,24 +93,30 @@ export default function App() {
     window.scrollTo(0, 0);
   };
 
-  const mapDbUser = (d: any): User => ({
-    ...d,
-    id: d.id,
-    firstName: d.first_name,
-    lastName: d.last_name,
-    phone: d.phone,
-    role: d.role,
-    location: { wilaya: d.wilaya, daira: d.daira || '' },
-    avatar: d.avatar,
-    bio: d.bio,
-    categories: d.categories || [],
-    portfolio: d.portfolio || [],
-    verificationStatus: d.verification_status || 'none',
-    rating: d.rating || 0,
-    ratingCount: d.rating_count || 0,
-    completedJobs: d.completed_jobs || 0,
-    createdAt: d.created_at
-  });
+  const mapDbUser = (d: any): User => {
+    // Helper to ensure we always have an array
+    const toArray = (val: any) => Array.isArray(val) ? val : (val ? [val] : []);
+    
+    return {
+      ...d,
+      id: d.id,
+      firstName: d.first_name,
+      lastName: d.last_name,
+      phone: d.phone,
+      role: d.role,
+      location: { wilaya: d.wilaya, daira: d.daira || '' },
+      avatar: d.avatar,
+      bio: d.bio,
+      categories: toArray(d.categories),
+      skills: toArray(d.skills),
+      portfolio: toArray(d.portfolio),
+      verificationStatus: d.verification_status || 'none',
+      rating: d.rating || 0,
+      ratingCount: d.rating_count || 0,
+      completedJobs: d.completed_jobs || 0,
+      createdAt: d.created_at
+    };
+  };
 
   const fetchWorkers = async () => {
     setLoading(true);
@@ -167,7 +166,6 @@ export default function App() {
     <div className="min-h-screen flex flex-col arabic-text bg-slate-50 text-slate-900 pb-24 md:pb-0" dir="rtl">
       <GlobalStyles />
       
-      {/* Desktop Navbar */}
       <nav className="hidden md:flex h-20 bg-white/95 backdrop-blur-md border-b sticky top-0 z-50 items-center px-6">
         <div className="max-w-7xl mx-auto w-full flex justify-between items-center">
           <Logo onClick={() => setView('landing')} />
@@ -189,7 +187,6 @@ export default function App() {
         </div>
       </nav>
 
-      {/* Mobile Header */}
       <header className="md:hidden flex h-16 bg-white border-b sticky top-0 z-40 items-center px-5 justify-between shadow-sm">
         <Logo size="sm" onClick={() => setView('landing')} />
         {state.currentUser && (
@@ -216,43 +213,31 @@ export default function App() {
         )}
 
         {state.view === 'edit-profile' && state.currentUser && (
-          <EditProfileView 
-            user={state.currentUser} 
-            onSave={(u: User) => { updateCurrentUser(u); setView('profile'); }}
-            onCancel={() => setView('profile')}
-          />
+          <EditProfileView user={state.currentUser} onSave={(u: User) => { updateCurrentUser(u); setView('profile'); }} onCancel={() => setView('profile')} />
         )}
 
         {state.view === 'support' && (
-          <TasksMarketView 
-            tasks={tasks} 
-            loading={loading} 
-            filters={taskFilters} 
-            onFilterChange={setTaskFilters} 
-            currentUser={state.currentUser}
-            onTaskCreated={fetchTasks}
-          />
+          <TasksMarketView tasks={tasks} loading={loading} filters={taskFilters} onFilterChange={setTaskFilters} currentUser={state.currentUser} onTaskCreated={fetchTasks} />
         )}
 
         {state.view === 'admin-panel' && state.currentUser?.role === UserRole.ADMIN && <AdminPanelView />}
         {state.view === 'login' && <AuthForm onSuccess={(u: User) => { updateCurrentUser(u); setView('profile'); }} />}
       </main>
 
-      {/* Navigation Bottom (Mobile) */}
       <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t px-6 py-3 flex justify-between md:hidden z-50 rounded-t-[2.5rem] shadow-2xl border-slate-100">
-        <button onClick={() => setView('landing')} className={`flex flex-col items-center gap-1.5 flex-1 transition-all ${state.view === 'landing' ? 'nav-item-active' : 'text-slate-400'}`}>
+        <button onClick={() => setView('landing')} className={`flex flex-col items-center gap-1.5 flex-1 transition-all ${state.view === 'landing' ? 'text-emerald-600' : 'text-slate-400'}`}>
           <div className="p-2 rounded-xl transition-colors"><Home size={22} /></div>
           <span className="text-[10px] font-black">الرئيسية</span>
         </button>
-        <button onClick={() => setView('search')} className={`flex flex-col items-center gap-1.5 flex-1 transition-all ${state.view === 'search' ? 'nav-item-active' : 'text-slate-400'}`}>
+        <button onClick={() => setView('search')} className={`flex flex-col items-center gap-1.5 flex-1 transition-all ${state.view === 'search' ? 'text-emerald-600' : 'text-slate-400'}`}>
           <div className="p-2 rounded-xl transition-colors"><Search size={22} /></div>
           <span className="text-[10px] font-black">الحرفيين</span>
         </button>
-        <button onClick={() => setView('support')} className={`flex flex-col items-center gap-1.5 flex-1 transition-all ${state.view === 'support' ? 'nav-item-active' : 'text-slate-400'}`}>
+        <button onClick={() => setView('support')} className={`flex flex-col items-center gap-1.5 flex-1 transition-all ${state.view === 'support' ? 'text-emerald-600' : 'text-slate-400'}`}>
           <div className="p-2 rounded-xl transition-colors"><Briefcase size={22} /></div>
           <span className="text-[10px] font-black">المهام</span>
         </button>
-        <button onClick={() => { setChatTarget(null); state.currentUser ? setView('profile') : setView('login'); }} className={`flex flex-col items-center gap-1.5 flex-1 transition-all ${state.view === 'profile' ? 'nav-item-active' : 'text-slate-400'}`}>
+        <button onClick={() => { setChatTarget(null); state.currentUser ? setView('profile') : setView('login'); }} className={`flex flex-col items-center gap-1.5 flex-1 transition-all ${state.view === 'profile' ? 'text-emerald-600' : 'text-slate-400'}`}>
           <div className="p-2 rounded-xl transition-colors"><UserIcon size={22} /></div>
           <span className="text-[10px] font-black">حسابي</span>
         </button>
@@ -292,7 +277,7 @@ const ProfileView = ({ user, isOwn, onEdit, onLogout, onBack, onDataUpdate }: { 
     const reader = new FileReader();
     reader.onload = async () => {
       const base64 = reader.result as string;
-      const currentPortfolio = user.portfolio || [];
+      const currentPortfolio = Array.isArray(user.portfolio) ? user.portfolio : [];
       if (currentPortfolio.length >= 10) {
         alert('الحد الأقصى هو 10 صور في الألبوم');
         setUploading(false);
@@ -300,7 +285,7 @@ const ProfileView = ({ user, isOwn, onEdit, onLogout, onBack, onDataUpdate }: { 
       }
       const newPortfolio = [...currentPortfolio, base64];
 
-      const { data, error } = await supabase.from('users').update({ portfolio: newPortfolio }).eq('id', user.id).select().single();
+      const { error } = await supabase.from('users').update({ portfolio: newPortfolio }).eq('id', user.id);
       if (!error) {
         onDataUpdate({ ...user, portfolio: newPortfolio });
       } else {
@@ -313,14 +298,14 @@ const ProfileView = ({ user, isOwn, onEdit, onLogout, onBack, onDataUpdate }: { 
 
   const removePortfolioImage = async (idx: number) => {
     if (!isOwn) return;
-    const newPortfolio = (user.portfolio || []).filter((_, i) => i !== idx);
+    const currentPortfolio = Array.isArray(user.portfolio) ? user.portfolio : [];
+    const newPortfolio = currentPortfolio.filter((_, i) => i !== idx);
     const { error } = await supabase.from('users').update({ portfolio: newPortfolio }).eq('id', user.id);
     if (!error) onDataUpdate({ ...user, portfolio: newPortfolio });
   };
 
   return (
     <div className="max-w-6xl mx-auto py-6 md:py-16 px-4 md:px-6 animate-in">
-      {/* Top Nav Buttons */}
       <div className="mb-8 flex justify-between items-center">
         {!isOwn ? (
           <button onClick={onBack} className="flex items-center gap-2 text-slate-500 font-bold hover:text-emerald-600 transition-colors bg-white px-5 py-2.5 rounded-2xl shadow-sm border border-slate-100">
@@ -342,7 +327,6 @@ const ProfileView = ({ user, isOwn, onEdit, onLogout, onBack, onDataUpdate }: { 
       <div className="bg-white rounded-[3rem] md:rounded-[4rem] shadow-2xl overflow-hidden border border-slate-100">
         <div className="profile-banner h-44 md:h-72"></div>
         <div className="px-6 md:px-16 pb-16 relative">
-          {/* Main Info */}
           <div className="flex flex-col md:flex-row items-center md:items-end gap-8 -mt-24 md:-mt-36 mb-16">
             <div className="relative group">
               <img src={user.avatar || `https://ui-avatars.com/api/?name=${user.firstName}&background=10b981&color=fff`} className="w-48 h-48 md:w-64 md:h-64 rounded-[3.5rem] md:rounded-[4.5rem] border-[10px] md:border-[15px] border-white shadow-2xl object-cover bg-white" />
@@ -357,9 +341,9 @@ const ProfileView = ({ user, isOwn, onEdit, onLogout, onBack, onDataUpdate }: { 
                 <h2 className="text-4xl md:text-6xl font-black text-slate-900 tracking-tighter">{user.firstName} {user.lastName}</h2>
                 <VerificationBadge status={user.verificationStatus} />
               </div>
-              <div className="flex wrap items-center justify-center md:justify-start gap-3">
+              <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
                 {isWorker ? (
-                  user.categories?.map(c => <span key={c} className="bg-emerald-50 text-emerald-700 px-5 py-2 rounded-full text-xs font-black border border-emerald-100 shadow-sm">{c}</span>)
+                  (user.categories || []).map(c => <span key={c} className="bg-emerald-50 text-emerald-700 px-5 py-2 rounded-full text-xs font-black border border-emerald-100 shadow-sm">{c}</span>)
                 ) : <span className="bg-blue-50 text-blue-700 px-5 py-2 rounded-full text-xs font-black border border-blue-100">زبون مسجل</span>}
                 <span className="flex items-center gap-2 text-slate-500 font-bold text-xs bg-slate-50 px-5 py-2 rounded-full border border-slate-200"><MapPin size={16} className="text-emerald-500" /> {user.location.wilaya}</span>
                 <span className="flex items-center gap-2 text-slate-400 font-bold text-xs bg-slate-50 px-5 py-2 rounded-full border border-slate-100"><Calendar size={16} /> انضم منذ {user.createdAt ? new Date(user.createdAt).getFullYear() : '2024'}</span>
@@ -367,7 +351,6 @@ const ProfileView = ({ user, isOwn, onEdit, onLogout, onBack, onDataUpdate }: { 
             </div>
           </div>
 
-          {/* Worker Stats */}
           {isWorker && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-16">
               <div className="bg-white border border-slate-100 p-8 rounded-[3rem] text-center shadow-sm hover:shadow-xl transition-all">
@@ -391,7 +374,6 @@ const ProfileView = ({ user, isOwn, onEdit, onLogout, onBack, onDataUpdate }: { 
           )}
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-            {/* Contacts & Actions */}
             <div className="lg:col-span-1 space-y-8">
               <div className="bg-slate-950 text-white p-10 rounded-[3.5rem] shadow-2xl relative overflow-hidden group border border-white/5">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-600/20 blur-3xl -mr-16 -mt-16 group-hover:scale-150 transition-transform"></div>
@@ -405,14 +387,13 @@ const ProfileView = ({ user, isOwn, onEdit, onLogout, onBack, onDataUpdate }: { 
               {isWorker && user.skills && user.skills.length > 0 && (
                 <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm">
                   <h4 className="font-black text-slate-900 mb-6 flex items-center gap-2 text-lg"><Zap className="text-emerald-500" size={20} /> المهارات الأساسية</h4>
-                  <div className="flex wrap gap-2.5">
+                  <div className="flex flex-wrap gap-2.5">
                     {user.skills.map(s => <span key={s} className="bg-slate-50 text-slate-600 px-4 py-2 rounded-xl text-xs font-black border border-slate-100">{s}</span>)}
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Bio & Portfolio */}
             <div className="lg:col-span-2 space-y-16">
               <section className="animate-in">
                 <h4 className="text-3xl font-black text-slate-900 flex items-center gap-4 mb-8">
@@ -438,7 +419,7 @@ const ProfileView = ({ user, isOwn, onEdit, onLogout, onBack, onDataUpdate }: { 
                           <button 
                             onClick={() => portfolioInputRef.current?.click()}
                             disabled={uploading}
-                            className="bg-emerald-600 text-white px-6 py-3 rounded-2xl text-sm font-black shadow-xl shadow-emerald-100 hover:bg-emerald-500 transition-all flex items-center gap-2 active:scale-95 disabled:bg-slate-300"
+                            className="bg-emerald-600 text-white px-6 py-3 rounded-2xl text-sm font-black shadow-xl shadow-emerald-100 hover:bg-emerald-50 transition-all flex items-center gap-2 active:scale-95 disabled:bg-slate-300"
                           >
                             {uploading ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div> : <Plus size={18} />}
                             أضف صورة
@@ -446,12 +427,12 @@ const ProfileView = ({ user, isOwn, onEdit, onLogout, onBack, onDataUpdate }: { 
                           <input type="file" hidden ref={portfolioInputRef} accept="image/*" onChange={handleQuickPortfolioUpload} />
                         </>
                       )}
-                      {user.portfolio?.length > 0 && <span className="hidden md:block text-slate-400 font-black text-xs bg-slate-100 px-5 py-2 rounded-full border border-slate-200">{user.portfolio.length} صور</span>}
+                      {(user.portfolio || []).length > 0 && <span className="hidden md:block text-slate-400 font-black text-xs bg-slate-100 px-5 py-2 rounded-full border border-slate-200">{(user.portfolio || []).length} صور</span>}
                     </div>
                   </div>
                   
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-                    {user.portfolio && user.portfolio.length > 0 ? user.portfolio.map((img, idx) => (
+                    {Array.isArray(user.portfolio) && user.portfolio.length > 0 ? user.portfolio.map((img, idx) => (
                       <div key={idx} className="group relative aspect-square rounded-[3rem] md:rounded-[4rem] overflow-hidden shadow-xl border-[6px] border-white transition-all hover:scale-[1.03] active:scale-95 cursor-zoom-in">
                         <img src={img} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" />
                         <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-all flex items-end p-8">
@@ -564,8 +545,6 @@ const TasksMarketView = ({ tasks, loading, filters, onFilterChange, currentUser,
   );
 };
 
-// --- View: Search Workers ---
-
 const SearchWorkersView = ({ workers, loading, filters, onFilterChange, onProfile }: any) => (
   <div className="max-w-7xl mx-auto px-4 md:px-6 py-12 md:py-16 animate-in">
     <div className="bg-white p-8 md:p-12 rounded-[3.5rem] shadow-2xl border border-slate-100 mb-16 flex flex-col md:flex-row gap-8">
@@ -597,9 +576,9 @@ const SearchWorkersView = ({ workers, loading, filters, onFilterChange, onProfil
             </div>
           </div>
           <p className="text-slate-500 text-base line-clamp-3 h-18 mb-10 font-medium leading-relaxed">{w.bio || 'حرفي متمرس يسعى لتقديم أفضل خدمة لزبائن سلكني.'}</p>
-          <div className="flex wrap gap-2 mb-10">
-            {w.categories?.slice(0, 2).map((c: string) => <span key={c} className="bg-slate-50 text-slate-600 px-4 py-2 rounded-xl text-[10px] font-black border border-slate-100 uppercase">{c}</span>)}
-            {w.categories?.length > 2 && <span className="text-slate-300 font-black text-[10px] self-center">+ {w.categories.length - 2}</span>}
+          <div className="flex flex-wrap gap-2 mb-10">
+            {Array.isArray(w.categories) && w.categories.slice(0, 2).map((c: string) => <span key={c} className="bg-slate-50 text-slate-600 px-4 py-2 rounded-xl text-[10px] font-black border border-slate-100 uppercase">{c}</span>)}
+            {Array.isArray(w.categories) && w.categories.length > 2 && <span className="text-slate-300 font-black text-[10px] self-center">+ {w.categories.length - 2}</span>}
           </div>
           <div className="flex justify-between items-center pt-8 border-t border-slate-50 relative z-10">
             <span className="text-slate-400 text-xs font-black flex items-center gap-2"><MapPin size={16} className="text-emerald-500" /> {w.location.wilaya}</span>
@@ -616,8 +595,6 @@ const SearchWorkersView = ({ workers, loading, filters, onFilterChange, onProfil
     </div>
   </div>
 );
-
-// --- Modals & Helpers ---
 
 const CreateTaskModal = ({ onClose, onCreated, currentUser }: any) => {
   const [formData, setFormData] = useState({ title: '', description: '', category: SERVICE_CATEGORIES[0].name, wilaya: WILAYAS[0], budget: '' });
@@ -643,38 +620,38 @@ const CreateTaskModal = ({ onClose, onCreated, currentUser }: any) => {
 
   return (
     <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-xl z-[100] flex items-end md:items-center justify-center p-0 md:p-6 animate-in">
-      <div className="bg-white w-full max-w-2xl rounded-t-[4rem] md:rounded-[4rem] p-10 md:p-16 shadow-2xl relative max-h-[90vh] overflow-y-auto no-scrollbar">
+      <div className="bg-white w-full max-w-2xl rounded-t-[4rem] md:rounded-[4rem] p-10 md:p-16 shadow-2xl relative max-h-[90vh] overflow-y-auto no-scrollbar text-right">
         <button onClick={onClose} className="absolute top-8 left-8 text-slate-300 hover:text-red-500 transition-colors p-3 bg-slate-50 rounded-2xl"><X size={32} /></button>
         <h2 className="text-3xl md:text-5xl font-black mb-12 border-r-[12px] border-emerald-500 pr-6 tracking-tighter">نشر طلب خدمة ⚒️</h2>
         <form onSubmit={handleSubmit} className="space-y-10">
           <div className="space-y-4">
-            <label className="font-black text-slate-500 mr-2 text-sm uppercase tracking-widest">عنوان الطلب</label>
-            <input required placeholder="مثال: تصليح غسالة سامسونج" className="w-full p-6 bg-slate-50 rounded-3xl font-black text-xl border-none focus:ring-4 ring-emerald-50 transition-all" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
+            <label className="block font-black text-slate-500 mr-2 text-sm uppercase tracking-widest text-right">عنوان الطلب</label>
+            <input required placeholder="مثال: تصليح غسالة سامسونج" className="w-full p-6 bg-slate-50 rounded-3xl font-black text-xl border-none focus:ring-4 ring-emerald-50 transition-all text-right" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-4">
-              <label className="font-black text-slate-500 mr-2 text-sm uppercase tracking-widest">التصنيف</label>
-              <select className="w-full p-6 bg-slate-50 rounded-3xl font-black text-lg border-none focus:ring-4 ring-emerald-50 transition-all cursor-pointer" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
+              <label className="block font-black text-slate-500 mr-2 text-sm uppercase tracking-widest text-right">التصنيف</label>
+              <select className="w-full p-6 bg-slate-50 rounded-3xl font-black text-lg border-none focus:ring-4 ring-emerald-50 transition-all cursor-pointer text-right" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
                 {SERVICE_CATEGORIES.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
               </select>
             </div>
             <div className="space-y-4">
-              <label className="font-black text-slate-500 mr-2 text-sm uppercase tracking-widest">الولاية</label>
-              <select className="w-full p-6 bg-slate-50 rounded-3xl font-black text-lg border-none focus:ring-4 ring-emerald-50 transition-all cursor-pointer" value={formData.wilaya} onChange={e => setFormData({...formData, wilaya: e.target.value})}>
+              <label className="block font-black text-slate-500 mr-2 text-sm uppercase tracking-widest text-right">الولاية</label>
+              <select className="w-full p-6 bg-slate-50 rounded-3xl font-black text-lg border-none focus:ring-4 ring-emerald-50 transition-all cursor-pointer text-right" value={formData.wilaya} onChange={e => setFormData({...formData, wilaya: e.target.value})}>
                 {WILAYAS.map(w => <option key={w} value={w}>{w}</option>)}
               </select>
             </div>
           </div>
           <div className="space-y-4">
-            <label className="font-black text-slate-500 mr-2 text-sm uppercase tracking-widest">الميزانية المقترحة (دج)</label>
+            <label className="block font-black text-slate-500 mr-2 text-sm uppercase tracking-widest text-right">الميزانية المقترحة (دج)</label>
             <div className="relative">
-              <input type="number" placeholder="أدخل مبلغ تقريبي" className="w-full p-6 pl-20 bg-slate-50 rounded-3xl font-black text-xl border-none focus:ring-4 ring-emerald-50 transition-all" value={formData.budget} onChange={e => setFormData({...formData, budget: e.target.value})} />
+              <input type="number" placeholder="أدخل مبلغ تقريبي" className="w-full p-6 pr-20 bg-slate-50 rounded-3xl font-black text-xl border-none focus:ring-4 ring-emerald-50 transition-all text-right" value={formData.budget} onChange={e => setFormData({...formData, budget: e.target.value})} />
               <span className="absolute left-8 top-1/2 -translate-y-1/2 font-black text-slate-400">DA</span>
             </div>
           </div>
           <div className="space-y-4">
-            <label className="font-black text-slate-500 mr-2 text-sm uppercase tracking-widest">تفاصيل المهمة</label>
-            <textarea required placeholder="اشرح لنا المشكلة بالتفصيل..." className="w-full p-8 bg-slate-50 rounded-[2.5rem] font-black text-xl h-48 border-none focus:ring-4 ring-emerald-50 transition-all leading-relaxed" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
+            <label className="block font-black text-slate-500 mr-2 text-sm uppercase tracking-widest text-right">تفاصيل المهمة</label>
+            <textarea required placeholder="اشرح لنا المشكلة بالتفصيل..." className="w-full p-8 bg-slate-50 rounded-[2.5rem] font-black text-xl h-48 border-none focus:ring-4 ring-emerald-50 transition-all leading-relaxed text-right" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
           </div>
           <button disabled={loading} className="w-full bg-emerald-600 text-white py-7 rounded-[3rem] font-black text-2xl shadow-2xl shadow-emerald-900/30 hover:bg-emerald-500 active:scale-95 transition-all">
             {loading ? <div className="loading-spinner mx-auto border-t-white"></div> : 'انشر طلبك الآن ✅'}
@@ -692,7 +669,7 @@ const EditProfileView = ({ user, onSave, onCancel }: any) => {
     bio: user.bio || '',
     avatar: user.avatar || '',
     wilaya: user.location.wilaya,
-    portfolio: user.portfolio || [],
+    portfolio: Array.isArray(user.portfolio) ? user.portfolio : [],
   });
   const [loading, setLoading] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
@@ -706,8 +683,9 @@ const EditProfileView = ({ user, onSave, onCancel }: any) => {
       const base64 = reader.result as string;
       if (type === 'avatar') setFormData(prev => ({ ...prev, avatar: base64 }));
       else {
-        if (formData.portfolio.length >= 10) return alert('الحد الأقصى 10 صور');
-        setFormData(prev => ({ ...prev, portfolio: [...prev.portfolio, base64] }));
+        const currentPortfolio = Array.isArray(formData.portfolio) ? formData.portfolio : [];
+        if (currentPortfolio.length >= 10) return alert('الحد الأقصى 10 صور');
+        setFormData(prev => ({ ...prev, portfolio: [...currentPortfolio, base64] }));
       }
     };
     reader.readAsDataURL(file);
@@ -732,7 +710,7 @@ const EditProfileView = ({ user, onSave, onCancel }: any) => {
 
   return (
     <div className="max-w-4xl mx-auto py-12 px-4 animate-in">
-      <div className="bg-white p-10 md:p-16 rounded-[4rem] shadow-2xl border border-slate-100">
+      <div className="bg-white p-10 md:p-16 rounded-[4rem] shadow-2xl border border-slate-100 text-right">
         <h2 className="text-3xl md:text-5xl font-black mb-16 text-slate-900 border-r-[12px] border-emerald-500 pr-6 tracking-tighter">إعدادات الملف الشخصي ⚙️</h2>
         <form onSubmit={submit} className="space-y-16">
           <div className="flex flex-col items-center gap-6">
@@ -747,35 +725,34 @@ const EditProfileView = ({ user, onSave, onCancel }: any) => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
             <div className="space-y-4">
-              <label className="font-black text-slate-500 mr-2 text-sm uppercase tracking-widest">الاسم الأول</label>
-              <input required className="w-full p-6 bg-slate-50 rounded-3xl font-black text-xl border-none focus:ring-4 ring-emerald-50 transition-all" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} />
+              <label className="block font-black text-slate-500 mr-2 text-sm uppercase tracking-widest text-right">الاسم الأول</label>
+              <input required className="w-full p-6 bg-slate-50 rounded-3xl font-black text-xl border-none focus:ring-4 ring-emerald-50 transition-all text-right" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} />
             </div>
             <div className="space-y-4">
-              <label className="font-black text-slate-500 mr-2 text-sm uppercase tracking-widest">اللقب</label>
-              <input required className="w-full p-6 bg-slate-50 rounded-3xl font-black text-xl border-none focus:ring-4 ring-emerald-50 transition-all" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} />
+              <label className="block font-black text-slate-500 mr-2 text-sm uppercase tracking-widest text-right">اللقب</label>
+              <input required className="w-full p-6 bg-slate-50 rounded-3xl font-black text-xl border-none focus:ring-4 ring-emerald-50 transition-all text-right" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} />
             </div>
           </div>
 
           <div className="space-y-4">
-            <label className="font-black text-slate-500 mr-2 text-sm uppercase tracking-widest">نبذة تعريفية</label>
-            <textarea className="w-full p-8 bg-slate-50 rounded-[2.5rem] font-black text-xl h-56 border-none focus:ring-4 ring-emerald-50 transition-all leading-relaxed" value={formData.bio} onChange={e => setFormData({...formData, bio: e.target.value})} placeholder="أخبر الزبائن عن خبرتك وما يميز خدماتك..." />
+            <label className="block font-black text-slate-500 mr-2 text-sm uppercase tracking-widest text-right">نبذة تعريفية</label>
+            <textarea className="w-full p-8 bg-slate-50 rounded-[2.5rem] font-black text-xl h-56 border-none focus:ring-4 ring-emerald-50 transition-all leading-relaxed text-right" value={formData.bio} onChange={e => setFormData({...formData, bio: e.target.value})} placeholder="أخبر الزبائن عن خبرتك وما يميز خدماتك..." />
           </div>
 
           <div className="space-y-4">
-            <label className="font-black text-slate-500 mr-2 text-sm uppercase tracking-widest">الولاية</label>
-            <select className="w-full p-6 bg-slate-50 rounded-3xl font-black text-xl border-none focus:ring-4 ring-emerald-50 transition-all cursor-pointer" value={formData.wilaya} onChange={e => setFormData({...formData, wilaya: e.target.value})}>
+            <label className="block font-black text-slate-500 mr-2 text-sm uppercase tracking-widest text-right">الولاية</label>
+            <select className="w-full p-6 bg-slate-50 rounded-3xl font-black text-xl border-none focus:ring-4 ring-emerald-50 transition-all cursor-pointer text-right" value={formData.wilaya} onChange={e => setFormData({...formData, wilaya: e.target.value})}>
               {WILAYAS.map(w => <option key={w} value={w}>{w}</option>)}
             </select>
           </div>
 
-          {/* Portfolio Management */}
           <div className="space-y-8 pt-8">
             <div className="flex items-center justify-between px-4">
               <label className="block font-black text-2xl text-slate-900 tracking-tight">ألبوم الأعمال 📸</label>
               <span className="text-xs font-black text-emerald-600 bg-emerald-50 px-5 py-2 rounded-full border border-emerald-100">{formData.portfolio.length} / 10 صور</span>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-6">
-              {formData.portfolio.map((img, idx) => (
+              {formData.portfolio.map((img: string, idx: number) => (
                 <div key={idx} className="relative aspect-square rounded-[2rem] overflow-hidden group border-4 border-slate-50 shadow-md">
                   <img src={img} className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-slate-900/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -816,7 +793,7 @@ const AdminPanelView = () => {
     if (!error) setPendingUsers((data || []).map(d => ({
       ...d, firstName: d.first_name, lastName: d.last_name, phone: d.phone, role: d.role,
       location: { wilaya: d.wilaya, daira: d.daira || '' }, avatar: d.avatar, bio: d.bio,
-      idFront: d.id_front, idBack: d.id_back, verificationStatus: d.verification_status, portfolio: d.portfolio || []
+      idFront: d.id_front, idBack: d.id_back, verificationStatus: d.verification_status, portfolio: Array.isArray(d.portfolio) ? d.portfolio : []
     } as User)));
     setLoading(false);
   };
@@ -834,10 +811,10 @@ const AdminPanelView = () => {
 
   return (
     <div className="max-w-6xl mx-auto py-12 px-6 animate-in">
-      <h2 className="text-4xl md:text-6xl font-black mb-12 tracking-tighter">إدارة التوثيقات <span className="text-emerald-500">ADMIN</span></h2>
+      <h2 className="text-4xl md:text-6xl font-black mb-12 tracking-tighter text-right">إدارة التوثيقات <span className="text-emerald-500">ADMIN</span></h2>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
         <div className="lg:col-span-1 bg-white p-8 rounded-[3rem] shadow-2xl border border-slate-100 overflow-y-auto max-h-[75vh] no-scrollbar">
-          <h3 className="font-black text-slate-400 mb-8 uppercase text-xs tracking-[0.3em] mr-2">طلبات معلقة ({pendingUsers.length})</h3>
+          <h3 className="font-black text-slate-400 mb-8 uppercase text-xs tracking-[0.3em] mr-2 text-right">طلبات معلقة ({pendingUsers.length})</h3>
           {pendingUsers.length === 0 ? <p className="text-center py-24 text-slate-300 font-bold">كل شيء نظيف! لا يوجد طلبات</p> : pendingUsers.map(u => (
             <div key={u.id} onClick={() => setSelectedUser(u)} className={`p-6 rounded-[2rem] cursor-pointer mb-6 transition-all border-4 flex items-center gap-5 ${selectedUser?.id === u.id ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-transparent hover:bg-white hover:border-slate-100 shadow-sm'}`}>
                <img src={u.avatar || `https://ui-avatars.com/api/?name=${u.firstName}`} className="w-16 h-16 rounded-2xl object-cover border-2 border-white shadow-md" />
@@ -850,7 +827,7 @@ const AdminPanelView = () => {
         </div>
         <div className="lg:col-span-2">
           {selectedUser ? (
-            <div className="bg-white p-12 rounded-[4rem] shadow-2xl border border-emerald-100">
+            <div className="bg-white p-12 rounded-[4rem] shadow-2xl border border-emerald-100 text-right">
               <div className="flex items-center gap-6 mb-12 border-b border-slate-50 pb-10">
                 <img src={selectedUser.avatar || `https://ui-avatars.com/api/?name=${selectedUser.firstName}`} className="w-24 h-24 rounded-[2.5rem] object-cover border-4 border-emerald-50 shadow-2xl" />
                 <div className="text-right">
@@ -902,13 +879,14 @@ const AuthForm = ({ onSuccess }: any) => {
     if (error) {
       alert("بيانات الدخول خاطئة، يرجى التحقق من الرقم وكلمة المرور.");
     } else {
+      const toArray = (val: any) => Array.isArray(val) ? val : (val ? [val] : []);
       onSuccess({
         ...data,
         firstName: data.first_name,
         lastName: data.last_name,
         location: { wilaya: data.wilaya, daira: data.daira || '' },
-        categories: data.categories || [],
-        portfolio: data.portfolio || [],
+        categories: toArray(data.categories),
+        portfolio: toArray(data.portfolio),
         verificationStatus: data.verification_status || 'none',
         createdAt: data.created_at
       });
@@ -922,12 +900,12 @@ const AuthForm = ({ onSuccess }: any) => {
         <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-50 rounded-bl-[6rem] -mr-24 -mt-24"></div>
         <h2 className="text-4xl md:text-6xl font-black mb-16 border-r-[15px] border-emerald-500 pr-8 tracking-tighter leading-none">مرحباً بك <br/> مجدداً 👋</h2>
         <div className="space-y-6">
-          <label className="font-black text-slate-500 mr-4 text-xs uppercase tracking-[0.3em]">رقم الهاتف</label>
-          <input required placeholder="مثال: 0550123456" className="w-full p-6 bg-slate-50 rounded-[2.5rem] border-none font-black text-2xl outline-none focus:ring-4 ring-emerald-50 transition-all shadow-inner" value={phone} onChange={e => setPhone(e.target.value)} />
+          <label className="block font-black text-slate-500 mr-4 text-xs uppercase tracking-[0.3em] text-right">رقم الهاتف</label>
+          <input required placeholder="مثال: 0550123456" className="w-full p-6 bg-slate-50 rounded-[2.5rem] border-none font-black text-2xl outline-none focus:ring-4 ring-emerald-50 transition-all shadow-inner text-right" value={phone} onChange={e => setPhone(e.target.value)} />
         </div>
         <div className="space-y-6">
-          <label className="font-black text-slate-500 mr-4 text-xs uppercase tracking-[0.3em]">كلمة المرور</label>
-          <input required type="password" placeholder="••••••••" className="w-full p-6 bg-slate-50 rounded-[2.5rem] border-none font-black text-2xl outline-none focus:ring-4 ring-emerald-50 transition-all shadow-inner" value={password} onChange={e => setPassword(e.target.value)} />
+          <label className="block font-black text-slate-500 mr-4 text-xs uppercase tracking-[0.3em] text-right">كلمة المرور</label>
+          <input required type="password" placeholder="••••••••" className="w-full p-6 bg-slate-50 rounded-[2.5rem] border-none font-black text-2xl outline-none focus:ring-4 ring-emerald-50 transition-all shadow-inner text-right" value={password} onChange={e => setPassword(e.target.value)} />
         </div>
         <button disabled={loading} className="w-full bg-emerald-600 text-white py-8 rounded-[3rem] font-black text-2xl shadow-2xl shadow-emerald-900/30 hover:bg-emerald-500 active:scale-95 transition-all mt-12">
           {loading ? 'جاري الدخول...' : 'دخول إلى سلكني'}
