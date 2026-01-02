@@ -100,12 +100,15 @@ export default function App() {
   const s = (val: any): string => {
     if (val === null || val === undefined) return '';
     if (typeof val === 'string') return val;
+    if (Array.isArray(val)) return val.map(item => s(item)).join(', ');
     if (typeof val === 'object') {
-      if (val.name) return val.name;
-      if (val.title) return val.title;
-      // If it's an array, join it
-      if (Array.isArray(val)) return val.join(', ');
-      return '';
+      // Handle cases where the object might be a user object from a join
+      if (val.first_name || val.last_name) {
+        return `${s(val.first_name)} ${s(val.last_name)}`.trim();
+      }
+      if (val.name) return s(val.name);
+      if (val.title) return s(val.title);
+      return ''; // Explicitly return empty string for other objects to avoid [object Object]
     }
     return String(val);
   };
@@ -154,7 +157,7 @@ export default function App() {
   const fetchTasks = async () => {
     setLoading(true);
     try {
-      let query = supabase.from('tasks').select('*, users(first_name, last_name, avatar)').order('created_at', { ascending: taskFilters.sortBy === 'oldest' });
+      let query = supabase.from('tasks').select('*, users!inner(first_name, last_name, avatar)').order('created_at', { ascending: taskFilters.sortBy === 'oldest' });
       if (taskFilters.wilaya) query = query.eq('wilaya', taskFilters.wilaya);
       if (taskFilters.category) query = query.eq('category', taskFilters.category);
       if (taskFilters.sortBy === 'budget_desc') query = query.order('budget', { ascending: false });
@@ -164,11 +167,12 @@ export default function App() {
       if (error) throw error;
 
       setTasks((data || []).map(t => {
-        const u = Array.isArray(t.users) ? t.users[0] : t.users;
+        // Safe extraction of nested user data from joined query
+        const userData = Array.isArray(t.users) ? t.users[0] : t.users;
         return {
           ...t,
-          seeker_name: u ? `${s(u.first_name)} ${s(u.last_name)}`.trim() : 'مستخدم مجهول',
-          seeker_avatar: u?.avatar
+          seeker_name: userData ? s(userData) : 'مستخدم مجهول',
+          seeker_avatar: userData?.avatar
         };
       }));
     } catch (e) { console.error(e); } finally { setLoading(false); }
