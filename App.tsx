@@ -35,7 +35,8 @@ import {
   ArrowUpDown,
   Zap,
   CheckCircle2,
-  Share2
+  Share2,
+  UploadCloud
 } from 'lucide-react';
 
 // --- Components ---
@@ -417,11 +418,21 @@ const ProfileView = ({ user, isOwn, onEdit, onLogout, onBack }: { user: any, isO
                       </div>
                       معرض الأعمال الاحترافية
                     </h4>
-                    {user.portfolio?.length > 0 && (
-                      <span className="text-slate-400 font-bold text-sm bg-slate-50 px-4 py-1.5 rounded-full border border-slate-100">
-                        {user.portfolio.length} صور
-                      </span>
-                    )}
+                    <div className="flex items-center gap-3">
+                      {isOwn && (
+                        <button 
+                          onClick={onEdit}
+                          className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-black shadow-lg hover:bg-emerald-500 transition-all active:scale-95"
+                        >
+                          <Plus size={16} /> إضافة صورة
+                        </button>
+                      )}
+                      {user.portfolio?.length > 0 && (
+                        <span className="hidden md:block text-slate-400 font-bold text-sm bg-slate-50 px-4 py-1.5 rounded-full border border-slate-100">
+                          {user.portfolio.length} صور
+                        </span>
+                      )}
+                    </div>
                   </div>
                   
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
@@ -443,7 +454,11 @@ const ProfileView = ({ user, isOwn, onEdit, onLogout, onBack }: { user: any, isO
                           <ImageIcon className="text-slate-200" size={32} />
                         </div>
                         <p className="text-slate-400 font-black text-lg">لم يتم إضافة صور للأعمال بعد</p>
-                        <p className="text-slate-300 font-bold text-sm mt-1">تواصل مع الحرفي لطلب نماذج لعمله</p>
+                        {isOwn ? (
+                          <button onClick={onEdit} className="mt-4 text-emerald-600 font-black flex items-center justify-center gap-2 mx-auto"><Plus size={18} /> أضف عملك الأول الآن</button>
+                        ) : (
+                          <p className="text-slate-300 font-bold text-sm mt-1">تواصل مع الحرفي لطلب نماذج لعمله</p>
+                        )}
                       </div>
                     )}
                   </div>
@@ -732,11 +747,14 @@ const EditProfileView = ({ user, onSave, onCancel }: any) => {
       <div className="bg-white p-8 md:p-12 rounded-[3rem] shadow-2xl border border-slate-100">
         <h2 className="text-3xl font-black mb-10 text-slate-900 border-r-8 border-emerald-500 pr-4">إعدادات الحساب ⚙️</h2>
         <form onSubmit={submit} className="space-y-12">
+          {/* Avatar Upload */}
           <div className="flex flex-col items-center gap-4">
             <div className="relative group cursor-pointer" onClick={() => avatarInputRef.current?.click()}>
               <img src={formData.avatar || `https://ui-avatars.com/api/?name=${formData.firstName}`} className="w-40 h-40 rounded-[2.5rem] object-cover border-4 border-emerald-50 shadow-xl bg-slate-50" />
               <div className="absolute inset-0 bg-black/40 rounded-[2.5rem] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><Camera className="text-white" size={32} /></div>
+              <div className="absolute bottom-4 right-4 bg-emerald-600 text-white p-2 rounded-xl shadow-lg group-hover:scale-110 transition-transform"><UploadCloud size={20} /></div>
             </div>
+            <p className="text-xs font-black text-slate-400">تغيير الصورة الشخصية</p>
             <input type="file" hidden ref={avatarInputRef} accept="image/*" onChange={e => handleImageUpload(e, 'avatar')} />
           </div>
 
@@ -751,7 +769,45 @@ const EditProfileView = ({ user, onSave, onCancel }: any) => {
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-4">
+          {/* Portfolio Upload Section */}
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <label className="block font-black text-lg text-slate-900 mr-1">معرض أعمالك (ألبوم الصور) 📸</label>
+              <span className="text-xs font-bold text-slate-400 bg-slate-100 px-3 py-1 rounded-full">{formData.portfolio.length}/5</span>
+            </div>
+            <p className="text-xs text-slate-500 font-bold mb-4">أضف أفضل أعمالك لجذب الزبائن (بحد أقصى 5 صور)</p>
+            
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+              {formData.portfolio.map((img: string, idx: number) => (
+                <div key={idx} className="relative aspect-square rounded-[1.5rem] overflow-hidden group border-2 border-slate-50 shadow-sm">
+                  <img src={img} className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                  <button 
+                    type="button" 
+                    onClick={() => setFormData(prev => ({...prev, portfolio: prev.portfolio.filter((_, i) => i !== idx)}))} 
+                    className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-lg shadow-md hover:bg-red-600 transition-colors"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))}
+              
+              {formData.portfolio.length < 5 && (
+                <div 
+                  onClick={() => portfolioInputRef.current?.click()} 
+                  className="aspect-square bg-emerald-50 rounded-[1.5rem] border-2 border-dashed border-emerald-200 flex flex-col items-center justify-center text-emerald-600 cursor-pointer hover:bg-emerald-100 hover:border-emerald-400 transition-all group"
+                >
+                  <div className="p-3 bg-white rounded-2xl shadow-sm mb-2 group-hover:scale-110 transition-transform">
+                    <Plus size={24} />
+                  </div>
+                  <span className="text-[10px] font-black uppercase">تحميل صورة</span>
+                  <input type="file" hidden ref={portfolioInputRef} accept="image/*" onChange={e => handleImageUpload(e, 'portfolio')} />
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-4 pt-6">
             <button type="submit" disabled={loading} className="w-full bg-emerald-600 text-white py-5 rounded-2xl font-black text-lg shadow-xl hover:bg-emerald-500 active:scale-95 transition-all">
               {loading ? 'جاري الحفظ...' : 'حفظ التغييرات ✅'}
             </button>
