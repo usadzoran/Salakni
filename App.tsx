@@ -32,7 +32,10 @@ import {
   Clock,
   DollarSign,
   Filter,
-  ArrowUpDown
+  ArrowUpDown,
+  Zap,
+  CheckCircle2,
+  Share2
 } from 'lucide-react';
 
 // --- Components ---
@@ -77,6 +80,8 @@ const GlobalStyles = () => (
     .nav-item-active { color: #059669; transform: scale(1.1); }
     .nav-item-active .icon-container { background: #ecfdf5; border-radius: 12px; }
     input, select, textarea { font-size: 16px !important; }
+    .profile-banner { background: linear-gradient(135deg, #065f46 0%, #0d9488 100%); position: relative; overflow: hidden; }
+    .profile-banner::after { content: ''; position: absolute; inset: 0; background: url('https://www.transparenttextures.com/patterns/cubes.png'); opacity: 0.1; }
   `}</style>
 );
 
@@ -114,7 +119,7 @@ export default function App() {
       setState(prev => ({ ...prev, workers: (data || []).map(d => ({
         ...d, firstName: d.first_name, lastName: d.last_name, location: { wilaya: d.wilaya }, 
         rating: d.rating || 0, ratingCount: d.rating_count || 0, categories: d.categories || [], portfolio: d.portfolio || [],
-        verificationStatus: d.verification_status || 'none'
+        verificationStatus: d.verification_status || 'none', completedJobs: d.completed_jobs || 0
       }))}));
     } catch (e) { console.error(e); } finally { setLoading(false); }
   };
@@ -244,7 +249,7 @@ export default function App() {
 // --- Views Components ---
 
 const LandingView = ({ onSearch }: any) => (
-  <div className="relative min-h-[85vh] flex items-center justify-center text-center px-6">
+  <div className="relative min-h-[85vh] flex items-center justify-center text-center px-6 overflow-hidden">
     <div className="absolute inset-0 bg-slate-900 bg-[url('https://images.unsplash.com/photo-1590674899484-13da0d1b58f5?q=80&w=2000')] bg-cover bg-center opacity-40"></div>
     <div className="relative z-10 max-w-4xl animate-in">
       <h1 className="text-4xl md:text-7xl font-black text-white mb-6 leading-tight">سَلّكني يسلكها <br className="md:hidden" /><span className="text-emerald-400">في الحين!</span></h1>
@@ -253,6 +258,204 @@ const LandingView = ({ onSearch }: any) => (
     </div>
   </div>
 );
+
+const ProfileView = ({ user, isOwn, onEdit, onLogout, onBack }: { user: any, isOwn: boolean, onEdit: () => void, onLogout: () => void, onBack: () => void }) => {
+  const isWorker = user.role === UserRole.WORKER;
+
+  return (
+    <div className="max-w-6xl mx-auto py-6 md:py-16 px-4 md:px-6 animate-in">
+      <div className="mb-6 flex justify-between items-center">
+        {!isOwn ? (
+          <button onClick={onBack} className="flex items-center gap-2 text-slate-500 font-bold hover:text-emerald-600 transition-colors">
+            <ChevronLeft size={20} /> العودة للبحث
+          </button>
+        ) : (
+          <div className="flex-1"></div>
+        )}
+        <div className="flex gap-2">
+          <button className="p-3 bg-white border border-slate-200 rounded-2xl text-slate-400 hover:text-emerald-600 transition-colors shadow-sm">
+            <Share2 size={20} />
+          </button>
+          {isOwn && (
+            <>
+              <button onClick={onEdit} className="p-3 bg-white border border-slate-200 rounded-2xl text-slate-600 hover:bg-emerald-50 transition-colors shadow-sm">
+                <Settings size={20} />
+              </button>
+              <button onClick={onLogout} className="p-3 bg-red-50 text-red-500 border border-red-100 rounded-2xl hover:bg-red-500 hover:text-white transition-colors shadow-sm">
+                <LogOut size={20} />
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="bg-white rounded-[2.5rem] md:rounded-[4rem] shadow-2xl overflow-hidden border border-slate-100">
+        {/* Banner Section */}
+        <div className="profile-banner h-40 md:h-64"></div>
+        
+        <div className="px-6 md:px-16 pb-16 relative">
+          {/* Avatar & Basic Info */}
+          <div className="flex flex-col md:flex-row items-center md:items-end gap-6 -mt-20 md:-mt-32 mb-12">
+            <div className="relative">
+              <img 
+                src={user.avatar || `https://ui-avatars.com/api/?name=${user.firstName}&background=10b981&color=fff`} 
+                className="w-40 h-40 md:w-56 md:h-56 rounded-[2.5rem] md:rounded-[4rem] border-[8px] md:border-[12px] border-white shadow-2xl object-cover bg-white" 
+              />
+              {isWorker && user.verificationStatus === 'verified' && (
+                <div className="absolute bottom-2 right-2 md:bottom-4 md:right-4 bg-emerald-500 text-white p-1.5 md:p-2 rounded-2xl border-4 border-white shadow-lg">
+                  <CheckCircle2 size={24} />
+                </div>
+              )}
+            </div>
+            
+            <div className="flex-1 text-center md:text-right pb-4">
+              <div className="flex flex-col md:flex-row items-center justify-center md:justify-start gap-3 mb-2">
+                <h2 className="text-3xl md:text-5xl font-black text-slate-900 tracking-tight">{user.firstName} {user.lastName}</h2>
+                <VerificationBadge status={user.verificationStatus} />
+              </div>
+              <div className="flex flex-wrap items-center justify-center md:justify-start gap-2.5">
+                {isWorker ? (
+                  user.categories?.map((c: string) => (
+                    <span key={c} className="bg-emerald-50 text-emerald-700 px-4 py-1.5 rounded-full text-xs font-black border border-emerald-100 shadow-sm">{c}</span>
+                  ))
+                ) : (
+                  <span className="bg-blue-50 text-blue-700 px-4 py-1.5 rounded-full text-xs font-black border border-blue-100">زبون مميز النخبة</span>
+                )}
+                <span className="flex items-center gap-1.5 text-slate-500 font-bold text-xs bg-slate-100/50 px-4 py-1.5 rounded-full border border-slate-200">
+                  <MapPin size={14} className="text-emerald-600" /> {user.location.wilaya}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Professional Stats Cards */}
+          {isWorker && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-16">
+              <div className="bg-emerald-50/50 border border-emerald-100 p-6 rounded-[2.5rem] text-center group hover:bg-emerald-600 transition-all cursor-default">
+                <p className="text-slate-400 group-hover:text-emerald-100 font-black text-[10px] uppercase mb-1">التقييم</p>
+                <div className="text-3xl font-black text-yellow-500 group-hover:text-white flex items-center justify-center gap-2">
+                  <Star size={24} fill="currentColor" /> {user.rating?.toFixed(1) || '0.0'}
+                </div>
+              </div>
+              <div className="bg-slate-50/50 border border-slate-100 p-6 rounded-[2.5rem] text-center group hover:bg-slate-900 transition-all cursor-default">
+                <p className="text-slate-400 group-hover:text-slate-400 font-black text-[10px] uppercase mb-1">المهام المكتملة</p>
+                <div className="text-3xl font-black text-slate-800 group-hover:text-white flex items-center justify-center gap-2">
+                  <Briefcase size={24} className="text-emerald-500" /> {user.completedJobs || 0}
+                </div>
+              </div>
+              <div className="bg-blue-50/50 border border-blue-100 p-6 rounded-[2.5rem] text-center group hover:bg-blue-600 transition-all cursor-default">
+                <p className="text-slate-400 group-hover:text-blue-100 font-black text-[10px] uppercase mb-1">الخبرة</p>
+                <div className="text-3xl font-black text-blue-600 group-hover:text-white flex items-center justify-center gap-2">
+                  <Zap size={24} /> 5+ سنوات
+                </div>
+              </div>
+              <div className="bg-slate-50/50 border border-slate-100 p-6 rounded-[2.5rem] text-center group hover:bg-emerald-600 transition-all cursor-default">
+                <p className="text-slate-400 group-hover:text-emerald-100 font-black text-[10px] uppercase mb-1">سرعة الرد</p>
+                <div className="text-3xl font-black text-slate-800 group-hover:text-white flex items-center justify-center gap-2">
+                  <Clock size={24} className="text-blue-400" /> &lt; 1 س
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+            {/* Left Column: Actions & Contacts */}
+            <div className="lg:col-span-1 space-y-8">
+              <div className="bg-slate-900 text-white p-8 rounded-[3rem] shadow-2xl relative overflow-hidden group">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-600/20 blur-3xl -mr-16 -mt-16 group-hover:scale-150 transition-transform"></div>
+                <h4 className="font-black text-lg mb-6 flex items-center gap-3">تواصل مباشر <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping"></div></h4>
+                <div className="space-y-4">
+                  <p className="text-3xl font-mono text-center py-4 bg-white/5 rounded-2xl tracking-[0.2em]">{user.phone}</p>
+                  <a href={`tel:${user.phone}`} className="flex items-center justify-center gap-3 w-full bg-emerald-600 hover:bg-emerald-500 py-5 rounded-[2rem] font-black text-xl transition-all shadow-xl shadow-emerald-900/40 active:scale-95">
+                    <Phone size={24} /> اتصال هاتفـي
+                  </a>
+                  <button className="flex items-center justify-center gap-3 w-full bg-white/10 hover:bg-white/20 py-5 rounded-[2rem] font-black text-lg border border-white/10 transition-all active:scale-95">
+                    <MessageSquare size={22} /> مراسلة سلكني
+                  </button>
+                </div>
+              </div>
+
+              {isWorker && user.skills && user.skills.length > 0 && (
+                <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm">
+                  <h4 className="font-black text-slate-900 mb-6 flex items-center gap-2"><Zap className="text-emerald-500" size={18} /> مهارات خاصة</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {user.skills.map((s: string) => (
+                      <span key={s} className="bg-slate-50 text-slate-600 px-4 py-2 rounded-xl text-xs font-bold border border-slate-100">{s}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Right Column: Bio & Portfolio */}
+            <div className="lg:col-span-2 space-y-12">
+              <section className="animate-in">
+                <div className="flex items-center justify-between mb-6">
+                  <h4 className="text-2xl font-black text-slate-900 flex items-center gap-3">
+                    <div className="w-10 h-10 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600">
+                      <Award size={22} />
+                    </div>
+                    حول الحرفي
+                  </h4>
+                </div>
+                <div className="bg-white p-8 md:p-10 rounded-[3rem] border border-slate-100 shadow-sm leading-relaxed relative">
+                  <div className="absolute top-6 left-8 opacity-[0.05] pointer-events-none">
+                    <Briefcase size={120} />
+                  </div>
+                  <p className="text-slate-600 font-medium text-lg relative z-10">
+                    {user.bio || 'هذا الحرفي لم يضف نبذة تعريفية بعد، ولكن يمكنك التواصل معه لمعرفة المزيد عن خبراته وخدماته المتميزة.'}
+                  </p>
+                </div>
+              </section>
+
+              {isWorker && (
+                <section className="animate-in" style={{ animationDelay: '0.1s' }}>
+                  <div className="flex items-center justify-between mb-8 px-2">
+                    <h4 className="text-2xl font-black text-slate-900 flex items-center gap-3">
+                      <div className="w-10 h-10 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600">
+                        <ImageIcon size={22} />
+                      </div>
+                      معرض الأعمال الاحترافية
+                    </h4>
+                    {user.portfolio?.length > 0 && (
+                      <span className="text-slate-400 font-bold text-sm bg-slate-50 px-4 py-1.5 rounded-full border border-slate-100">
+                        {user.portfolio.length} صور
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
+                    {user.portfolio && user.portfolio.length > 0 ? (
+                      user.portfolio.map((img: string, idx: number) => (
+                        <div 
+                          key={idx} 
+                          className="group relative aspect-square rounded-[2rem] md:rounded-[3rem] overflow-hidden shadow-lg border-4 border-white transition-all hover:scale-[1.03] active:scale-95"
+                        >
+                          <img src={img} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-6">
+                            <span className="text-white text-xs font-black bg-emerald-600/80 px-4 py-2 rounded-full backdrop-blur-md">عرض العمل</span>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="col-span-full py-20 bg-slate-50 rounded-[3rem] border-2 border-dashed border-slate-200 text-center">
+                        <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
+                          <ImageIcon className="text-slate-200" size={32} />
+                        </div>
+                        <p className="text-slate-400 font-black text-lg">لم يتم إضافة صور للأعمال بعد</p>
+                        <p className="text-slate-300 font-bold text-sm mt-1">تواصل مع الحرفي لطلب نماذج لعمله</p>
+                      </div>
+                    )}
+                  </div>
+                </section>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const TasksMarketView = ({ tasks, loading, filters, onFilterChange, currentUser, onTaskCreated }: any) => {
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -272,7 +475,6 @@ const TasksMarketView = ({ tasks, loading, filters, onFilterChange, currentUser,
         </button>
       </div>
 
-      {/* Filters & Sorting */}
       <div className="bg-white p-4 md:p-6 rounded-[2rem] shadow-sm border border-slate-100 mb-8 flex flex-col md:flex-row gap-4">
         <div className="flex-1 flex gap-3 overflow-x-auto no-scrollbar pb-2 md:pb-0">
           <select 
@@ -306,7 +508,6 @@ const TasksMarketView = ({ tasks, loading, filters, onFilterChange, currentUser,
         </div>
       </div>
 
-      {/* Tasks List */}
       {loading ? (
         <div className="py-20 flex justify-center"><div className="loading-spinner"></div></div>
       ) : tasks.length === 0 ? (
@@ -348,7 +549,6 @@ const TasksMarketView = ({ tasks, loading, filters, onFilterChange, currentUser,
         </div>
       )}
 
-      {/* Create Task Modal */}
       {showCreateModal && (
         <CreateTaskModal 
           onClose={() => setShowCreateModal(false)} 
@@ -462,78 +662,6 @@ const SearchWorkersView = ({ workers, loading, filters, onFilterChange, onProfil
           </div>
         </div>
       ))}
-    </div>
-  </div>
-);
-
-const ProfileView = ({ user, isOwn, onEdit, onLogout, onBack }: any) => (
-  <div className="max-w-5xl mx-auto py-8 md:py-16 px-6 animate-in">
-    {!isOwn && <button onClick={onBack} className="mb-6 flex items-center gap-2 text-slate-500 font-bold hover:text-emerald-600 transition-colors"><ChevronLeft size={20} /> العودة</button>}
-    
-    <div className="bg-white rounded-[3.5rem] shadow-2xl overflow-hidden border border-slate-100 relative">
-      <div className="h-48 bg-gradient-to-r from-emerald-600 to-teal-400"></div>
-      <div className="px-6 md:px-12 pb-12 relative -mt-24">
-        <div className="flex flex-col md:flex-row items-center md:items-end gap-6 mb-10">
-          <img src={user.avatar || `https://ui-avatars.com/api/?name=${user.firstName}&background=10b981&color=fff`} className="w-44 h-44 rounded-[2.5rem] border-8 border-white shadow-xl object-cover bg-white" />
-          <div className="text-center md:text-right flex-1">
-            <div className="flex items-center justify-center md:justify-start gap-4 mb-2">
-              <h2 className="text-3xl md:text-5xl font-black text-slate-900">{user.firstName} {user.lastName}</h2>
-              {user.role === UserRole.WORKER && <VerificationBadge status={user.verificationStatus} />}
-            </div>
-            <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 mt-3">
-              {user.role === UserRole.WORKER ? (
-                user.categories?.map((c: string) => <span key={c} className="bg-emerald-50 text-emerald-700 px-4 py-1.5 rounded-full text-sm font-black border border-emerald-100">{c}</span>)
-              ) : <span className="bg-blue-50 text-blue-700 px-4 py-1.5 rounded-full text-sm font-black border border-blue-100">زبون مميز</span>}
-              <span className="text-slate-400 font-bold text-sm bg-slate-50 px-4 py-1.5 rounded-full">📍 {user.location.wilaya}</span>
-            </div>
-          </div>
-          {isOwn && (
-            <div className="flex gap-2">
-              <button onClick={onEdit} className="p-3 bg-slate-100 rounded-2xl hover:bg-emerald-100 transition-colors shadow-sm"><Settings size={22} /></button>
-              <button onClick={onLogout} className="p-3 bg-red-50 text-red-500 rounded-2xl hover:bg-red-500 hover:text-white transition-colors shadow-sm"><LogOut size={22} /></button>
-            </div>
-          )}
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
-          <div className="md:col-span-1 space-y-6">
-            <div className="bg-slate-50 p-6 rounded-3xl text-center">
-              <p className="text-slate-400 font-bold mb-1">التقييم العام</p>
-              <div className="text-4xl font-black text-yellow-500 flex items-center justify-center gap-2">
-                <Star size={36} fill="currentColor" /> {user.rating?.toFixed(1) || '0.0'}
-              </div>
-              <p className="text-[10px] text-slate-400">من {user.ratingCount || 0} زبون</p>
-            </div>
-            <div className="bg-slate-900 text-white p-7 rounded-[2rem] shadow-xl">
-              <h4 className="font-black mb-3 flex items-center gap-2"><Phone className="text-emerald-400" /> تواصل</h4>
-              <p className="text-2xl font-mono text-center mb-6 tracking-widest">{user.phone}</p>
-              <button className="w-full bg-emerald-600 hover:bg-emerald-500 py-3 rounded-xl font-black transition-all">اتصال مباشر</button>
-            </div>
-          </div>
-
-          <div className="md:col-span-2 space-y-10">
-            <div className="glass-card p-8 rounded-[2rem] border border-slate-100 shadow-sm">
-              <h4 className="text-xl font-black mb-4 flex items-center gap-3"><Award className="text-emerald-500" /> عن الحرفي</h4>
-              <p className="text-slate-600 leading-relaxed font-medium">{user.bio || 'لم يكتب هذا الحرفي نبذة بعد.'}</p>
-            </div>
-
-            {user.role === UserRole.WORKER && (
-              <div>
-                <h4 className="text-xl font-black mb-6 flex items-center gap-3"><ImageIcon className="text-emerald-500" /> معرض الأعمال</h4>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                  {user.portfolio && user.portfolio.length > 0 ? user.portfolio.map((img: string, idx: number) => (
-                    <div key={idx} className="aspect-square rounded-2xl overflow-hidden shadow-md group relative border-2 border-white">
-                      <img src={img} className="w-full h-full object-cover transition-transform group-hover:scale-110" />
-                    </div>
-                  )) : (
-                    <div className="col-span-full py-16 bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-200 text-center text-slate-400 font-bold">لا توجد صور للأعمال</div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
     </div>
   </div>
 );
