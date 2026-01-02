@@ -34,6 +34,7 @@ export interface User {
   createdAt?: string;
   rating?: number;
   ratingCount?: number;
+  completedJobs?: number;
 }
 
 export interface Task {
@@ -50,27 +51,8 @@ export interface Task {
   seeker_avatar?: string;
 }
 
-export interface Message {
-  id: string;
-  sender_id: string;
-  receiver_id: string;
-  content: string;
-  created_at: string;
-  is_read: boolean;
-}
-
 export interface AppState {
   currentUser: User | null;
-  workers: Worker[];
+  workers: User[];
   view: 'landing' | 'register' | 'login' | 'dashboard' | 'search' | 'profile' | 'edit-profile' | 'messages' | 'support' | 'admin-panel';
-}
-
-export interface Worker extends User {
-  categories: string[];
-  bio: string;
-  skills: string[];
-  rating: number;
-  ratingCount: number;
-  completedJobs: number;
-  portfolio: string[];
 }
