@@ -49,7 +49,10 @@ import {
   Phone, 
   ShieldCheck, 
   Calendar,
-  MessageSquare
+  MessageSquare,
+  Home,
+  Search,
+  PlusCircle
 } from 'lucide-react';
 
 // --- أنماط مخصصة ---
@@ -67,6 +70,7 @@ const GlobalStyles = () => (
     .chat-bubble-them { background: #f3f4f6; color: #1f2937; border-radius: 1.2rem 1.2rem 1.2rem 0; }
     .profile-card { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
     .profile-card:hover { transform: translateY(-5px); }
+    .bottom-nav-active { color: #10b981; transform: translateY(-4px); }
     @media (max-width: 640px) {
       .hero-title { font-size: 2.5rem !important; line-height: 1.2 !important; }
     }
@@ -170,17 +174,19 @@ export default function App() {
   }, [state.view, searchFilters]);
 
   return (
-    <div className="min-h-screen flex flex-col arabic-text transition-colors duration-700 bg-gray-50" dir="rtl">
+    <div className="min-h-screen flex flex-col arabic-text transition-colors duration-700 bg-gray-50 pb-24 md:pb-0" dir="rtl">
       <GlobalStyles />
-      <nav className="h-24 flex items-center px-4 md:px-6 sticky top-0 z-50 backdrop-blur-xl border-b bg-white/90 border-gray-100 shadow-sm">
+      <nav className="h-20 flex items-center px-4 md:px-6 sticky top-0 z-50 backdrop-blur-xl border-b bg-white/90 border-gray-100 shadow-sm">
         <div className="max-w-7xl mx-auto w-full flex justify-between items-center">
           <Logo onClick={() => setView('landing')} />
-          <div className="flex items-center gap-4">
-            <button onClick={() => setView('search')} className="font-bold text-slate-600 hover:text-emerald-600 transition-colors">تصفح الحرفيين</button>
+          <div className="hidden md:flex items-center gap-6">
+            <button onClick={() => setView('search')} className={`font-bold transition-colors ${state.view === 'search' ? 'text-emerald-600' : 'text-slate-600 hover:text-emerald-600'}`}>تصفح الحرفيين</button>
             {state.currentUser ? (
               <div className="flex items-center gap-4">
-                <button onClick={() => setView('messages')} className="text-2xl hover:scale-110 transition-transform">💬</button>
-                <div onClick={() => setView('profile')} className="w-10 h-10 rounded-xl bg-emerald-100 cursor-pointer overflow-hidden border-2 border-white shadow-sm hover:border-emerald-500 transition-all">
+                <button onClick={() => setView('messages')} className={`text-xl transition-all hover:scale-110 ${state.view === 'messages' ? 'text-emerald-600' : 'text-slate-600'}`}>
+                   <MessageSquare size={24} />
+                </button>
+                <div onClick={() => setView('profile')} className={`w-10 h-10 rounded-xl bg-emerald-100 cursor-pointer overflow-hidden border-2 shadow-sm transition-all hover:border-emerald-500 ${state.view === 'profile' ? 'border-emerald-600' : 'border-white'}`}>
                    <img src={state.currentUser.avatar || `https://ui-avatars.com/api/?name=${state.currentUser.firstName}`} className="w-full h-full object-cover" />
                 </div>
               </div>
@@ -193,6 +199,34 @@ export default function App() {
           </div>
         </div>
       </nav>
+
+      {/* Main Bottom Navigation Menu */}
+      <div className="fixed bottom-0 left-0 right-0 z-[100] bg-white/80 backdrop-blur-xl border-t border-gray-100 px-6 py-4 flex justify-between items-center md:hidden shadow-[0_-4px_20px_rgba(0,0,0,0.05)] rounded-t-[2.5rem]">
+        <button onClick={() => setView('landing')} className={`flex flex-col items-center gap-1 transition-all ${state.view === 'landing' ? 'bottom-nav-active' : 'text-slate-400'}`}>
+          <Home size={24} strokeWidth={state.view === 'landing' ? 3 : 2} />
+          <span className="text-[10px] font-black">الرئيسية</span>
+        </button>
+        <button onClick={() => setView('search')} className={`flex flex-col items-center gap-1 transition-all ${state.view === 'search' ? 'bottom-nav-active' : 'text-slate-400'}`}>
+          <Search size={24} strokeWidth={state.view === 'search' ? 3 : 2} />
+          <span className="text-[10px] font-black">البحث</span>
+        </button>
+        <div className="relative -mt-12">
+           <button onClick={() => { setRegisterRole(null); setView('register'); }} className="bg-gradient-to-tr from-emerald-600 to-teal-400 text-white p-4 rounded-full shadow-2xl border-4 border-white transition-transform active:scale-90">
+             <PlusCircle size={32} />
+           </button>
+        </div>
+        <button onClick={() => state.currentUser ? setView('messages') : setView('login')} className={`flex flex-col items-center gap-1 transition-all ${state.view === 'messages' ? 'bottom-nav-active' : 'text-slate-400'}`}>
+          <div className="relative">
+            <MessageSquare size={24} strokeWidth={state.view === 'messages' ? 3 : 2} />
+            <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full border border-white"></span>
+          </div>
+          <span className="text-[10px] font-black">الرسائل</span>
+        </button>
+        <button onClick={() => state.currentUser ? setView('profile') : setView('login')} className={`flex flex-col items-center gap-1 transition-all ${state.view === 'profile' ? 'bottom-nav-active' : 'text-slate-400'}`}>
+          <UserIcon size={24} strokeWidth={state.view === 'profile' ? 3 : 2} />
+          <span className="text-[10px] font-black">حسابي</span>
+        </button>
+      </div>
 
       <main className="flex-grow">
         {state.view === 'landing' && (
@@ -300,7 +334,7 @@ export default function App() {
         {state.view === 'messages' && state.currentUser && <ChatView currentUser={state.currentUser} targetUser={chatTarget} />}
       </main>
 
-      <footer className="bg-slate-900 text-white py-12 text-center mt-auto border-t border-white/5">
+      <footer className="hidden md:block bg-slate-900 text-white py-12 text-center mt-auto border-t border-white/5">
         <Logo size="sm" inverse />
         <p className="mt-4 text-slate-500 font-bold">سلكني - منصتكم الموثوقة للحرف والمهن في الجزائر 🇩🇿</p>
       </footer>
