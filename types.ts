@@ -21,13 +21,16 @@ export interface User {
   location: Location;
   avatar?: string;
   bio?: string;
-  category?: string;
+  category?: string; // Keep for legacy, but we'll use categories array
+  categories?: string[]; 
   skills?: string[];
   idFront?: string;
   idBack?: string;
   isVerified?: boolean;
   portfolio?: string[];
   createdAt?: string;
+  rating?: number;
+  ratingCount?: number;
 }
 
 export interface Message {
@@ -75,9 +78,11 @@ export interface AppState {
 }
 
 export interface Worker extends User {
-  category: string;
+  categories: string[];
   bio: string;
   skills: string[];
   rating: number;
+  ratingCount: number;
   completedJobs: number;
+  portfolio: string[];
 }
