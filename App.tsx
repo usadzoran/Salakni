@@ -35,7 +35,11 @@ import {
   ClipboardList,
   Camera,
   Menu,
-  ChevronRight
+  ChevronRight,
+  Users,
+  LayoutDashboard,
+  BarChart3,
+  AlertCircle
 } from 'lucide-react';
 
 // --- Global Components & Styles ---
@@ -53,6 +57,8 @@ const GlobalStyles = () => (
     .glass-morphism { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.2); }
     input, select, textarea { -webkit-appearance: none; appearance: none; }
     .custom-shadow { box-shadow: 0 15px 40px -10px rgba(16, 185, 129, 0.2); }
+    .admin-stat-card { background: white; border: 1px solid #f1f5f9; border-radius: 2rem; padding: 1.5rem; transition: all 0.3s; }
+    .admin-stat-card:hover { transform: translateY(-5px); box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1); }
   `}</style>
 );
 
@@ -102,13 +108,10 @@ export default function App() {
     if (typeof val === 'string') return val;
     if (Array.isArray(val)) return val.map(item => s(item)).join(', ');
     if (typeof val === 'object') {
-      // Handle cases where the object might be a user object from a join
-      if (val.first_name || val.last_name) {
-        return `${s(val.first_name)} ${s(val.last_name)}`.trim();
-      }
+      if (val.first_name || val.last_name) return `${s(val.first_name)} ${s(val.last_name)}`.trim();
       if (val.name) return s(val.name);
       if (val.title) return s(val.title);
-      return ''; // Explicitly return empty string for other objects to avoid [object Object]
+      return '';
     }
     return String(val);
   };
@@ -157,7 +160,7 @@ export default function App() {
   const fetchTasks = async () => {
     setLoading(true);
     try {
-      let query = supabase.from('tasks').select('*, users!inner(first_name, last_name, avatar)').order('created_at', { ascending: taskFilters.sortBy === 'oldest' });
+      let query = supabase.from('tasks').select('*, users(first_name, last_name, avatar)').order('created_at', { ascending: taskFilters.sortBy === 'oldest' });
       if (taskFilters.wilaya) query = query.eq('wilaya', taskFilters.wilaya);
       if (taskFilters.category) query = query.eq('category', taskFilters.category);
       if (taskFilters.sortBy === 'budget_desc') query = query.order('budget', { ascending: false });
@@ -167,11 +170,10 @@ export default function App() {
       if (error) throw error;
 
       setTasks((data || []).map(t => {
-        // Safe extraction of nested user data from joined query
         const userData = Array.isArray(t.users) ? t.users[0] : t.users;
         return {
           ...t,
-          seeker_name: userData ? s(userData) : 'مستخدم مجهول',
+          seeker_name: userData ? `${s(userData.first_name)} ${s(userData.last_name)}`.trim() : 'مستخدم مجهول',
           seeker_avatar: userData?.avatar
         };
       }));
@@ -202,7 +204,7 @@ export default function App() {
             <NavButton active={state.view === 'search'} onClick={() => setView('search')}>تصفح الحرفيين</NavButton>
             <NavButton active={state.view === 'support'} onClick={() => setView('support')}>سوق المهام</NavButton>
             {state.currentUser?.role === UserRole.ADMIN && (
-              <button onClick={() => setView('admin-panel')} className="bg-emerald-50 text-emerald-700 px-4 py-2 rounded-xl text-sm font-black flex items-center gap-2"><ShieldCheck size={18} /> الإدارة</button>
+              <button onClick={() => setView('admin-panel')} className="bg-emerald-600 text-white px-5 py-2 rounded-2xl text-sm font-black flex items-center gap-2 shadow-lg shadow-emerald-200"><ShieldCheck size={18} /> لوحة التحكم</button>
             )}
           </div>
 
@@ -742,49 +744,283 @@ const EditProfileView = ({ user, onSave, onCancel }: any) => {
   );
 };
 
+// --- Admin Panel Component ---
+
 const AdminPanelView = ({ safe }: any) => {
-  const [pending, setPending] = useState<User[]>([]);
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'tasks' | 'verifications'>('overview');
   const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({ totalUsers: 0, totalWorkers: 0, totalTasks: 0, pendingVerifs: 0 });
+  const [data, setData] = useState<{ users: User[], tasks: any[], verifications: User[] }>({ users: [], tasks: [], verifications: [] });
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      // Fetch all required data for admin
+      const { data: usersData } = await supabase.from('users').select('*').order('created_at', { ascending: false });
+      const { data: tasksData } = await supabase.from('tasks').select('*, users(first_name, last_name)').order('created_at', { ascending: false });
+      
+      const mappedUsers = (usersData || []).map(u => ({
+        ...u,
+        firstName: safe(u.first_name),
+        lastName: safe(u.last_name),
+        phone: safe(u.phone),
+        role: u.role,
+        location: { wilaya: safe(u.wilaya), daira: '' },
+        verificationStatus: u.verification_status
+      } as any));
+
+      const verifications = mappedUsers.filter(u => u.verificationStatus === 'pending');
+
+      setData({
+        users: mappedUsers,
+        tasks: tasksData || [],
+        verifications: verifications
+      });
+
+      setStats({
+        totalUsers: mappedUsers.length,
+        totalWorkers: mappedUsers.filter(u => u.role === UserRole.WORKER).length,
+        totalTasks: (tasksData || []).length,
+        pendingVerifs: verifications.length
+      });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetch = async () => {
-      const { data } = await supabase.from('users').select('*').eq('verification_status', 'pending');
-      setPending((data || []).map(d => ({ 
-        ...d, 
-        firstName: safe(d.first_name), 
-        lastName: safe(d.last_name), 
-        location: { wilaya: safe(d.wilaya), daira: '' } 
-      } as any)));
-      setLoading(false);
-    };
-    fetch();
+    fetchData();
   }, []);
 
-  const handle = async (id: string, status: VerificationStatus) => {
-    await supabase.from('users').update({ verification_status: status }).eq('id', id);
-    setPending(prev => prev.filter(p => p.id !== id));
+  const handleVerification = async (id: string, status: VerificationStatus) => {
+    try {
+      const { error } = await supabase.from('users').update({ verification_status: status }).eq('id', id);
+      if (error) throw error;
+      fetchData(); // Refresh data
+    } catch (e: any) {
+      alert(e.message);
+    }
+  };
+
+  const deleteItem = async (table: string, id: string) => {
+    if (!confirm('هل أنت متأكد من الحذف؟ لا يمكن التراجع عن هذه الخطوة.')) return;
+    try {
+      const { error } = await supabase.from(table).delete().eq('id', id);
+      if (error) throw error;
+      fetchData();
+    } catch (e: any) {
+      alert(e.message);
+    }
   };
 
   return (
-    <div className="max-w-6xl mx-auto py-16 px-6 animate-in">
-      <h2 className="text-5xl font-black mb-16 tracking-tighter">إدارة التوثيقات <span className="text-emerald-500">ADMIN</span></h2>
-      {loading ? <div className="loading-spinner mx-auto"></div> : (
-        <div className="grid gap-8">
-          {pending.length > 0 ? pending.map(u => (
-            <div key={u.id} className="bg-white p-10 rounded-[4rem] shadow-xl border border-slate-100 flex flex-col md:flex-row items-center gap-10">
-              <img src={u.avatar || `https://ui-avatars.com/api/?name=${u.firstName}`} className="w-24 h-24 rounded-3xl object-cover" />
-              <div className="flex-1 text-center md:text-right">
-                <h3 className="text-3xl font-black">{u.firstName} {u.lastName}</h3>
-                <p className="text-slate-500 font-bold">{safe(u.phone)} | {safe(u.location.wilaya)}</p>
+    <div className="max-w-7xl mx-auto py-12 px-6 animate-in">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
+        <div>
+          <h2 className="text-4xl md:text-6xl font-black text-slate-900 mb-2 tracking-tighter">لوحة التحكم <span className="text-emerald-600">Admin</span></h2>
+          <p className="text-slate-500 font-bold text-lg">إدارة المنصة، المستخدمين، والطلبات.</p>
+        </div>
+        <button onClick={fetchData} className="bg-white border border-slate-200 p-4 rounded-2xl hover:bg-slate-50 transition-all shadow-sm flex items-center gap-3 font-black text-sm">
+          <Zap size={18} className="text-yellow-500" /> تحديث البيانات
+        </button>
+      </div>
+
+      {/* Admin Tabs */}
+      <div className="flex gap-2 mb-10 overflow-x-auto no-scrollbar pb-2">
+        <AdminTab active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} icon={LayoutDashboard} label="نظرة عامة" />
+        <AdminTab active={activeTab === 'users'} onClick={() => setActiveTab('users')} icon={Users} label="المستخدمين" />
+        <AdminTab active={activeTab === 'tasks'} onClick={() => setActiveTab('tasks')} icon={ClipboardList} label="المهام" />
+        <AdminTab active={activeTab === 'verifications'} onClick={() => setActiveTab('verifications')} icon={ShieldCheck} label="التوثيقات" count={stats.pendingVerifs} />
+      </div>
+
+      {loading ? (
+        <div className="py-40 flex flex-col items-center gap-4">
+          <div className="loading-spinner"></div>
+          <p className="text-slate-400 font-bold">جاري جلب بيانات الإدارة...</p>
+        </div>
+      ) : (
+        <>
+          {activeTab === 'overview' && (
+            <div className="space-y-12">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <StatCard label="إجمالي المستخدمين" value={stats.totalUsers} icon={Users} color="emerald" />
+                <StatCard label="إجمالي الحرفيين" value={stats.totalWorkers} icon={Briefcase} color="blue" />
+                <StatCard label="المهام المنشورة" value={stats.totalTasks} icon={ClipboardList} color="purple" />
+                <StatCard label="توثيقات معلقة" value={stats.pendingVerifs} icon={ShieldAlert} color="orange" />
               </div>
-              <div className="flex gap-4">
-                <button onClick={() => handle(u.id, 'verified')} className="bg-emerald-600 text-white px-10 py-4 rounded-2xl font-black active:scale-95 shadow-lg shadow-emerald-900/20 transition-all">قبول ✅</button>
-                <button onClick={() => handle(u.id, 'rejected')} className="bg-red-50 text-red-600 px-10 py-4 rounded-2xl font-black active:scale-95 border border-red-100 transition-all">رفض ❌</button>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="bg-white p-8 rounded-[3.5rem] border border-slate-100 shadow-xl">
+                  <h3 className="text-2xl font-black mb-8 flex items-center gap-3"><Users className="text-emerald-500" /> آخر المسجلين</h3>
+                  <div className="space-y-4">
+                    {data.users.slice(0, 5).map(u => (
+                      <div key={u.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
+                        <div className="flex items-center gap-4">
+                          <img src={u.avatar || `https://ui-avatars.com/api/?name=${u.firstName}`} className="w-10 h-10 rounded-xl object-cover" />
+                          <div>
+                            <p className="font-black text-sm">{u.firstName} {u.lastName}</p>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase">{u.role}</p>
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-bold text-slate-400">{new Date(u.createdAt || '').toLocaleDateString('ar-DZ')}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-white p-8 rounded-[3.5rem] border border-slate-100 shadow-xl">
+                  <h3 className="text-2xl font-black mb-8 flex items-center gap-3"><ClipboardList className="text-emerald-500" /> آخر المهام</h3>
+                  <div className="space-y-4">
+                    {data.tasks.slice(0, 5).map(t => (
+                      <div key={t.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
+                        <div className="flex-1">
+                          <p className="font-black text-sm line-clamp-1">{safe(t.title)}</p>
+                          <p className="text-[10px] text-slate-400 font-bold">{safe(t.category)} • {safe(t.wilaya)}</p>
+                        </div>
+                        <p className="text-emerald-600 font-black text-xs mr-4">{t.budget ? `${t.budget} دج` : 'سعر مفتوح'}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
-          )) : <div className="py-20 text-center text-slate-300 font-black text-3xl">لا يوجد طلبات معلقة</div>}
-        </div>
+          )}
+
+          {activeTab === 'users' && (
+            <div className="bg-white rounded-[3.5rem] border border-slate-100 shadow-xl overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-right border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-100">
+                      <th className="p-6 font-black text-sm text-slate-500 uppercase">المستخدم</th>
+                      <th className="p-6 font-black text-sm text-slate-500 uppercase">الدور</th>
+                      <th className="p-6 font-black text-sm text-slate-500 uppercase">الموقع</th>
+                      <th className="p-6 font-black text-sm text-slate-500 uppercase">الحالة</th>
+                      <th className="p-6 font-black text-sm text-slate-500 uppercase text-center">إجراءات</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {data.users.map(u => (
+                      <tr key={u.id} className="hover:bg-slate-50 transition-all">
+                        <td className="p-6">
+                          <div className="flex items-center gap-4">
+                            <img src={u.avatar || `https://ui-avatars.com/api/?name=${u.firstName}`} className="w-12 h-12 rounded-2xl object-cover shadow-sm" />
+                            <div>
+                              <p className="font-black text-base">{u.firstName} {u.lastName}</p>
+                              <p className="text-xs text-slate-400 font-mono">{u.phone}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-6 font-bold text-sm">
+                          <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase ${u.role === UserRole.WORKER ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-slate-50 text-slate-600 border border-slate-100'}`}>{u.role}</span>
+                        </td>
+                        <td className="p-6 font-bold text-sm text-slate-500">{u.location.wilaya}</td>
+                        <td className="p-6"><VerificationBadge status={u.verificationStatus} size="sm" /></td>
+                        <td className="p-6">
+                          <div className="flex justify-center gap-2">
+                            <button onClick={() => deleteItem('users', u.id)} className="p-3 bg-red-50 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all"><Trash2 size={18} /></button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'tasks' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {data.tasks.map(t => (
+                <div key={t.id} className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-xl flex flex-col group relative overflow-hidden">
+                  <button onClick={() => deleteItem('tasks', t.id)} className="absolute top-6 left-6 p-2 bg-red-50 text-red-500 rounded-xl opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={16} /></button>
+                  <div className="flex items-center gap-3 mb-6">
+                    <span className="bg-emerald-50 text-emerald-700 px-4 py-1.5 rounded-xl text-[10px] font-black uppercase border border-emerald-100">{safe(t.category)}</span>
+                    <span className="text-slate-300 font-bold text-[10px]">{new Date(t.created_at).toLocaleDateString('ar-DZ')}</span>
+                  </div>
+                  <h3 className="text-xl font-black mb-4 line-clamp-1">{safe(t.title)}</h3>
+                  <p className="text-slate-500 text-xs line-clamp-2 h-8 mb-6">{safe(t.description)}</p>
+                  <div className="mt-auto pt-6 border-t border-slate-50 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600 font-black text-[10px]">S</div>
+                      {/* Fix: Use 'safe' prop instead of undefined 's' */}
+                      <span className="text-xs font-bold text-slate-800">{safe(t.users)}</span>
+                    </div>
+                    <span className="text-emerald-600 font-black text-sm">{t.budget > 0 ? `${t.budget} دج` : 'سعر مفتوح'}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {activeTab === 'verifications' && (
+            <div className="space-y-8">
+              {data.verifications.length > 0 ? data.verifications.map(u => (
+                <div key={u.id} className="bg-white p-8 md:p-12 rounded-[4rem] border border-slate-100 shadow-xl flex flex-col lg:flex-row gap-10">
+                  <div className="flex-shrink-0 flex flex-col items-center">
+                    <img src={u.avatar || `https://ui-avatars.com/api/?name=${u.firstName}`} className="w-40 h-40 rounded-[2.5rem] object-cover border-[8px] border-slate-50 shadow-lg" />
+                    <div className="mt-6 flex flex-wrap justify-center gap-2">
+                      {u.categories.map(c => <span key={c} className="bg-emerald-50 text-emerald-700 px-3 py-1 rounded-lg text-[9px] font-black uppercase border border-emerald-100">{c}</span>)}
+                    </div>
+                  </div>
+                  <div className="flex-1 space-y-6">
+                    <div>
+                      <h3 className="text-3xl font-black mb-2">{u.firstName} {u.lastName}</h3>
+                      <div className="flex items-center gap-4 text-slate-400 font-bold text-sm">
+                        <span className="flex items-center gap-1.5"><MapPin size={16} className="text-emerald-500" /> {u.location.wilaya}</span>
+                        <span className="flex items-center gap-1.5"><Phone size={16} className="text-emerald-500" /> {u.phone}</span>
+                      </div>
+                    </div>
+                    <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+                      <p className="text-slate-600 font-medium leading-relaxed italic">"{u.bio || 'لا يوجد نبذة تعريفية.'}"</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-row lg:flex-col justify-center gap-4">
+                    <button onClick={() => handleVerification(u.id, 'verified')} className="flex-1 lg:flex-none bg-emerald-600 text-white px-10 py-5 rounded-[2rem] font-black shadow-lg shadow-emerald-900/20 active:scale-95 transition-all flex items-center justify-center gap-2"><CheckCircle2 size={24} /> قبول التوثيق</button>
+                    <button onClick={() => handleVerification(u.id, 'rejected')} className="flex-1 lg:flex-none bg-red-50 text-red-600 px-10 py-5 rounded-[2rem] font-black border border-red-100 active:scale-95 transition-all flex items-center justify-center gap-2"><X size={24} /> رفض الطلب</button>
+                  </div>
+                </div>
+              )) : (
+                <div className="py-40 text-center bg-white rounded-[4rem] border-4 border-dashed border-slate-100">
+                  <ShieldCheck size={80} className="mx-auto text-slate-100 mb-6" />
+                  <p className="text-slate-300 font-black text-3xl">لا يوجد طلبات توثيق معلقة</p>
+                </div>
+              )}
+            </div>
+          )}
+        </>
       )}
+    </div>
+  );
+};
+
+// --- Admin Sub-Components ---
+
+const AdminTab = ({ active, onClick, icon: Icon, label, count }: any) => (
+  <button onClick={onClick} className={`flex items-center gap-3 px-8 py-4 rounded-[2rem] font-black text-sm transition-all flex-shrink-0 border ${active ? 'bg-emerald-600 text-white border-emerald-600 shadow-lg shadow-emerald-200' : 'bg-white text-slate-500 border-slate-100 hover:bg-slate-50'}`}>
+    <Icon size={20} />
+    {label}
+    {count !== undefined && count > 0 && <span className="bg-white text-emerald-600 w-6 h-6 rounded-full flex items-center justify-center text-[10px] shadow-sm">{count}</span>}
+  </button>
+);
+
+const StatCard = ({ label, value, icon: Icon, color }: any) => {
+  const colors: any = {
+    emerald: 'text-emerald-600 bg-emerald-50 border-emerald-100',
+    blue: 'text-blue-600 bg-blue-50 border-blue-100',
+    purple: 'text-purple-600 bg-purple-50 border-purple-100',
+    orange: 'text-orange-600 bg-orange-50 border-orange-100'
+  };
+
+  return (
+    <div className="admin-stat-card group">
+      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-6 border ${colors[color]}`}>
+        <Icon size={24} />
+      </div>
+      <p className="text-slate-400 font-black text-xs uppercase tracking-widest mb-1">{label}</p>
+      <h4 className="text-4xl font-black text-slate-900 tabular-nums">{value.toLocaleString()}</h4>
     </div>
   );
 };
