@@ -45,7 +45,9 @@ import {
   MoreVertical,
   Circle,
   Eye,
-  RefreshCw
+  RefreshCw,
+  Shield,
+  Search as SearchIcon
 } from 'lucide-react';
 
 // --- Global Styles ---
@@ -99,12 +101,12 @@ export default function App() {
     const viewParam = params.get('view') as AppState['view'];
     if (viewParam && ['landing', 'search', 'support', 'profile', 'admin-panel'].includes(viewParam)) {
       if (viewParam === 'admin-panel' && state.currentUser?.role !== UserRole.ADMIN) {
-        setView('login');
+        setState(prev => ({ ...prev, view: 'login' }));
       } else {
         setState(prev => ({ ...prev, view: viewParam }));
       }
     }
-  }, []);
+  }, [state.currentUser?.role]);
 
   useEffect(() => {
     if (!state.currentUser) return;
@@ -156,8 +158,8 @@ export default function App() {
             <NavButton active={state.view === 'search'} onClick={() => setView('search')}>تصفح الحرفيين</NavButton>
             <NavButton active={state.view === 'support'} onClick={() => setView('support')}>سوق المهام</NavButton>
             {state.currentUser?.role === UserRole.ADMIN && (
-              <button onClick={() => setView('admin-panel')} className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl font-black text-xs transition-all ${state.view === 'admin-panel' ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}>
-                <ShieldCheck size={16} /> لوحة التحكم
+              <button onClick={() => setView('admin-panel')} className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl font-black text-xs transition-all ${state.view === 'admin-panel' ? 'bg-emerald-600 text-white shadow-lg' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}>
+                <Shield size={16} /> لوحة الإدارة
               </button>
             )}
           </div>
@@ -170,7 +172,10 @@ export default function App() {
                   {unreadNotificationsCount > 0 && <span className="absolute top-0 right-0 w-5 h-5 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white">{unreadNotificationsCount}</span>}
                 </button>
                 <div onClick={() => { setChatTarget(null); setView('profile'); }} className="flex items-center gap-3 cursor-pointer p-1 pr-4 bg-slate-100 rounded-full border border-slate-200 hover:border-emerald-200 transition-all">
-                  <span className="font-black text-xs hidden sm:block">{s(state.currentUser.firstName)}</span>
+                  <div className="flex flex-col items-start leading-none">
+                    <span className="font-black text-xs hidden sm:block">{s(state.currentUser.firstName)}</span>
+                    <span className="text-[8px] font-bold text-emerald-600 uppercase">{state.currentUser.role}</span>
+                  </div>
                   <img src={state.currentUser.avatar || `https://ui-avatars.com/api/?name=${state.currentUser.firstName}`} className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm" />
                 </div>
               </div>
@@ -203,16 +208,16 @@ export default function App() {
           />
         )}
         {state.view === 'admin-panel' && state.currentUser?.role === UserRole.ADMIN && <AdminPanelView safe={s} />}
-        {state.view === 'login' && <AuthForm type="login" onSuccess={(u: User) => { updateCurrentUser(u); setView('profile'); }} onSwitch={() => setView('register')} safe={s} />}
+        {state.view === 'login' && <AuthForm type="login" onSuccess={(u: User) => { updateCurrentUser(u); setView('profile'); }} onSwitch={() => setView('register')} safe={s} isAdminLink={new URLSearchParams(window.location.search).get('view') === 'admin-panel'} />}
         {state.view === 'register' && <AuthForm type="register" onSuccess={(u: User) => { updateCurrentUser(u); setView('profile'); }} onSwitch={() => setView('login')} safe={s} />}
         {state.view === 'edit-profile' && state.currentUser && <EditProfileView user={state.currentUser} onSave={(u: User) => { updateCurrentUser(u); setView('profile'); }} onCancel={() => setView('profile')} />}
       </main>
 
       <div className="fixed bottom-0 left-0 right-0 h-20 bg-white/90 backdrop-blur-xl border-t border-slate-100 flex items-center justify-around md:hidden z-50 px-2 rounded-t-[2rem] shadow-2xl">
         <TabItem icon={Home} label="الرئيسية" active={state.view === 'landing'} onClick={() => setView('landing')} />
-        <TabItem icon={Search} label="الحرفيين" active={state.view === 'search'} onClick={() => setView('search')} />
+        <TabItem icon={SearchIcon} label="الحرفيين" active={state.view === 'search'} onClick={() => setView('search')} />
         <TabItem icon={ClipboardList} label="المهام" active={state.view === 'support'} onClick={() => setView('support')} />
-        <TabItem icon={UserIcon} label="حسابي" active={state.view === 'profile' || state.view === 'login'} onClick={() => state.currentUser ? setView('profile') : setView('login')} />
+        <TabItem icon={UserIcon} label="حسابي" active={state.view === 'profile' || state.view === 'login' || state.view === 'admin-panel'} onClick={() => state.currentUser ? (state.currentUser.role === UserRole.ADMIN ? setView('admin-panel') : setView('profile')) : setView('login')} />
       </div>
     </div>
   );
@@ -229,8 +234,8 @@ const AdminPanelView = ({ safe }: any) => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const { data: users } = await supabase.from('users').select('*');
-      const { data: tasks } = await supabase.from('tasks').select('*');
+      const { data: users } = await supabase.from('users').select('*').order('created_at', { ascending: false });
+      const { data: tasks } = await supabase.from('tasks').select('*, users!seeker_id(*)').order('created_at', { ascending: false });
       
       const u = users || [];
       const t = tasks || [];
@@ -250,60 +255,97 @@ const AdminPanelView = ({ safe }: any) => {
 
   useEffect(() => { fetchData(); }, [activeTab]);
 
+  const handleStatusChange = async (userId: string, newStatus: VerificationStatus) => {
+    const { error } = await supabase.from('users').update({ verification_status: newStatus }).eq('id', userId);
+    if (!error) fetchData();
+  };
+
   return (
     <div className="max-w-7xl mx-auto py-12 px-6 animate-in">
       <div className="flex justify-between items-center mb-12">
-        <h2 className="text-4xl font-black text-slate-900 tracking-tighter">لوحة التحكم <span className="text-emerald-600">Admin</span></h2>
-        <button onClick={fetchData} className="p-3 bg-white border border-slate-100 rounded-2xl hover:bg-emerald-50 transition-all"><RefreshCw size={20} className="text-emerald-600" /></button>
+        <div className="flex items-center gap-4">
+          <div className="bg-emerald-600 p-3 rounded-2xl text-white shadow-lg"><Shield size={24}/></div>
+          <h2 className="text-4xl font-black text-slate-900 tracking-tighter">لوحة إدارة <span className="text-emerald-600">سلكني</span></h2>
+        </div>
+        <button onClick={fetchData} className="p-3 bg-white border border-slate-100 rounded-2xl hover:bg-emerald-50 transition-all text-emerald-600 shadow-sm"><RefreshCw size={20}/></button>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-        <StatCard label="المستخدمين" value={stats.users} icon={Users} color="emerald" />
-        <StatCard label="الحرفيين" value={stats.workers} icon={Briefcase} color="blue" />
-        <StatCard label="المهام" value={stats.tasks} icon={ClipboardList} color="purple" />
-        <StatCard label="طلبات التوثيق" value={stats.pending} icon={ShieldQuestion} color="amber" />
+        <StatCard label="إجمالي المستخدمين" value={stats.users} icon={Users} color="emerald" />
+        <StatCard label="الحرفيين المسجلين" value={stats.workers} icon={Briefcase} color="blue" />
+        <StatCard label="المهام المنشورة" value={stats.tasks} icon={ClipboardList} color="purple" />
+        <StatCard label="طلبات توثيق معلقة" value={stats.pending} icon={ShieldQuestion} color="amber" />
       </div>
 
-      <div className="flex gap-2 mb-8 bg-white p-2 rounded-2xl border border-slate-100 w-fit">
+      <div className="flex gap-2 mb-8 bg-white p-2 rounded-2xl border border-slate-100 w-fit shadow-sm overflow-x-auto no-scrollbar">
         <TabButton active={activeTab === 'overview'} onClick={() => setActiveTab('overview')}>نظرة عامة</TabButton>
         <TabButton active={activeTab === 'users'} onClick={() => setActiveTab('users')}>المستخدمين</TabButton>
-        <TabButton active={activeTab === 'tasks'} onClick={() => setActiveTab('tasks')}>المهام المنشورة</TabButton>
-        <TabButton active={activeTab === 'verifications'} onClick={() => setActiveTab('verifications')}>التوثيقات</TabButton>
+        <TabButton active={activeTab === 'tasks'} onClick={() => setActiveTab('tasks')}>المهام</TabButton>
+        <TabButton active={activeTab === 'verifications'} onClick={() => setActiveTab('verifications')}>التوثيقات ({stats.pending})</TabButton>
       </div>
 
       {loading ? (
         <div className="py-20 flex justify-center"><div className="loading-spinner"></div></div>
       ) : (
-        <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl overflow-hidden animate-in">
           {activeTab === 'overview' ? (
-            <div className="p-12 text-center">
-              <BarChart3 size={64} className="mx-auto text-slate-200 mb-6" />
-              <h3 className="text-2xl font-black text-slate-400">الإحصائيات قيد التطوير...</h3>
+            <div className="p-20 text-center space-y-6">
+              <div className="bg-emerald-50 w-24 h-24 rounded-[2rem] flex items-center justify-center mx-auto"><BarChart3 size={48} className="text-emerald-600" /></div>
+              <h3 className="text-3xl font-black text-slate-900">مرحباً بك في نظام الإدارة</h3>
+              <p className="text-slate-500 max-w-md mx-auto font-medium">يمكنك متابعة كافة نشاطات المنصة، توثيق الحرفيين، ومراقبة المهام المنشورة من خلال التبويبات أعلاه.</p>
             </div>
           ) : (
-            <table className="w-full text-right">
-              <thead className="bg-slate-50 border-b border-slate-100">
-                <tr>
-                  <th className="px-8 py-5 font-black text-slate-500 text-sm">الاسم</th>
-                  <th className="px-8 py-5 font-black text-slate-500 text-sm">{activeTab === 'tasks' ? 'العنوان' : 'رقم الهاتف'}</th>
-                  <th className="px-8 py-5 font-black text-slate-500 text-sm">الحالة / الولاية</th>
-                  <th className="px-8 py-5 font-black text-slate-500 text-sm">الإجراءات</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {data.map((item: any) => (
-                  <tr key={item.id} className="hover:bg-slate-50/50 transition-all">
-                    <td className="px-8 py-5 flex items-center gap-4">
-                      <img src={item.avatar || `https://ui-avatars.com/api/?name=${item.first_name || item.title}`} className="w-10 h-10 rounded-xl" />
-                      <span className="font-bold">{safe(item.first_name || item.title)} {safe(item.last_name)}</span>
-                    </td>
-                    <td className="px-8 py-5 font-bold text-slate-600">{safe(item.phone || item.category)}</td>
-                    <td className="px-8 py-5"><span className="bg-slate-100 px-3 py-1 rounded-lg text-xs font-black">{safe(item.wilaya || item.status)}</span></td>
-                    <td className="px-8 py-5"><button className="text-emerald-600 font-black text-xs hover:underline">عرض</button></td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-right border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-100">
+                    <th className="px-8 py-5 font-black text-slate-500 text-sm">المعلومات</th>
+                    <th className="px-8 py-5 font-black text-slate-500 text-sm">التفاصيل</th>
+                    <th className="px-8 py-5 font-black text-slate-500 text-sm">الحالة / الموقع</th>
+                    <th className="px-8 py-5 font-black text-slate-500 text-sm text-center">الإجراءات</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {data.map((item: any) => (
+                    <tr key={item.id} className="hover:bg-slate-50/50 transition-all group">
+                      <td className="px-8 py-5 flex items-center gap-4 min-w-[250px]">
+                        <img src={item.avatar || `https://ui-avatars.com/api/?name=${item.first_name || item.title}`} className="w-12 h-12 rounded-2xl object-cover border-2 border-white shadow-sm" />
+                        <div className="flex flex-col">
+                          <span className="font-black text-slate-900">{safe(item.first_name || item.title)} {safe(item.last_name)}</span>
+                          <span className="text-[10px] text-slate-400 font-bold tracking-widest uppercase">{item.role || item.category}</span>
+                        </div>
+                      </td>
+                      <td className="px-8 py-5 font-bold text-slate-600">
+                        {item.phone || (item.budget > 0 ? `${item.budget} دج` : 'سعر مفتوح')}
+                      </td>
+                      <td className="px-8 py-5">
+                        <div className="flex flex-col gap-1">
+                          <span className={`w-fit px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${
+                            (item.verification_status === 'verified' || item.status === 'open') ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'
+                          }`}>{safe(item.verification_status || item.status)}</span>
+                          <span className="text-xs font-bold text-slate-400">{safe(item.wilaya)}</span>
+                        </div>
+                      </td>
+                      <td className="px-8 py-5 text-center">
+                        <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                          {activeTab === 'verifications' ? (
+                            <>
+                              <button onClick={() => handleStatusChange(item.id, 'verified')} className="p-2 bg-emerald-100 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all"><CheckCircle2 size={18}/></button>
+                              <button onClick={() => handleStatusChange(item.id, 'rejected')} className="p-2 bg-red-100 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all"><X size={18}/></button>
+                            </>
+                          ) : (
+                            <button className="p-2 bg-slate-100 text-slate-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all"><Eye size={18}/></button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {data.length === 0 && (
+                    <tr><td colSpan={4} className="py-20 text-center text-slate-300 font-black">لا يوجد بيانات لعرضها</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       )}
@@ -312,8 +354,8 @@ const AdminPanelView = ({ safe }: any) => {
 };
 
 const StatCard = ({ label, value, icon: Icon, color }: any) => (
-  <div className="admin-stat-card">
-    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 bg-${color}-50 text-${color}-600`}>
+  <div className="admin-stat-card border-t-4 border-t-emerald-500">
+    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 bg-emerald-50 text-emerald-600`}>
       <Icon size={24} />
     </div>
     <p className="text-slate-400 font-black text-[10px] uppercase tracking-widest mb-1">{label}</p>
@@ -322,7 +364,7 @@ const StatCard = ({ label, value, icon: Icon, color }: any) => (
 );
 
 const TabButton = ({ active, children, onClick }: any) => (
-  <button onClick={onClick} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all ${active ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}>
+  <button onClick={onClick} className={`px-8 py-3 rounded-xl font-black text-sm whitespace-nowrap transition-all ${active ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'}`}>
     {children}
   </button>
 );
@@ -357,7 +399,7 @@ const SearchWorkersView = ({ filters, onFilterChange, onProfile, safe }: any) =>
       if (filters.category) query = query.contains('categories', [filters.category]);
       if (filters.query) query = query.or(`first_name.ilike.%${filters.query}%,bio.ilike.%${filters.query}%`);
       const { data } = await query;
-      if (data) setWorkers(data.map(w => ({ ...w, firstName: w.first_name, lastName: w.last_name, location: { wilaya: w.wilaya, daira: '' } })));
+      if (data) setWorkers(data.map(w => ({ ...w, firstName: w.first_name, lastName: w.last_name, location: { wilaya: w.wilaya, daira: '' }, verificationStatus: w.verification_status })));
       setLoading(false);
     };
     fetch();
@@ -376,7 +418,10 @@ const SearchWorkersView = ({ filters, onFilterChange, onProfile, safe }: any) =>
         {loading ? <div className="col-span-full py-40 flex justify-center"><div className="loading-spinner"></div></div> : workers.map(w => (
           <div key={w.id} onClick={() => onProfile(w)} className="bg-white p-8 rounded-[3rem] shadow-lg border border-slate-100 hover:-translate-y-2 transition-all cursor-pointer">
             <div className="flex gap-4 items-center mb-6">
-              <img src={w.avatar || `https://ui-avatars.com/api/?name=${w.firstName}`} className="w-16 h-16 rounded-3xl object-cover shadow-sm" />
+              <div className="relative">
+                <img src={w.avatar || `https://ui-avatars.com/api/?name=${w.firstName}`} className="w-16 h-16 rounded-3xl object-cover shadow-sm" />
+                {w.verificationStatus === 'verified' && <div className="absolute -top-1 -right-1 bg-emerald-500 text-white p-1 rounded-full border-2 border-white shadow-sm"><CheckCircle2 size={12}/></div>}
+              </div>
               <div><h3 className="text-xl font-black">{safe(w.firstName)} {safe(w.lastName)}</h3><p className="text-xs font-bold text-slate-400">{safe(w.location.wilaya)}</p></div>
             </div>
             <p className="text-slate-500 line-clamp-2 text-sm">{safe(w.bio) || 'لا توجد نبذة.'}</p>
@@ -408,7 +453,7 @@ const TasksMarketView = ({ currentUser, safe, onContact, setView }: any) => {
           <h2 className="text-4xl md:text-6xl font-black text-slate-900 tracking-tighter">سوق المهام <span className="text-emerald-500">DZ</span></h2>
           <p className="text-slate-500 font-bold">تصفح طلبات الزبائن وقدم عروضك.</p>
         </div>
-        <button onClick={() => setView('login')} className="bg-emerald-600 text-white p-4 rounded-2xl shadow-xl active:scale-95 transition-all"><Plus size={32}/></button>
+        <button onClick={() => currentUser ? setView('support') : setView('login')} className="bg-emerald-600 text-white p-4 rounded-2xl shadow-xl active:scale-95 transition-all"><Plus size={32}/></button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -419,7 +464,7 @@ const TasksMarketView = ({ currentUser, safe, onContact, setView }: any) => {
               <div className="text-emerald-600 font-black text-2xl tracking-tighter">{task.budget > 0 ? `${task.budget} دج` : 'سعر مفتوح'}</div>
             </div>
             <h3 className="text-2xl font-black text-slate-900 mb-4">{safe(task.title)}</h3>
-            <p className="text-slate-500 mb-8 line-clamp-2">{safe(task.description)}</p>
+            <p className="text-slate-500 mb-8 line-clamp-2 font-medium">{safe(task.description)}</p>
             <div className="flex items-center justify-between pt-6 border-t border-slate-50">
               <div className="flex items-center gap-3">
                 <img src={task.seeker_avatar || `https://ui-avatars.com/api/?name=${task.seeker_name}`} className="w-10 h-10 rounded-xl" />
@@ -446,9 +491,9 @@ const TaskDetailModal = ({ task, onClose, onContact, safe }: any) => (
         <span className="bg-slate-50 text-slate-500 px-5 py-2 rounded-2xl text-xs font-black border border-slate-100">{safe(task.wilaya)}</span>
       </div>
       <h2 className="text-3xl font-black text-slate-900 leading-tight">{safe(task.title)}</h2>
-      <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-50 text-slate-600 font-medium leading-relaxed">{safe(task.description)}</div>
+      <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-50 text-slate-600 font-medium leading-relaxed whitespace-pre-wrap">{safe(task.description)}</div>
       <div className="flex items-center justify-between py-6 border-y border-slate-50">
-        <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">الميزانية</p><p className="text-3xl font-black text-emerald-600 tracking-tighter">{task.budget > 0 ? `${task.budget} دج` : 'سعر مفتوح'}</p></div>
+        <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">الميزانية</p><p className="text-3xl font-black text-emerald-600 tracking-tighter">{task.budget > 0 ? `${task.budget.toLocaleString()} دج` : 'سعر مفتوح'}</p></div>
         <div className="text-left"><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">تاريخ النشر</p><p className="font-bold text-slate-900">{new Date(task.created_at).toLocaleDateString('ar-DZ')}</p></div>
       </div>
       <div className="flex items-center gap-6">
@@ -457,7 +502,7 @@ const TaskDetailModal = ({ task, onClose, onContact, safe }: any) => (
           <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">صاحب الطلب</p><h5 className="text-lg font-black text-slate-900">{safe(task.seeker_name)}</h5></div>
         </div>
         <button onClick={() => { onContact({ id: task.seeker_id, firstName: task.seeker_name, avatar: task.seeker_avatar }); onClose(); }} className="bg-emerald-600 text-white px-8 py-4 rounded-[2rem] font-black shadow-xl hover:bg-emerald-500 transition-all flex items-center gap-3">
-          <MessageSquare size={20} /> تواصل
+          <MessageSquare size={20} /> تواصل الآن
         </button>
       </div>
     </div>
@@ -567,6 +612,7 @@ const ChatsSubView = ({ currentUser, activeChat, setActiveChat, safe }: any) => 
               <div className="flex-1 min-w-0"><h4 className="font-black text-sm truncate">{safe(chat.other_participant?.firstName)}</h4><p className="text-[10px] text-slate-500 truncate">{chat.last_message || 'ابدأ المحادثة...'}</p></div>
             </div>
           ))}
+          {chats.length === 0 && <div className="p-10 text-center text-slate-300 font-bold">لا توجد محادثات نشطة</div>}
         </div>
       </div>
       <div className={`flex-1 flex flex-col bg-slate-50/30 ${!activeChat ? 'hidden md:flex' : 'flex'}`}>
@@ -639,7 +685,7 @@ const Logo = ({ onClick, size }: any) => (
 const NavButton = ({ children, active, onClick }: any) => (
   <button onClick={onClick} className={`font-black text-sm transition-all px-2 py-1 relative ${active ? 'text-emerald-600' : 'text-slate-500 hover:text-emerald-500'}`}>
     {children}
-    {active && <span className="absolute -bottom-2 left-0 right-0 h-1 bg-emerald-600 rounded-full"></span>}
+    {active && <span className="absolute -bottom-2 left-0 right-0 h-1 bg-emerald-600 rounded-full animate-in"></span>}
   </button>
 );
 
@@ -650,36 +696,59 @@ const TabItem = ({ icon: Icon, label, active, onClick }: any) => (
   </button>
 );
 
-const AuthForm = ({ type, onSuccess, onSwitch }: any) => {
-  const [formData, setFormData] = useState({ firstName: '', lastName: '', phone: '', password: '', role: 'SEEKER' });
+const AuthForm = ({ type, onSuccess, onSwitch, safe, isAdminLink }: any) => {
+  // Pre-fill admin credentials if it's an admin link request
+  const [formData, setFormData] = useState({ 
+    firstName: '', 
+    lastName: '', 
+    phone: isAdminLink ? '0777117663' : '', 
+    password: isAdminLink ? 'vampirewahab31_' : '', 
+    role: 'SEEKER' 
+  });
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const submit = async (e: any) => {
     e.preventDefault();
     setLoading(true);
+    setError('');
     try {
       if (type === 'login') {
-        const { data, error } = await supabase.from('users').select('*').eq('phone', formData.phone).eq('password', formData.password).maybeSingle();
-        if (error || !data) throw new Error('بيانات الدخول غير صحيحة');
-        onSuccess({ ...data, firstName: data.first_name, lastName: data.last_name, location: { wilaya: data.wilaya, daira: '' } });
+        const { data, error: sbError } = await supabase.from('users').select('*').eq('phone', formData.phone).eq('password', formData.password).maybeSingle();
+        if (sbError || !data) throw new Error('رقم الهاتف أو كلمة المرور غير صحيحة');
+        onSuccess({ ...data, firstName: data.first_name, lastName: data.last_name, location: { wilaya: data.wilaya, daira: '' }, verificationStatus: data.verification_status });
       } else {
-        const { data, error } = await supabase.from('users').insert([{ first_name: formData.firstName, last_name: formData.lastName, phone: formData.phone, password: formData.password, role: formData.role, wilaya: WILAYAS[0], categories: [], skills: [], portfolio: [], verification_status: 'none' }]).select().single();
-        if (error) throw error;
-        onSuccess({ ...data, firstName: data.first_name, lastName: data.last_name, location: { wilaya: data.wilaya, daira: '' } });
+        const { data, error: sbError } = await supabase.from('users').insert([{ first_name: formData.firstName, last_name: formData.lastName, phone: formData.phone, password: formData.password, role: formData.role, wilaya: WILAYAS[0], categories: [], skills: [], portfolio: [], verification_status: 'none' }]).select().single();
+        if (sbError) throw sbError;
+        onSuccess({ ...data, firstName: data.first_name, lastName: data.last_name, location: { wilaya: data.wilaya, daira: '' }, verificationStatus: data.verification_status });
       }
-    } catch (err: any) { alert(err.message); } finally { setLoading(false); }
+    } catch (err: any) { setError(err.message); } finally { setLoading(false); }
   };
 
   return (
     <div className="max-w-xl mx-auto py-20 px-6 animate-in text-center">
-      <h2 className="text-4xl font-black mb-10">{type === 'login' ? 'مرحباً بعودتك' : 'حساب جديد'}</h2>
-      <form onSubmit={submit} className="space-y-6 text-right bg-white p-10 rounded-[3rem] shadow-xl border border-slate-100">
+      <h2 className="text-4xl font-black mb-10 tracking-tight text-slate-900">{type === 'login' ? (isAdminLink ? 'دخول المشرف' : 'مرحباً بعودتك') : 'حساب جديد'}</h2>
+      {isAdminLink && <div className="mb-6 p-4 bg-emerald-50 text-emerald-700 rounded-2xl border border-emerald-100 font-bold text-sm">تم استدعاء لوحة الإدارة، يرجى تسجيل الدخول.</div>}
+      <form onSubmit={submit} className="space-y-6 text-right bg-white p-10 rounded-[3rem] shadow-2xl border border-slate-100">
+        {error && <div className="p-4 bg-red-50 text-red-500 rounded-2xl border border-red-100 font-bold text-sm flex items-center gap-2"><AlertCircle size={18}/> {error}</div>}
+        
         {type === 'register' && (<div className="grid grid-cols-2 gap-4"><input required placeholder="الاسم" className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} /><input required placeholder="اللقب" className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} /></div>)}
-        <input required placeholder="رقم الهاتف" className="w-full p-4 bg-slate-50 rounded-2xl border-none font-black text-lg tracking-widest" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
-        <input required type="password" placeholder="كلمة المرور" className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
-        <button disabled={loading} className="w-full bg-emerald-600 text-white py-5 rounded-[2rem] font-black text-xl shadow-xl active:scale-95 transition-all">{loading ? 'جاري التحقق...' : (type === 'login' ? 'دخول' : 'تسجيل')}</button>
+        
+        <div className="space-y-2">
+          <label className="block text-xs font-black text-slate-400 mr-4 uppercase tracking-widest">رقم الهاتف</label>
+          <input required placeholder="0XXXXXX" className="w-full p-4 bg-slate-50 rounded-2xl border-none font-black text-lg tracking-widest" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
+        </div>
+        
+        <div className="space-y-2">
+          <label className="block text-xs font-black text-slate-400 mr-4 uppercase tracking-widest">كلمة المرور</label>
+          <input required type="password" placeholder="••••••••" className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
+        </div>
+
+        <button disabled={loading} className="w-full bg-emerald-600 text-white py-5 rounded-[2rem] font-black text-xl shadow-xl active:scale-95 transition-all disabled:opacity-50">
+          {loading ? 'جاري التحقق...' : (type === 'login' ? 'دخول' : 'تسجيل')}
+        </button>
       </form>
-      <button onClick={onSwitch} className="mt-8 text-emerald-600 font-black hover:underline">{type === 'login' ? 'ليس لديك حساب؟ سجل الآن' : 'لديك حساب؟ ادخل هنا'}</button>
+      {!isAdminLink && <button onClick={onSwitch} className="mt-8 text-emerald-600 font-black hover:underline">{type === 'login' ? 'ليس لديك حساب؟ سجل الآن' : 'لديك حساب؟ ادخل هنا'}</button>}
     </div>
   );
 };
