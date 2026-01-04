@@ -84,10 +84,8 @@ export interface Task {
 export interface Advertisement {
   id: string;
   title: string;
-  html_content: string; // لدعم أكواد HTML المباشرة
-  image_url?: string;
-  link_url?: string;
-  placements: string[]; // e.g., ['landing_top', 'search_sidebar', 'market_banner']
+  html_content: string;
+  placements: string[];
   is_active: boolean;
   created_at: string;
 }
