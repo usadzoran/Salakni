@@ -275,91 +275,148 @@ const AdminPanelView = ({ safe }: any) => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto py-12 px-6 animate-in">
-      <div className="flex justify-between items-center mb-12">
+    <div className="max-w-7xl mx-auto py-8 md:py-12 px-4 md:px-6 animate-in">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 md:mb-12">
         <div className="flex items-center gap-4">
           <div className="bg-emerald-600 p-3 rounded-2xl text-white shadow-lg"><Shield size={24}/></div>
-          <h2 className="text-4xl font-black text-slate-900 tracking-tighter">لوحة إدارة <span className="text-emerald-600">سلكني</span></h2>
+          <h2 className="text-2xl md:text-4xl font-black text-slate-900 tracking-tighter">لوحة إدارة <span className="text-emerald-600">سلكني</span></h2>
         </div>
-        <button onClick={fetchData} className="p-3 bg-white border border-slate-100 rounded-2xl hover:bg-emerald-50 transition-all text-emerald-600 shadow-sm"><RefreshCw size={20}/></button>
+        <button onClick={fetchData} className="w-full md:w-auto p-3 bg-white border border-slate-100 rounded-2xl hover:bg-emerald-50 transition-all text-emerald-600 shadow-sm flex items-center justify-center gap-2 font-bold text-sm">
+          <RefreshCw size={18} /> تحديث البيانات
+        </button>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6 mb-8 md:mb-12">
         <StatCard label="المستخدمين" value={stats.users} icon={Users} />
         <StatCard label="الحرفيين" value={stats.workers} icon={Briefcase} />
         <StatCard label="المهام" value={stats.tasks} icon={ClipboardList} />
-        <StatCard label="التوثيقات المعلقة" value={stats.pending} icon={ShieldQuestion} />
+        <StatCard label="التوثيقات" value={stats.pending} icon={ShieldQuestion} />
       </div>
 
-      <div className="flex gap-2 mb-8 bg-white p-2 rounded-2xl border border-slate-100 w-fit shadow-sm overflow-x-auto no-scrollbar">
+      <div className="flex gap-2 mb-6 md:mb-8 bg-white p-1.5 md:p-2 rounded-2xl border border-slate-100 w-full md:w-fit shadow-sm overflow-x-auto no-scrollbar scroll-smooth">
         <TabButton active={activeTab === 'overview'} onClick={() => setActiveTab('overview')}>نظرة عامة</TabButton>
-        <TabButton active={activeTab === 'users'} onClick={() => setActiveTab('users')}>قائمة المستخدمين</TabButton>
-        <TabButton active={activeTab === 'tasks'} onClick={() => setActiveTab('tasks')}>إدارة المهام</TabButton>
-        <TabButton active={activeTab === 'verifications'} onClick={() => setActiveTab('verifications')}>طلبات التوثيق</TabButton>
+        <TabButton active={activeTab === 'users'} onClick={() => setActiveTab('users')}>المستخدمين</TabButton>
+        <TabButton active={activeTab === 'tasks'} onClick={() => setActiveTab('tasks')}>المهام</TabButton>
+        <TabButton active={activeTab === 'verifications'} onClick={() => setActiveTab('verifications')}>التوثيقات</TabButton>
       </div>
 
       {loading ? (
         <div className="py-20 flex justify-center"><div className="loading-spinner"></div></div>
       ) : (
-        <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl overflow-hidden animate-in">
+        <div className="animate-in">
           {activeTab === 'overview' ? (
-            <div className="p-20 text-center space-y-6">
-              <div className="bg-emerald-50 w-24 h-24 rounded-[2rem] flex items-center justify-center mx-auto"><BarChart3 size={48} className="text-emerald-600" /></div>
-              <h3 className="text-3xl font-black text-slate-900">مرحباً بك في نظام الإدارة</h3>
-              <p className="text-slate-500 max-w-md mx-auto font-medium">يمكنك متابعة كافة نشاطات المنصة، توثيق الحرفيين، ومراقبة المهام المنشورة من خلال التبويبات أعلاه.</p>
+            <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl p-12 md:p-20 text-center space-y-6">
+              <div className="bg-emerald-50 w-20 h-20 md:w-24 md:h-24 rounded-[2rem] flex items-center justify-center mx-auto"><BarChart3 size={40} className="text-emerald-600" /></div>
+              <h3 className="text-2xl md:text-3xl font-black text-slate-900">نظام الإدارة المتكامل</h3>
+              <p className="text-slate-500 max-w-md mx-auto font-medium text-sm md:text-base">تتيح لك هذه اللوحة التحكم الكامل في نشاطات المنصة. يمكنك مراجعة طلبات التوثيق، مراقبة المهام الجديدة، وإدارة قاعدة بيانات المستخدمين بكل سهولة.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-right border-collapse">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-100">
-                    <th className="px-8 py-5 font-black text-slate-500 text-sm">المعلومات</th>
-                    <th className="px-8 py-5 font-black text-slate-500 text-sm">التفاصيل</th>
-                    <th className="px-8 py-5 font-black text-slate-500 text-sm">الحالة / الموقع</th>
-                    <th className="px-8 py-5 font-black text-slate-500 text-sm text-center">الإجراءات</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {data.map((item: any) => (
-                    <tr key={item.id} className="hover:bg-slate-50/50 transition-all group">
-                      <td className="px-8 py-5 flex items-center gap-4 min-w-[250px]">
-                        <img src={item.avatar || `https://ui-avatars.com/api/?name=${item.first_name || item.title}`} className="w-12 h-12 rounded-2xl object-cover border-2 border-white shadow-sm" />
-                        <div className="flex flex-col">
-                          <span className="font-black text-slate-900">{safe(item.first_name || item.title)} {safe(item.last_name)}</span>
-                          <span className="text-[10px] text-slate-400 font-bold tracking-widest uppercase">{item.role || item.category}</span>
-                        </div>
-                      </td>
-                      <td className="px-8 py-5 font-bold text-slate-600">
-                        {item.phone || (item.budget > 0 ? `${item.budget.toLocaleString()} دج` : 'سعر مفتوح')}
-                      </td>
-                      <td className="px-8 py-5">
-                        <div className="flex flex-col gap-1">
-                          <span className={`w-fit px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${
-                            (item.verification_status === 'verified' || item.status === 'open') ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'
-                          }`}>{safe(item.verification_status || item.status)}</span>
-                          <span className="text-xs font-bold text-slate-400">{safe(item.wilaya)}</span>
-                        </div>
-                      </td>
-                      <td className="px-8 py-5 text-center">
-                        <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                          {activeTab === 'verifications' ? (
-                            <>
-                              <button onClick={() => handleStatusChange(item.id, 'verified')} className="p-2 bg-emerald-100 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all"><CheckCircle2 size={18}/></button>
-                              <button onClick={() => handleStatusChange(item.id, 'rejected')} className="p-2 bg-red-100 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all"><X size={18}/></button>
-                            </>
-                          ) : (
-                            <button className="p-2 bg-slate-100 text-slate-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all"><Eye size={18}/></button>
-                          )}
-                        </div>
-                      </td>
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden md:block bg-white rounded-[2.5rem] border border-slate-100 shadow-xl overflow-hidden">
+                <table className="w-full text-right border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-100">
+                      <th className="px-8 py-5 font-black text-slate-500 text-sm">المعلومات الأساسية</th>
+                      <th className="px-8 py-5 font-black text-slate-500 text-sm">التفاصيل / الميزانية</th>
+                      <th className="px-8 py-5 font-black text-slate-500 text-sm">الحالة / الولاية</th>
+                      <th className="px-8 py-5 font-black text-slate-500 text-sm text-center">الإجراءات</th>
                     </tr>
-                  ))}
-                  {data.length === 0 && (
-                    <tr><td colSpan={4} className="py-20 text-center text-slate-300 font-black">لا يوجد بيانات لعرضها</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {data.map((item: any) => (
+                      <tr key={item.id} className="hover:bg-slate-50/50 transition-all group">
+                        <td className="px-8 py-5 flex items-center gap-4 min-w-[250px]">
+                          <img src={item.avatar || `https://ui-avatars.com/api/?name=${item.first_name || item.title}`} className="w-12 h-12 rounded-2xl object-cover border-2 border-white shadow-sm" />
+                          <div className="flex flex-col">
+                            <span className="font-black text-slate-900">{safe(item.first_name || item.title)} {safe(item.last_name)}</span>
+                            <span className="text-[10px] text-slate-400 font-bold tracking-widest uppercase">{item.role || item.category}</span>
+                          </div>
+                        </td>
+                        <td className="px-8 py-5 font-bold text-slate-600">
+                          {item.phone || (item.budget > 0 ? `${item.budget.toLocaleString()} دج` : 'سعر مفتوح')}
+                        </td>
+                        <td className="px-8 py-5">
+                          <div className="flex flex-col gap-1">
+                            <span className={`w-fit px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${
+                              (item.verification_status === 'verified' || item.status === 'open') ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'
+                            }`}>{safe(item.verification_status || item.status)}</span>
+                            <span className="text-xs font-bold text-slate-400">{safe(item.wilaya)}</span>
+                          </div>
+                        </td>
+                        <td className="px-8 py-5 text-center">
+                          <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                            {activeTab === 'verifications' ? (
+                              <>
+                                <button onClick={() => handleStatusChange(item.id, 'verified')} className="p-2 bg-emerald-100 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all"><CheckCircle2 size={18}/></button>
+                                <button onClick={() => handleStatusChange(item.id, 'rejected')} className="p-2 bg-red-100 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all"><X size={18}/></button>
+                              </>
+                            ) : (
+                              <button className="p-2 bg-slate-100 text-slate-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all"><Eye size={18}/></button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden space-y-4">
+                {data.map((item: any) => (
+                  <div key={item.id} className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm space-y-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3">
+                        <img src={item.avatar || `https://ui-avatars.com/api/?name=${item.first_name || item.title}`} className="w-12 h-12 rounded-2xl object-cover border border-slate-100" />
+                        <div>
+                          <h4 className="font-black text-slate-900 text-sm leading-tight">{safe(item.first_name || item.title)} {safe(item.last_name)}</h4>
+                          <span className="text-[10px] font-black text-emerald-600 uppercase tracking-wider">{item.role || item.category}</span>
+                        </div>
+                      </div>
+                      <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${
+                        (item.verification_status === 'verified' || item.status === 'open') ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'
+                      }`}>{safe(item.verification_status || item.status)}</span>
+                    </div>
+                    
+                    <div className="flex items-center justify-between text-xs py-3 border-y border-slate-50">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-slate-400 font-bold uppercase text-[9px]">التفاصيل</span>
+                        <span className="font-black text-slate-700">{item.phone || (item.budget > 0 ? `${item.budget.toLocaleString()} دج` : 'سعر مفتوح')}</span>
+                      </div>
+                      <div className="flex flex-col gap-1 items-end text-left">
+                        <span className="text-slate-400 font-bold uppercase text-[9px]">الولاية</span>
+                        <span className="font-black text-slate-700">{safe(item.wilaya)}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 pt-2">
+                      {activeTab === 'verifications' ? (
+                        <>
+                          <button onClick={() => handleStatusChange(item.id, 'verified')} className="flex-1 py-3 bg-emerald-600 text-white rounded-2xl font-black text-xs flex items-center justify-center gap-2">
+                            <CheckCircle2 size={16}/> قبول التوثيق
+                          </button>
+                          <button onClick={() => handleStatusChange(item.id, 'rejected')} className="flex-1 py-3 bg-red-50 text-red-600 rounded-2xl font-black text-xs flex items-center justify-center gap-2 border border-red-100">
+                            <X size={16}/> رفض
+                          </button>
+                        </>
+                      ) : (
+                        <button className="w-full py-3 bg-slate-900 text-white rounded-2xl font-black text-xs flex items-center justify-center gap-2">
+                          <Eye size={16}/> عرض كامل البيانات
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {data.length === 0 && (
+                <div className="py-20 text-center bg-white rounded-[2.5rem] border border-dashed border-slate-200">
+                  <AlertCircle size={48} className="mx-auto text-slate-200 mb-4" />
+                  <p className="text-slate-400 font-black">لا يوجد بيانات حالياً في هذا القسم</p>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
@@ -368,17 +425,17 @@ const AdminPanelView = ({ safe }: any) => {
 };
 
 const StatCard = ({ label, value, icon: Icon }: any) => (
-  <div className="admin-stat-card border-t-4 border-t-emerald-500">
-    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 bg-emerald-50 text-emerald-600`}>
-      <Icon size={24} />
+  <div className="admin-stat-card border-t-4 border-t-emerald-500 p-4 md:p-6">
+    <div className={`w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl flex items-center justify-center mb-3 md:mb-4 bg-emerald-50 text-emerald-600`}>
+      <Icon size={20} className="md:w-6 md:h-6" />
     </div>
-    <p className="text-slate-400 font-black text-[10px] uppercase tracking-widest mb-1">{label}</p>
-    <h4 className="text-3xl font-black text-slate-900 tracking-tighter">{value}</h4>
+    <p className="text-slate-400 font-black text-[9px] md:text-[10px] uppercase tracking-widest mb-0.5 md:mb-1">{label}</p>
+    <h4 className="text-xl md:text-3xl font-black text-slate-900 tracking-tighter">{value}</h4>
   </div>
 );
 
 const TabButton = ({ active, children, onClick }: any) => (
-  <button onClick={onClick} className={`px-8 py-3 rounded-xl font-black text-sm whitespace-nowrap transition-all ${active ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'}`}>
+  <button onClick={onClick} className={`px-5 md:px-8 py-2 md:py-3 rounded-xl font-black text-xs md:text-sm whitespace-nowrap transition-all ${active ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'}`}>
     {children}
   </button>
 );
@@ -728,7 +785,7 @@ const AuthForm = ({ type, onSuccess, onSwitch, safe, isAdminLink }: any) => {
     setError('');
     try {
       if (type === 'login') {
-        // Logique spéciale pour les identifiants Admin fournis
+        // Logique spéciale pour les identifiant Admin
         if (formData.phone === '0777117663' && formData.password === 'vampirewahab31_') {
           const adminUser = {
             id: 'admin-main-id',
@@ -791,8 +848,7 @@ const AuthForm = ({ type, onSuccess, onSwitch, safe, isAdminLink }: any) => {
         
         {type === 'register' && (
           <div className="grid grid-cols-2 gap-4">
-            <input required placeholder="الاسم" className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} />
-            <input required placeholder="اللقب" className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} />
+            <input required placeholder="الاسم" className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} /><input required placeholder="اللقب" className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} />
           </div>
         )}
         
