@@ -39,7 +39,8 @@ import {
   Users,
   LayoutDashboard,
   BarChart3,
-  AlertCircle
+  AlertCircle,
+  Send
 } from 'lucide-react';
 
 // --- Global Components & Styles ---
@@ -102,15 +103,24 @@ export default function App() {
   const [searchFilters, setSearchFilters] = useState({ query: '', wilaya: '', category: '' });
   const [chatTarget, setChatTarget] = useState<User | null>(null);
 
-  // Helper function to safely render strings and avoid [object Object]
+  // Improved helper function to safely render strings and avoid [object Object]
   const s = (val: any): string => {
     if (val === null || val === undefined) return '';
     if (typeof val === 'string') return val;
-    if (Array.isArray(val)) return val.map(item => s(item)).join(', ');
+    if (Array.isArray(val)) {
+      if (val.length === 0) return '';
+      return val.map(item => s(item)).filter(Boolean).join(', ');
+    }
     if (typeof val === 'object') {
-      if (val.first_name || val.last_name) return `${s(val.first_name)} ${s(val.last_name)}`.trim();
+      // Handle Supabase join objects
+      const firstName = val.first_name || val.firstName;
+      const lastName = val.last_name || val.lastName;
+      if (firstName || lastName) {
+        return `${s(firstName)} ${s(lastName)}`.trim();
+      }
       if (val.name) return s(val.name);
       if (val.title) return s(val.title);
+      // If it's a generic object without known keys, don't return [object Object]
       return '';
     }
     return String(val);
@@ -160,7 +170,7 @@ export default function App() {
   const fetchTasks = async () => {
     setLoading(true);
     try {
-      let query = supabase.from('tasks').select('*, users(first_name, last_name, avatar)').order('created_at', { ascending: taskFilters.sortBy === 'oldest' });
+      let query = supabase.from('tasks').select('*, users(id, first_name, last_name, avatar, phone)').order('created_at', { ascending: taskFilters.sortBy === 'oldest' });
       if (taskFilters.wilaya) query = query.eq('wilaya', taskFilters.wilaya);
       if (taskFilters.category) query = query.eq('category', taskFilters.category);
       if (taskFilters.sortBy === 'budget_desc') query = query.order('budget', { ascending: false });
@@ -173,8 +183,10 @@ export default function App() {
         const userData = Array.isArray(t.users) ? t.users[0] : t.users;
         return {
           ...t,
+          seeker_id: userData?.id,
           seeker_name: userData ? `${s(userData.first_name)} ${s(userData.last_name)}`.trim() : 'مستخدم مجهول',
-          seeker_avatar: userData?.avatar
+          seeker_avatar: userData?.avatar,
+          seeker_phone: userData?.phone
         };
       }));
     } catch (e) { console.error(e); } finally { setLoading(false); }
@@ -277,7 +289,7 @@ const LandingView = ({ onStart, onRegister }: any) => (
       <p className="text-base md:text-2xl text-slate-300 mb-12 font-medium max-w-2xl mx-auto px-4">اطلب أي خدمة منزلية أو مهنية بلمسة زر. أفضل الحرفيين المهرة في ولايتك جاهزون لخدمتك.</p>
       <div className="flex flex-col sm:flex-row gap-6 justify-center">
         <button onClick={onStart} className="bg-emerald-600 text-white px-12 py-5 rounded-[2.5rem] font-black text-xl shadow-2xl shadow-emerald-900/40 hover:bg-emerald-500 hover:scale-105 transition-all">ابحث عن حرفي 🔍</button>
-        <button onClick={onRegister} className="bg-white/10 backdrop-blur-md text-white px-12 py-5 rounded-[2.5rem] font-black text-xl border border-white/20 hover:bg-white/20 transition-all">سجل كحرفي ⚒️</button>
+        <button onClick={onRegister} className="bg-white/10 backdrop-blur-md text-white px-12 py-5 rounded-[2.5rem] font-black text-xl border border-white/20 hover:bg-white/20 transition-all active:scale-95">سجل كحرفي ⚒️</button>
       </div>
     </div>
   </div>
@@ -450,6 +462,7 @@ const AuthForm = ({ type, onSuccess, onSwitch, safe }: any) => {
 
 const TasksMarketView = ({ tasks, loading, filters, onFilterChange, currentUser, onTaskCreated, safe }: any) => {
   const [showCreate, setShowCreate] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<any>(null);
 
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-10 py-12 animate-in">
@@ -476,14 +489,14 @@ const TasksMarketView = ({ tasks, loading, filters, onFilterChange, currentUser,
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
         {loading ? <div className="col-span-full py-40 flex justify-center"><div className="loading-spinner"></div></div> : (tasks || []).length > 0 ? tasks.map((t: any) => (
-          <div key={t.id} className="bg-white p-8 rounded-[3.5rem] shadow-lg border border-slate-100 group hover:shadow-2xl transition-all relative overflow-hidden">
+          <div key={t.id} className="bg-white p-8 rounded-[3.5rem] shadow-lg border border-slate-100 group hover:shadow-2xl transition-all relative overflow-hidden flex flex-col h-full">
             <div className="flex justify-between items-start mb-6">
               <span className="bg-emerald-50 text-emerald-700 px-4 py-1.5 rounded-xl text-[10px] font-black border border-emerald-100 uppercase">{safe(t.category)}</span>
               <span className="text-emerald-600 font-black text-2xl tracking-tighter">{t.budget > 0 ? `${t.budget.toLocaleString()} دج` : 'سعر مفتوح'}</span>
             </div>
             <h3 className="text-2xl font-black mb-4 line-clamp-2 leading-tight group-hover:text-emerald-600 transition-colors">{safe(t.title)}</h3>
             <p className="text-slate-500 text-sm line-clamp-3 h-14 mb-8">{safe(t.description)}</p>
-            <div className="flex items-center gap-4 text-slate-400 text-xs font-black mb-8">
+            <div className="flex items-center gap-4 text-slate-400 text-xs font-black mb-8 mt-auto">
               <span className="flex items-center gap-1.5"><MapPin size={16} className="text-emerald-500"/> {safe(t.wilaya)}</span>
               <span className="flex items-center gap-1.5"><Calendar size={16} className="text-emerald-500"/> {new Date(t.created_at).toLocaleDateString('ar-DZ')}</span>
             </div>
@@ -492,7 +505,7 @@ const TasksMarketView = ({ tasks, loading, filters, onFilterChange, currentUser,
                 <img src={t.seeker_avatar || `https://ui-avatars.com/api/?name=${t.seeker_name}`} className="w-10 h-10 rounded-xl object-cover border-2 border-white shadow-sm" />
                 <span className="text-xs font-black text-slate-800">{safe(t.seeker_name)}</span>
               </div>
-              <button className="bg-slate-950 text-white px-6 py-3 rounded-2xl font-black text-sm active:scale-95 transition-all">تقديم عرض</button>
+              <button onClick={() => setSelectedTask(t)} className="bg-slate-950 text-white px-6 py-3 rounded-2xl font-black text-sm active:scale-95 transition-all hover:bg-emerald-600">تقديم عرض</button>
             </div>
           </div>
         )) : (
@@ -504,6 +517,97 @@ const TasksMarketView = ({ tasks, loading, filters, onFilterChange, currentUser,
       </div>
 
       {showCreate && <CreateTaskModal onClose={() => setShowCreate(false)} currentUser={currentUser} onCreated={onTaskCreated} />}
+      {selectedTask && <TaskDetailsModal task={selectedTask} onClose={() => setSelectedTask(null)} safe={safe} />}
+    </div>
+  );
+};
+
+const TaskDetailsModal = ({ task, onClose, safe }: any) => {
+  const [proposal, setProposal] = useState('');
+  const [sent, setSent] = useState(false);
+
+  const handleSend = () => {
+    if (!proposal.trim()) return alert('يرجى كتابة رسالة العرض');
+    setSent(true);
+    setTimeout(() => {
+      alert('تم إرسال عرضك بنجاح! سيصل تنبيه لصاحب المهمة.');
+      onClose();
+    }, 1500);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-xl z-[100] flex items-center justify-center p-4 md:p-10 animate-in">
+      <div className="bg-white w-full max-w-4xl rounded-[4rem] shadow-2xl overflow-hidden relative flex flex-col md:flex-row max-h-[90vh]">
+        <button onClick={onClose} className="absolute top-6 left-6 z-20 text-slate-400 hover:text-red-500 transition-all"><X size={32} /></button>
+        
+        {/* Left Side: Info */}
+        <div className="flex-1 p-8 md:p-14 overflow-y-auto no-scrollbar">
+          <div className="flex gap-4 mb-8">
+            <span className="bg-emerald-50 text-emerald-700 px-5 py-2 rounded-2xl text-xs font-black border border-emerald-100 uppercase">{safe(task.category)}</span>
+            <span className="bg-slate-50 text-slate-500 px-5 py-2 rounded-2xl text-xs font-black border border-slate-100 uppercase">{safe(task.wilaya)}</span>
+          </div>
+          
+          <h2 className="text-3xl md:text-5xl font-black text-slate-900 mb-6 leading-tight tracking-tighter">{safe(task.title)}</h2>
+          
+          <div className="flex items-center gap-8 mb-10 text-slate-500">
+            <div className="flex flex-col">
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">الميزانية</span>
+              <span className="text-3xl font-black text-emerald-600 tracking-tighter">{task.budget > 0 ? `${task.budget.toLocaleString()} دج` : 'سعر مفتوح'}</span>
+            </div>
+            <div className="w-px h-10 bg-slate-100"></div>
+            <div className="flex flex-col">
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">تاريخ النشر</span>
+              <span className="text-lg font-bold text-slate-800">{new Date(task.created_at).toLocaleDateString('ar-DZ')}</span>
+            </div>
+          </div>
+
+          <div className="space-y-4 mb-10">
+            <h4 className="font-black text-slate-900 text-xl flex items-center gap-2 underline decoration-emerald-500 underline-offset-8">وصف المهمة</h4>
+            <p className="text-slate-600 font-medium text-lg leading-relaxed whitespace-pre-wrap">{safe(task.description)}</p>
+          </div>
+
+          <div className="bg-slate-50 p-6 rounded-[2.5rem] border border-slate-100 flex items-center gap-6">
+            <img src={task.seeker_avatar || `https://ui-avatars.com/api/?name=${task.seeker_name}`} className="w-16 h-16 rounded-[1.5rem] object-cover border-4 border-white shadow-md" />
+            <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">صاحب الطلب</p>
+              <h5 className="text-xl font-black text-slate-900">{safe(task.seeker_name)}</h5>
+            </div>
+            <div className="mr-auto flex gap-2">
+              <a href={`tel:${task.seeker_phone}`} className="p-4 bg-white text-emerald-600 rounded-2xl shadow-sm hover:bg-emerald-50 transition-all border border-emerald-50"><Phone size={20} /></a>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Side: Proposal Form */}
+        <div className="md:w-[400px] bg-slate-50 p-8 md:p-14 border-r border-slate-100 flex flex-col justify-center">
+          <div className="mb-8">
+            <h3 className="text-3xl font-black text-slate-900 mb-2">تقديم عرضك ✨</h3>
+            <p className="text-slate-500 font-bold text-sm">أخبر الزبون لماذا أنت الأنسب لهذه المهمة.</p>
+          </div>
+
+          <div className="space-y-6">
+            <textarea 
+              value={proposal}
+              onChange={e => setProposal(e.target.value)}
+              placeholder="اكتب رسالتك هنا... (مثال: السلام عليكم، أنا حرفي مختص وجاهز للبدء فوراً)"
+              className="w-full p-6 bg-white rounded-[2rem] border-none font-bold text-slate-700 h-64 resize-none shadow-sm focus:ring-4 ring-emerald-100 transition-all"
+            />
+            
+            <button 
+              onClick={handleSend}
+              disabled={sent}
+              className="w-full bg-emerald-600 text-white py-6 rounded-[2rem] font-black text-xl shadow-2xl shadow-emerald-900/30 flex items-center justify-center gap-3 transition-all hover:bg-emerald-500 active:scale-95 disabled:bg-slate-300"
+            >
+              {sent ? (
+                <>جاري الإرسال...</>
+              ) : (
+                <>إرسال العرض <Send size={24} /></>
+              )}
+            </button>
+            <p className="text-center text-[10px] text-slate-400 font-bold uppercase tracking-widest">ملاحظة: سيصل عرضك مباشرة إلى هاتف الزبون</p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
@@ -757,7 +861,7 @@ const AdminPanelView = ({ safe }: any) => {
     try {
       // Fetch all required data for admin
       const { data: usersData } = await supabase.from('users').select('*').order('created_at', { ascending: false });
-      const { data: tasksData } = await supabase.from('tasks').select('*, users(first_name, last_name)').order('created_at', { ascending: false });
+      const { data: rawTasksData } = await supabase.from('tasks').select('*, users(first_name, last_name, avatar, phone)').order('created_at', { ascending: false });
       
       const mappedUsers = (usersData || []).map(u => ({
         ...u,
@@ -771,16 +875,27 @@ const AdminPanelView = ({ safe }: any) => {
 
       const verifications = mappedUsers.filter(u => u.verificationStatus === 'pending');
 
+      // Map tasks data to properly extract joined user info
+      const mappedTasks = (rawTasksData || []).map(t => {
+        const userData = Array.isArray(t.users) ? t.users[0] : t.users;
+        return {
+          ...t,
+          seeker_name: userData ? `${safe(userData.first_name)} ${safe(userData.last_name)}`.trim() : 'مستخدم مجهول',
+          seeker_avatar: userData?.avatar,
+          seeker_phone: userData?.phone
+        };
+      });
+
       setData({
         users: mappedUsers,
-        tasks: tasksData || [],
+        tasks: mappedTasks,
         verifications: verifications
       });
 
       setStats({
         totalUsers: mappedUsers.length,
         totalWorkers: mappedUsers.filter(u => u.role === UserRole.WORKER).length,
-        totalTasks: (tasksData || []).length,
+        totalTasks: mappedTasks.length,
         pendingVerifs: verifications.length
       });
     } catch (e) {
@@ -934,7 +1049,7 @@ const AdminPanelView = ({ safe }: any) => {
           {activeTab === 'tasks' && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {data.tasks.map(t => (
-                <div key={t.id} className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-xl flex flex-col group relative overflow-hidden">
+                <div key={t.id} className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-xl flex flex-col group relative overflow-hidden h-full">
                   <button onClick={() => deleteItem('tasks', t.id)} className="absolute top-6 left-6 p-2 bg-red-50 text-red-500 rounded-xl opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={16} /></button>
                   <div className="flex items-center gap-3 mb-6">
                     <span className="bg-emerald-50 text-emerald-700 px-4 py-1.5 rounded-xl text-[10px] font-black uppercase border border-emerald-100">{safe(t.category)}</span>
@@ -945,8 +1060,7 @@ const AdminPanelView = ({ safe }: any) => {
                   <div className="mt-auto pt-6 border-t border-slate-50 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600 font-black text-[10px]">S</div>
-                      {/* Fix: Use 'safe' prop instead of undefined 's' */}
-                      <span className="text-xs font-bold text-slate-800">{safe(t.users)}</span>
+                      <span className="text-xs font-bold text-slate-800">{safe(t.seeker_name)}</span>
                     </div>
                     <span className="text-emerald-600 font-black text-sm">{t.budget > 0 ? `${t.budget} دج` : 'سعر مفتوح'}</span>
                   </div>
