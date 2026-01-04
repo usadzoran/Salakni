@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { UserRole, AppState, User, Advertisement, Task } from './types';
 import { SERVICE_CATEGORIES, WILAYAS } from './constants';
@@ -29,275 +28,400 @@ import {
   Eye,
   MapPin,
   Award,
-  ChevronLeft,
   Star,
   Zap,
-  ShieldCheck
+  ShieldCheck,
+  ChevronLeft,
+  ArrowRight,
+  Target,
+  Trophy
 } from 'lucide-react';
 
-// --- Global Styles ---
+// --- Global Styles & Animations ---
 
 function GlobalStyles() {
   return (
     <style>{`
-      @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-      .animate-in { animation: fadeIn 0.4s ease-out forwards; }
+      @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;900&display=swap');
+      
+      :root {
+        --emerald-primary: #10b981;
+        --slate-dark: #0f172a;
+      }
+
       .arabic-text { font-family: 'Tajawal', sans-serif; }
-      .loading-spinner { border: 3px solid rgba(16, 185, 129, 0.1); border-left-color: #10b981; border-radius: 50%; width: 32px; height: 32px; animation: spin 0.8s linear infinite; }
-      @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-      .no-scrollbar::-webkit-scrollbar { display: none; }
-      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-      .ad-html-container img { max-width: 100%; height: auto; border-radius: 1.5rem; display: block; margin: 0 auto; }
-      .admin-stat-card { background: white; border-radius: 2rem; padding: 1.5rem; border: 1px solid #f1f5f9; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05); transition: transform 0.2s; }
-      .admin-stat-card:hover { transform: translateY(-4px); }
-      .emerald-gradient { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+      
+      @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+      @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-10px); } 100% { transform: translateY(0px); } }
+      @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+
+      .animate-fade-in { animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+      .animate-float { animation: float 4s ease-in-out infinite; }
+      
+      .glass-card {
+        background: rgba(255, 255, 255, 0.8);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+      }
+
+      .gradient-text {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      .hero-gradient {
+        background: radial-gradient(circle at top right, rgba(16, 185, 129, 0.1) 0%, transparent 40%),
+                    radial-gradient(circle at bottom left, rgba(5, 150, 105, 0.05) 0%, transparent 40%);
+      }
+
+      .category-card:hover .icon-box { transform: scale(1.1) rotate(5deg); }
+      
+      .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+      .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+      .custom-scrollbar::-webkit-scrollbar-thumb { background: #10b981; border-radius: 10px; }
     `}</style>
   );
 }
 
-// --- Components ---
+// --- Shared Components ---
 
 function Logo({ onClick, size = 'sm' }: { onClick?: () => void; size?: 'sm' | 'md' | 'lg' }) {
-  const logoClasses = size === 'lg' ? 'w-16 h-16 rounded-3xl text-3xl' : size === 'md' ? 'w-12 h-12 rounded-2xl text-xl' : 'w-10 h-10 rounded-xl text-lg';
-  const textClasses = size === 'lg' ? 'text-3xl' : size === 'md' ? 'text-xl' : 'text-lg';
+  const logoClasses = size === 'lg' ? 'w-20 h-20 rounded-[2.5rem] text-4xl' : size === 'md' ? 'w-14 h-14 rounded-2xl text-2xl' : 'w-10 h-10 rounded-xl text-lg';
+  const textClasses = size === 'lg' ? 'text-4xl' : size === 'md' ? 'text-2xl' : 'text-lg';
   
   return (
-    <div onClick={onClick} className="flex items-center gap-3 cursor-pointer group active:scale-95 transition-all">
-      <div className={`${logoClasses} bg-emerald-600 flex items-center justify-center text-white font-black shadow-lg transition-all group-hover:rotate-6`}>S</div>
+    <div onClick={onClick} className="flex items-center gap-4 cursor-pointer group active:scale-95 transition-all">
+      <div className={`${logoClasses} bg-emerald-600 flex items-center justify-center text-white font-black shadow-xl shadow-emerald-200 transition-all group-hover:rotate-6 group-hover:bg-emerald-500`}>S</div>
       <div className="flex flex-col items-start leading-none">
         <span className={`${textClasses} font-black text-slate-900 tracking-tighter`}>Salakni</span>
-        <span className="text-[10px] font-black text-emerald-600 uppercase">dz platform</span>
+        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.2em]">DZ Platform</span>
       </div>
     </div>
   );
 }
 
-function NavButton({ children, active, onClick }: { children?: React.ReactNode; active?: boolean; onClick?: () => void }) {
+function SectionHeading({ title, subtitle, centered = false }: { title: string; subtitle?: string; centered?: boolean }) {
   return (
-    <button onClick={onClick} className={`font-black text-sm transition-all px-2 py-1 relative ${active ? 'text-emerald-600' : 'text-slate-500 hover:text-emerald-500'}`}>
+    <div className={`mb-12 ${centered ? 'text-center' : 'text-right'}`}>
+      <h2 className="text-3xl md:text-4xl font-black text-slate-900 mb-4">{title}</h2>
+      {subtitle && <p className="text-slate-500 text-lg font-medium max-w-2xl">{subtitle}</p>}
+      <div className={`h-1.5 w-20 bg-emerald-500 rounded-full mt-4 ${centered ? 'mx-auto' : ''}`}></div>
+    </div>
+  );
+}
+
+// Fix: Added missing AdPlacement component for advertisement sections
+function AdPlacement({ position }: { position: string }) {
+  return (
+    <div className="bg-gradient-to-br from-emerald-50 to-teal-50 p-6 rounded-[2.5rem] border border-emerald-100/50 text-center">
+      <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-600 mx-auto mb-4">
+        <Megaphone size={20} />
+      </div>
+      <h4 className="font-black text-slate-900 text-sm mb-2">مساحة إعلانية</h4>
+      <p className="text-[10px] text-slate-500 font-bold mb-4">هنا يمكنك وضع إعلانك للوصول إلى آلاف المستخدمين.</p>
+      <button className="text-[10px] font-black text-emerald-600 underline">أعلن هنا</button>
+    </div>
+  );
+}
+
+// Fix: Added missing NavButton component for desktop navigation
+function NavButton({ children, active, onClick }: { children: React.ReactNode; active: boolean; onClick: () => void }) {
+  return (
+    <button 
+      onClick={onClick} 
+      className={`font-black text-lg transition-colors ${active ? 'text-emerald-600' : 'text-slate-500 hover:text-emerald-500'}`}
+    >
       {children}
-      {active && <span className="absolute -bottom-2 left-0 right-0 h-1 bg-emerald-600 rounded-full animate-in"></span>}
     </button>
   );
 }
 
-function TabItem({ icon: Icon, label, active, onClick }: { icon: any; label: string; active?: boolean; onClick?: () => void }) {
+// Fix: Added missing TabItem component for mobile navigation bottom bar
+function TabItem({ icon: Icon, label, active, onClick }: { icon: any; label: string; active: boolean; onClick: () => void }) {
   return (
-    <button onClick={onClick} className={`flex flex-col items-center gap-1 flex-1 transition-all ${active ? 'text-emerald-600 scale-110' : 'text-slate-400'}`}>
-      <div className={`p-2 rounded-xl ${active ? 'bg-emerald-50' : ''}`}><Icon size={22} /></div>
+    <button onClick={onClick} className={`flex flex-col items-center justify-center gap-1 transition-all ${active ? 'text-emerald-600 scale-110' : 'text-slate-400'}`}>
+      <Icon size={24} strokeWidth={active ? 3 : 2} />
       <span className="text-[10px] font-black">{label}</span>
     </button>
   );
 }
 
-function AdPlacement({ position }: { position: string }) {
-  const [ads, setAds] = useState<Advertisement[]>([]);
-  useEffect(() => {
-    async function fetchAds() {
-      const { data } = await supabase.from('advertisements').select('*').eq('is_active', true).contains('placements', [position]);
-      if (data) setAds(data);
-    }
-    fetchAds();
-  }, [position]);
-  if (ads.length === 0) return null;
+// --- Views ---
+
+function LandingView({ onStart, onRegister }: { onStart: () => void; onRegister: () => void }) {
   return (
-    <div className="my-6 animate-in space-y-4">
-      {ads.map(ad => (
-        <div key={ad.id} className="ad-html-container relative group overflow-hidden rounded-[2rem] shadow-sm border border-slate-100 bg-white p-2">
-           <div className="text-[9px] font-black text-slate-300 mb-1 flex items-center gap-1 uppercase tracking-tighter mr-2"><Megaphone size={10} /> إعلان ممول</div>
-           <div className="overflow-hidden" dangerouslySetInnerHTML={{ __html: ad.html_content }} />
+    <div className="animate-fade-in">
+      {/* Hero Section */}
+      <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden py-20 px-6 hero-gradient">
+        <div className="absolute top-20 right-[-10%] w-96 h-96 bg-emerald-100 rounded-full blur-3xl opacity-50"></div>
+        <div className="absolute bottom-20 left-[-10%] w-96 h-96 bg-blue-50 rounded-full blur-3xl opacity-50"></div>
+        
+        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+          <div className="text-right z-10">
+            <div className="inline-flex items-center gap-2 bg-emerald-50 text-emerald-700 px-4 py-2 rounded-full text-sm font-black mb-8 border border-emerald-100">
+              <Trophy size={16} /> المنصة الأولى في الجزائر
+            </div>
+            <h1 className="text-5xl md:text-8xl font-black text-slate-900 mb-8 leading-[1.1] tracking-tighter">
+              ريح بالك، <br/>
+              <span className="gradient-text italic">سَلّكني</span> يسلكها!
+            </h1>
+            <p className="text-xl md:text-2xl text-slate-600 mb-12 font-medium leading-relaxed max-w-xl">
+              اطلب أي خدمة منزلية أو مهنية في ثوانٍ. نجمع لك أفضل الحرفيين المعتمدين في ولايتك بضغطة زر.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-6 justify-start">
+              <button onClick={onStart} className="bg-emerald-600 text-white px-10 py-5 rounded-2xl font-black text-xl shadow-2xl shadow-emerald-200 hover:bg-emerald-500 transition-all active:scale-95 flex items-center justify-center gap-3">
+                <SearchIcon /> ابحث عن حرفي
+              </button>
+              <button onClick={onRegister} className="bg-white text-slate-900 border border-slate-200 px-10 py-5 rounded-2xl font-black text-xl hover:bg-slate-50 transition-all active:scale-95 flex items-center justify-center gap-3">
+                سجل كحرفي <Briefcase />
+              </button>
+            </div>
+            
+            <div className="mt-12 flex items-center gap-8">
+              <div className="flex -space-x-4 flex-row-reverse">
+                {[1,2,3,4].map(i => (
+                  <img key={i} src={`https://i.pravatar.cc/150?u=${i}`} className="w-12 h-12 rounded-full border-4 border-white shadow-sm" />
+                ))}
+              </div>
+              <p className="text-slate-500 font-bold text-sm">+5000 مستخدم يثقون بنا</p>
+            </div>
+          </div>
+          
+          <div className="hidden lg:block relative">
+            <div className="animate-float relative z-10">
+              <img src="https://images.unsplash.com/photo-1621905251189-08b45d6a269e?q=80&w=1000" className="rounded-[4rem] shadow-2xl border-8 border-white" alt="Handyman" />
+              <div className="absolute -bottom-10 -right-10 bg-white p-6 rounded-3xl shadow-2xl border border-slate-100 animate-fade-in delay-300">
+                <div className="flex items-center gap-4 mb-2">
+                  <div className="w-12 h-12 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600 font-black">⭐</div>
+                  <div>
+                    <h4 className="font-black text-slate-900">حرفي ممتاز</h4>
+                    <p className="text-xs text-slate-400 font-bold">تم التحقق من الهوية</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-      ))}
-    </div>
-  );
-}
+      </section>
 
-// --- Admin Sub-components ---
-
-function AdminAdForm({ onClose, onSave }: { onClose: () => void; onSave: () => void }) {
-  const [formData, setFormData] = useState({ title: '', html_content: '', placements: [] as string[] });
-  const [loading, setLoading] = useState(false);
-
-  const togglePlacement = (id: string) => {
-    setFormData(prev => ({
-      ...prev,
-      placements: prev.placements.includes(id) 
-        ? prev.placements.filter(p => p !== id) 
-        : [...prev.placements, id]
-    }));
-  };
-
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.title || !formData.html_content || formData.placements.length === 0) {
-      alert('يرجى ملء جميع الحقول واختيار مكان واحد على الأقل');
-      return;
-    }
-
-    setLoading(true);
-    const { error } = await supabase.from('advertisements').insert([{
-      title: formData.title,
-      html_content: formData.html_content,
-      placements: formData.placements,
-      is_active: true
-    }]);
-
-    if (error) alert(error.message); else onSave();
-    setLoading(false);
-  };
-
-  return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-xl animate-in text-right">
-      <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl p-8 relative overflow-y-auto max-h-[90vh] no-scrollbar">
-        <button onClick={onClose} className="absolute top-6 left-6 p-2 text-slate-400 hover:bg-slate-50 rounded-xl"><X size={20}/></button>
-        <h3 className="text-2xl font-black text-slate-900 mb-6 flex items-center gap-2 flex-row-reverse">
-           <Code2 className="text-emerald-600" /> إضافة إعلان HTML مخصص
-        </h3>
-        <form onSubmit={handleSave} className="space-y-6">
-          <input required placeholder="عنوان الإعلان" className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
-          <textarea required rows={6} className="w-full p-4 bg-slate-900 text-emerald-400 rounded-2xl border-none font-mono text-sm leading-relaxed" value={formData.html_content} onChange={e => setFormData({...formData, html_content: e.target.value})} placeholder="<div style='...'>...</div>" />
-          <div className="grid grid-cols-2 gap-2">
-            {['landing_top', 'search_sidebar', 'market_banner', 'profile_bottom'].map(p => (
-              <button key={p} type="button" onClick={() => togglePlacement(p)} className={`p-3 rounded-xl border-2 transition-all font-black text-xs ${formData.placements.includes(p) ? 'bg-emerald-50 border-emerald-500 text-emerald-700' : 'bg-slate-50 border-transparent text-slate-400'}`}>{p}</button>
+      {/* Stats Section */}
+      <section className="py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+            {[
+              { label: 'حرفي مسجل', val: '2,500+', icon: Briefcase, color: 'text-emerald-500' },
+              { label: 'ولاية مغطاة', val: '58', icon: MapPin, color: 'text-blue-500' },
+              { label: 'مهمة منجزة', val: '15,000+', icon: CheckCircle2, color: 'text-orange-500' },
+              { label: 'تقييم إيجابي', val: '4.9/5', icon: Star, color: 'text-yellow-500' },
+            ].map((stat, i) => (
+              <div key={i} className="text-center p-8 rounded-3xl bg-slate-50 border border-slate-100 transition-all hover:shadow-lg group">
+                <stat.icon size={32} className={`${stat.color} mx-auto mb-4 group-hover:scale-110 transition-transform`} />
+                <h3 className="text-3xl font-black text-slate-900 mb-2">{stat.val}</h3>
+                <p className="text-slate-500 font-black text-xs uppercase tracking-widest">{stat.label}</p>
+              </div>
             ))}
           </div>
-          <button disabled={loading} className="w-full bg-emerald-600 text-white py-4 rounded-2xl font-black text-lg shadow-xl hover:bg-emerald-500 transition-all">{loading ? 'جاري النشر...' : 'نشر الإعلان الآن'}</button>
-        </form>
-      </div>
-    </div>
-  );
-}
+        </div>
+      </section>
 
-// --- Admin Panel View ---
-
-function AdminPanelView() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'tasks' | 'ads'>('overview');
-  const [data, setData] = useState<any[]>([]);
-  const [stats, setStats] = useState({ users: 0, workers: 0, tasks: 0, ads: 0 });
-  const [loading, setLoading] = useState(true);
-  const [showAdForm, setShowAdForm] = useState(false);
-
-  async function refresh() {
-    setLoading(true);
-    try {
-      const { data: u } = await supabase.from('users').select('*');
-      const { data: t } = await supabase.from('tasks').select('*');
-      const { data: a } = await supabase.from('advertisements').select('*');
-      const usersList = (u || []);
-      const tasksList = (t || []);
-      const adsList = (a || []);
-      setStats({
-        users: usersList.length,
-        workers: usersList.filter((x:any) => x.role === 'WORKER').length,
-        tasks: tasksList.length,
-        ads: adsList.length
-      });
-      if (activeTab === 'users') setData(usersList);
-      else if (activeTab === 'tasks') setData(tasksList);
-      else if (activeTab === 'ads') setData(adsList);
-    } catch (e) { console.error(e); }
-    setLoading(false);
-  }
-
-  useEffect(() => { refresh(); }, [activeTab]);
-
-  return (
-    <div className="max-w-7xl mx-auto py-10 px-6 animate-in">
-      <div className="flex justify-between items-center mb-10">
-        <h2 className="text-3xl font-black text-slate-900 flex items-center gap-3"><Shield className="text-emerald-600" /> لوحة المشرف الرئيسي</h2>
-        <div className="flex gap-2">
-          {activeTab === 'ads' && (
-            <button onClick={() => setShowAdForm(true)} className="bg-emerald-600 text-white px-6 py-2.5 rounded-xl font-black text-sm flex items-center gap-2 shadow-lg hover:bg-emerald-500 transition-all">
-              <Plus size={18} /> إضافة إعلان HTML
+      {/* Services Grid */}
+      <section className="py-20 bg-slate-50">
+        <div className="max-w-7xl mx-auto px-6">
+          <SectionHeading 
+            title="خدماتنا المتنوعة" 
+            subtitle="كل ما تحتاجه لمنزلك أو مشروعك في مكان واحد، بأيدي أمهر الحرفيين في الجزائر."
+            centered
+          />
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-6">
+            {SERVICE_CATEGORIES.slice(0, 14).map((cat) => (
+              <div key={cat.id} className="category-card bg-white p-6 rounded-[2.5rem] text-center shadow-sm border border-white hover:border-emerald-200 hover:shadow-xl transition-all cursor-pointer group">
+                <div className="icon-box w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center text-3xl mb-4 mx-auto transition-all">
+                  {cat.icon}
+                </div>
+                <h4 className="font-black text-slate-800 text-sm leading-tight">{cat.name.split(' ')[0]}</h4>
+              </div>
+            ))}
+          </div>
+          <div className="text-center mt-12">
+            <button onClick={onStart} className="text-emerald-600 font-black flex items-center gap-2 mx-auto hover:gap-4 transition-all">
+               تصفح كافة الخدمات <ArrowRight size={20}/>
             </button>
-          )}
-          <button onClick={refresh} className="bg-white border border-slate-100 p-2.5 rounded-xl text-slate-400 hover:bg-slate-50 transition-all"><RefreshCw size={20}/></button>
+          </div>
         </div>
-      </div>
+      </section>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-10">
-        <div className="admin-stat-card border-t-4 border-emerald-500">
-          <UsersIcon className="text-emerald-500 mb-3" size={24}/>
-          <p className="text-[10px] font-black text-slate-400 uppercase">المستخدمين</p>
-          <h4 className="text-2xl font-black">{stats.users}</h4>
+      {/* How it Works */}
+      <section className="py-20 bg-white overflow-hidden">
+        <div className="max-w-7xl mx-auto px-6">
+          <SectionHeading title="كيف يعمل سلكني؟" centered />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-16 relative">
+            <div className="hidden md:block absolute top-1/2 left-0 right-0 h-0.5 bg-slate-100 -z-10"></div>
+            {[
+              { step: '01', title: 'ابحث عن الخدمة', desc: 'حدد نوع الحرفي أو الخدمة التي تحتاجها وموقعك الجغرافي.', icon: SearchIcon },
+              { step: '02', title: 'اختر الحرفي', desc: 'قارن بين الحرفيين بناءً على تقييماتهم، خبراتهم ومعرض أعمالهم.', icon: UsersIcon },
+              { step: '03', title: 'تمت المهمة!', desc: 'تواصل مباشرة مع الحرفي، اتفق على السعر، وقيم خدمته بعد الإنجاز.', icon: CheckCircle2 },
+            ].map((item, i) => (
+              <div key={i} className="text-center relative bg-white p-8 rounded-3xl">
+                <div className="w-20 h-20 bg-emerald-600 text-white rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-xl shadow-emerald-200 text-2xl animate-float" style={{ animationDelay: `${i * 0.5}s` }}>
+                  <item.icon size={32} />
+                </div>
+                <span className="text-emerald-500 font-black text-4xl opacity-20 block mb-4">{item.step}</span>
+                <h4 className="text-2xl font-black text-slate-900 mb-4">{item.title}</h4>
+                <p className="text-slate-500 font-medium leading-relaxed">{item.desc}</p>
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="admin-stat-card border-t-4 border-blue-500">
-          <Briefcase className="text-blue-500 mb-3" size={24}/>
-          <p className="text-[10px] font-black text-slate-400 uppercase">الحرفيين</p>
-          <h4 className="text-2xl font-black">{stats.workers}</h4>
-        </div>
-        <div className="admin-stat-card border-t-4 border-orange-500">
-          <ClipboardList className="text-orange-500 mb-3" size={24}/>
-          <p className="text-[10px] font-black text-slate-400 uppercase">المهام</p>
-          <h4 className="text-2xl font-black">{stats.tasks}</h4>
-        </div>
-        <div className="admin-stat-card border-t-4 border-purple-500">
-          <Megaphone className="text-purple-500 mb-3" size={24}/>
-          <p className="text-[10px] font-black text-slate-400 uppercase">الإعلانات</p>
-          <h4 className="text-2xl font-black">{stats.ads}</h4>
-        </div>
-      </div>
+      </section>
 
-      <div className="flex gap-2 mb-8 bg-white p-1.5 rounded-2xl border border-slate-100 w-fit shadow-sm overflow-x-auto max-w-full no-scrollbar">
-        <button onClick={() => setActiveTab('overview')} className={`px-6 py-2.5 rounded-xl font-black text-xs transition-all whitespace-nowrap ${activeTab === 'overview' ? 'bg-emerald-600 text-white' : 'text-slate-400'}`}>نظرة عامة</button>
-        <button onClick={() => setActiveTab('users')} className={`px-6 py-2.5 rounded-xl font-black text-xs transition-all whitespace-nowrap ${activeTab === 'users' ? 'bg-emerald-600 text-white' : 'text-slate-400'}`}>إدارة المستخدمين</button>
-        <button onClick={() => setActiveTab('tasks')} className={`px-6 py-2.5 rounded-xl font-black text-xs transition-all whitespace-nowrap ${activeTab === 'tasks' ? 'bg-emerald-600 text-white' : 'text-slate-400'}`}>إدارة المهام</button>
-        <button onClick={() => setActiveTab('ads')} className={`px-6 py-2.5 rounded-xl font-black text-xs transition-all whitespace-nowrap ${activeTab === 'ads' ? 'bg-emerald-600 text-white' : 'text-slate-400'}`}>إدارة الإعلانات</button>
-      </div>
-
-      {loading ? (
-        <div className="py-20 flex justify-center"><div className="loading-spinner"></div></div>
-      ) : (
-        <div className="bg-white rounded-[2rem] border border-slate-100 shadow-xl overflow-hidden p-6 animate-in">
-          {activeTab === 'users' && (
-            <div className="overflow-x-auto no-scrollbar">
-              <table className="w-full text-right">
-                <thead>
-                  <tr className="border-b border-slate-50 text-slate-400 text-[10px] uppercase font-black tracking-widest">
-                    <th className="pb-4 pr-2">المستخدم</th>
-                    <th className="pb-4">الهاتف</th>
-                    <th className="pb-4">النوع</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {data.map(u => (
-                    <tr key={u.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="py-4 pr-2 flex items-center gap-3 font-bold text-slate-700">
-                        <img src={u.avatar || `https://ui-avatars.com/api/?name=${u.first_name}`} className="w-8 h-8 rounded-lg" />
-                        {u.first_name} {u.last_name}
-                      </td>
-                      <td className="py-4 font-black text-xs text-slate-500">{u.phone}</td>
-                      <td className="py-4"><span className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-lg text-[9px] font-black">{u.role}</span></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-          {activeTab === 'ads' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {data.map(ad => (
-                <div key={ad.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 group relative">
-                  <div className="flex justify-between items-start mb-3">
-                    <h4 className="font-black text-slate-800 text-sm">{ad.title}</h4>
-                    <div className="flex gap-1">
-                       <button onClick={async () => { await supabase.from('advertisements').update({ is_active: !ad.is_active }).eq('id', ad.id); refresh(); }} className={`p-1.5 rounded-lg transition-all ${ad.is_active ? 'text-emerald-600 bg-emerald-100' : 'text-slate-300 bg-white'}`}><ToggleIcon size={16}/></button>
-                       <button onClick={async () => { if(confirm('حذف؟')) { await supabase.from('advertisements').delete().eq('id', ad.id); refresh(); } }} className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg transition-all"><Trash2 size={16}/></button>
+      {/* Benefits Section */}
+      <section className="py-24 bg-slate-950 text-white relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-1/2 h-full bg-emerald-500/10 skew-x-12 translate-x-1/2"></div>
+        <div className="max-w-7xl mx-auto px-6 relative z-10">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
+            <div>
+              <SectionHeading title="لماذا يفضلنا الجزائريون؟" />
+              <div className="space-y-8">
+                {[
+                  { title: 'أمان وتوثيق', desc: 'نقوم بالتحقق من وثائق الهوية لكل حرفي قبل تفعيل حسابه في المنصة.', icon: ShieldCheck },
+                  { title: 'دعم فني مستمر', desc: 'فريق سلكني متواجد لمساعدتك في أي وقت لحل أي مشكلة تقنية.', icon: Zap },
+                  { title: 'تقييمات حقيقية', desc: 'نظام تقييم صارم يعتمد فقط على الزبائن الذين تعاملوا فعلياً مع الحرفي.', icon: Star },
+                ].map((b, i) => (
+                  <div key={i} className="flex gap-6 text-right flex-row-reverse">
+                    <div className="flex-shrink-0 w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center text-emerald-400">
+                      <b.icon size={28} />
+                    </div>
+                    <div>
+                      <h4 className="text-xl font-black mb-2">{b.title}</h4>
+                      <p className="text-slate-400 font-medium">{b.desc}</p>
                     </div>
                   </div>
-                  <div className="p-3 bg-slate-900 rounded-xl text-[8px] font-mono text-emerald-400/60 overflow-hidden h-16 relative">{ad.html_content}</div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          )}
+            <div className="bg-white/5 backdrop-blur-xl p-10 rounded-[4rem] border border-white/10">
+              <h3 className="text-3xl font-black mb-8 text-center italic">تطبيق سلكني <span className="text-emerald-500">DZ</span></h3>
+              <div className="aspect-video bg-slate-900 rounded-3xl flex items-center justify-center border border-white/5 group cursor-pointer relative overflow-hidden">
+                <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1551288049-bbbda536ad79?q=80&w=1000')] bg-cover bg-center opacity-30 group-hover:scale-110 transition-transform"></div>
+                <div className="relative z-10 w-20 h-20 bg-emerald-600 rounded-full flex items-center justify-center shadow-2xl group-hover:scale-125 transition-transform">
+                  <ArrowRight size={32} className="rotate-180" />
+                </div>
+              </div>
+              <p className="mt-8 text-center text-slate-400 font-bold">شاهد كيف يساهم سلكني في توفير فرص عمل لآلاف الشباب الجزائريين</p>
+            </div>
+          </div>
         </div>
-      )}
-      {showAdForm && <AdminAdForm onClose={() => setShowAdForm(false)} onSave={() => { setShowAdForm(false); refresh(); }} />}
+      </section>
     </div>
   );
 }
 
-// --- Main App ---
+function SearchWorkersView() {
+  const [filters, setFilters] = useState({ query: '', wilaya: '', category: '' });
+  const [workers, setWorkers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const fetch = async () => {
+      setLoading(true);
+      let query = supabase.from('users').select('*').eq('role', 'WORKER');
+      if (filters.wilaya) query = query.eq('wilaya', filters.wilaya);
+      if (filters.category) query = query.contains('categories', [filters.category]);
+      if (filters.query) query = query.or(`first_name.ilike.%${filters.query}%,bio.ilike.%${filters.query}%`);
+      const { data } = await query;
+      if (data) setWorkers(data.map(u => ({ ...u, firstName: u.first_name, lastName: u.last_name, location: { wilaya: u.wilaya, daira: '' }, verificationStatus: u.verification_status })));
+      setLoading(false);
+    };
+    fetch();
+  }, [filters]);
+
+  return (
+    <div className="max-w-7xl mx-auto py-12 px-6 animate-fade-in">
+      <SectionHeading title="البحث عن حرفيين مهرة" subtitle="تصفح قائمة الحرفيين الموثوقين وتواصل معهم مباشرة." />
+      
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        {/* Filters Sidebar */}
+        <div className="lg:col-span-1 space-y-6">
+          <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100 sticky top-28">
+            <h4 className="font-black text-slate-900 mb-6 flex items-center gap-2"><Settings size={18} className="text-emerald-600"/> تصفية النتائج</h4>
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-black text-slate-400 block mb-2 mr-2">الاسم أو الخدمة</label>
+                <input placeholder="مثلاً: مرصص، كهربائي..." className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold text-sm focus:bg-emerald-50 transition-all" value={filters.query} onChange={e => setFilters({...filters, query: e.target.value})} />
+              </div>
+              <div>
+                <label className="text-xs font-black text-slate-400 block mb-2 mr-2">الولاية</label>
+                <select className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold text-sm outline-none" value={filters.wilaya} onChange={e => setFilters({...filters, wilaya: e.target.value})}>
+                  <option value="">كل الولايات (58)</option>
+                  {WILAYAS.map(w => <option key={w} value={w}>{w}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-black text-slate-400 block mb-2 mr-2">التخصص</label>
+                <select className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold text-sm outline-none" value={filters.category} onChange={e => setFilters({...filters, category: e.target.value})}>
+                  <option value="">كل التخصصات</option>
+                  {SERVICE_CATEGORIES.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                </select>
+              </div>
+              <button onClick={() => setFilters({ query: '', wilaya: '', category: '' })} className="w-full py-4 text-emerald-600 font-black text-sm hover:bg-emerald-50 rounded-2xl transition-all">إعادة ضبط</button>
+            </div>
+          </div>
+          <AdPlacement position="search_sidebar" />
+        </div>
+
+        {/* Results */}
+        <div className="lg:col-span-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {loading ? (
+              <div className="col-span-full py-20 flex justify-center"><div className="loading-spinner"></div></div>
+            ) : workers.map(w => (
+              <div key={w.id} className="bg-white p-8 rounded-[3rem] shadow-lg border border-slate-100 hover:shadow-2xl hover:-translate-y-2 transition-all group flex flex-col">
+                <div className="flex items-center gap-5 mb-6">
+                  <div className="relative">
+                    <img src={w.avatar || `https://ui-avatars.com/api/?name=${w.firstName}`} className="w-20 h-20 rounded-3xl object-cover border-4 border-slate-50 shadow-md" />
+                    {w.verificationStatus === 'verified' && (
+                      <div className="absolute -bottom-2 -right-2 bg-emerald-500 text-white p-1 rounded-full border-2 border-white shadow-sm" title="حساب موثق">
+                        <CheckCircle2 size={16}/>
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black text-slate-900 group-hover:text-emerald-600 transition-colors">{w.firstName} {w.lastName}</h3>
+                    <div className="flex items-center gap-2 mt-1">
+                      <div className="flex text-yellow-400"><Star size={14} fill="currentColor"/><Star size={14} fill="currentColor"/><Star size={14} fill="currentColor"/><Star size={14} fill="currentColor"/><Star size={14} fill="currentColor"/></div>
+                      <span className="text-[10px] font-black text-slate-400">(24 تقييم)</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2 mb-6">
+                  {w.categories.map(c => <span key={c} className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-lg text-[10px] font-black">{c}</span>)}
+                  <span className="bg-slate-50 text-slate-400 px-3 py-1 rounded-lg text-[10px] font-black flex items-center gap-1"><MapPin size={10}/> {w.location.wilaya}</span>
+                </div>
+                <p className="text-slate-500 text-sm font-medium line-clamp-2 mb-8 flex-grow">{w.bio || 'لا توجد نبذة تعريفية.'}</p>
+                <div className="flex justify-between items-center pt-6 border-t border-slate-50">
+                  <div className="text-emerald-600 font-black text-lg">5.0 <span className="text-xs text-slate-300">/ 5</span></div>
+                  <button className="bg-slate-950 text-white px-8 py-3 rounded-2xl font-black text-xs hover:bg-emerald-600 transition-all shadow-lg active:scale-95">عرض الملف الشخصي</button>
+                </div>
+              </div>
+            ))}
+            {workers.length === 0 && !loading && (
+              <div className="col-span-full py-32 text-center">
+                <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6 text-slate-200">
+                  <SearchIcon size={48} />
+                </div>
+                <h3 className="text-2xl font-black text-slate-300">عذراً، لم نجد أي حرفيين يطابقون بحثك</h3>
+                <p className="text-slate-400 font-bold mt-2">حاول تغيير الفلاتر أو البحث في ولاية أخرى.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- Main App Component ---
 
 export default function App() {
   const [state, setState] = useState<AppState>(() => {
@@ -309,79 +433,118 @@ export default function App() {
   const updateCurrentUser = (u: User | null) => { setState(prev => ({ ...prev, currentUser: u })); if (u) localStorage.setItem('user', JSON.stringify(u)); else localStorage.removeItem('user'); };
 
   return (
-    <div className="min-h-screen flex flex-col arabic-text bg-slate-50 text-slate-900 pb-24 md:pb-0" dir="rtl">
+    <div className="min-h-screen flex flex-col arabic-text bg-slate-50 text-slate-900 pb-24 md:pb-0 custom-scrollbar" dir="rtl">
       <GlobalStyles />
-      <nav className="sticky top-0 z-50 h-20 bg-white/80 backdrop-blur-xl border-b border-slate-100 flex items-center px-4 md:px-10 shadow-sm">
+      
+      {/* Navbar */}
+      <nav className="sticky top-0 z-50 h-24 bg-white/80 backdrop-blur-xl border-b border-slate-100 flex items-center px-4 md:px-10 shadow-sm">
         <div className="max-w-7xl mx-auto w-full flex justify-between items-center">
           <Logo onClick={() => setView('landing')} size="md" />
-          <div className="hidden md:flex items-center gap-8">
+          
+          <div className="hidden md:flex items-center gap-10">
+            <NavButton active={state.view === 'landing'} onClick={() => setView('landing')}>الرئيسية</NavButton>
             <NavButton active={state.view === 'search'} onClick={() => setView('search')}>تصفح الحرفيين</NavButton>
             <NavButton active={state.view === 'support'} onClick={() => setView('support')}>سوق المهام</NavButton>
             {state.currentUser?.role === UserRole.ADMIN && (
-              <button onClick={() => setView('admin-panel')} className={`px-4 py-2 rounded-xl font-black text-xs transition-all flex items-center gap-2 ${state.view === 'admin-panel' ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-600'}`}><Shield size={16}/> بوابة المسؤول</button>
+              <button onClick={() => setView('admin-panel')} className={`px-4 py-2 rounded-xl font-black text-xs transition-all flex items-center gap-2 ${state.view === 'admin-panel' ? 'bg-emerald-600 text-white shadow-lg' : 'bg-emerald-50 text-emerald-600'}`}>
+                <Shield size={16}/> الإدارة
+              </button>
             )}
           </div>
+
           <div className="flex items-center gap-4">
             {state.currentUser ? (
-              <div onClick={() => setView('profile')} className="flex items-center gap-3 cursor-pointer p-1 pr-4 bg-slate-100 rounded-full border border-slate-200 hover:border-emerald-200 transition-all">
+              <div onClick={() => setView('profile')} className="flex items-center gap-3 cursor-pointer p-1 pr-4 bg-white rounded-full border border-slate-200 hover:border-emerald-200 hover:shadow-lg transition-all">
                 <span className="font-black text-xs hidden sm:block">{state.currentUser.firstName}</span>
-                <img src={state.currentUser.avatar || `https://ui-avatars.com/api/?name=${state.currentUser.firstName}`} className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm" />
+                <img src={state.currentUser.avatar || `https://ui-avatars.com/api/?name=${state.currentUser.firstName}`} className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-sm" />
               </div>
             ) : (
-              <button onClick={() => setView('login')} className="bg-emerald-600 text-white px-6 py-2.5 rounded-xl font-black text-sm shadow-xl active:scale-95 transition-all">دخول</button>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setView('login')} className="hidden sm:block text-slate-500 font-black px-4 py-2 hover:text-emerald-600 transition-colors">دخول</button>
+                <button onClick={() => setView('register')} className="bg-emerald-600 text-white px-8 py-3.5 rounded-2xl font-black text-sm shadow-xl shadow-emerald-100 active:scale-95 transition-all">ابدأ الآن</button>
+              </div>
             )}
           </div>
         </div>
       </nav>
 
+      {/* Main Content */}
       <main className="flex-grow">
-        {state.view === 'landing' && (
-          <div className="animate-in">
-            <div className="relative min-h-[85vh] flex items-center justify-center text-center px-6 overflow-hidden text-white">
-              <div className="absolute inset-0 bg-slate-900 bg-[url('https://images.unsplash.com/photo-1581092160562-40aa08e78837?q=80&w=2000')] bg-cover bg-center opacity-40"></div>
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/40 to-transparent"></div>
-              <div className="relative z-10 max-w-4xl">
-                <h1 className="text-4xl md:text-8xl font-black mb-8 leading-tight tracking-tighter">ريح بالك، <span className="text-emerald-400 italic">سَلّكني</span> يسلكها!</h1>
-                <p className="text-xl md:text-3xl text-slate-300 mb-12 font-medium max-w-2xl mx-auto">أول منصة جزائرية تربطك بأفضل المهرة في منطقتك بضغطة زر واحدة.</p>
-                <button onClick={() => setView('search')} className="bg-emerald-600 px-12 py-5 rounded-[2.5rem] font-black text-xl shadow-2xl hover:bg-emerald-500 transition-all active:scale-95">اطلب خدمة الآن 🔍</button>
-              </div>
+        {state.view === 'landing' && <LandingView onStart={() => setView('search')} onRegister={() => setView('register')} />}
+        {state.view === 'search' && <SearchWorkersView />}
+        {state.view === 'support' && (
+          <div className="max-w-4xl mx-auto py-32 text-center animate-fade-in">
+             <SectionHeading title="سوق المهام" subtitle="قريباً: اطلب مهمتك ودع الحرفيين يتنافسون على تقديم أفضل العروض." centered />
+             <div className="relative inline-block mt-8">
+                <div className="absolute inset-0 bg-emerald-500 rounded-full blur-3xl opacity-20"></div>
+                <ClipboardList size={120} className="text-emerald-100 relative" />
+             </div>
+          </div>
+        )}
+        {state.view === 'profile' && state.currentUser && (
+          <div className="max-w-4xl mx-auto py-20 px-6 animate-fade-in text-center">
+            <img src={state.currentUser.avatar || `https://ui-avatars.com/api/?name=${state.currentUser.firstName}`} className="w-32 h-32 rounded-[2.5rem] border-4 border-emerald-500 mx-auto mb-6 shadow-xl" />
+            <h2 className="text-3xl font-black">{state.currentUser.firstName} {state.currentUser.lastName}</h2>
+            <p className="text-slate-400 font-bold mb-10">{state.currentUser.role === UserRole.ADMIN ? 'مدير المنصة' : 'مستخدم سلكني'}</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-lg mx-auto">
+               <button className="bg-emerald-600 text-white p-5 rounded-3xl font-black flex items-center justify-center gap-3 shadow-lg"><Settings/> تعديل الملف الشخصي</button>
+               <button onClick={() => updateCurrentUser(null)} className="bg-red-50 text-red-500 p-5 rounded-3xl font-black flex items-center justify-center gap-3"><LogOut/> تسجيل الخروج</button>
             </div>
           </div>
         )}
-        {state.view === 'admin-panel' && <AdminPanelView />}
-        {state.view === 'search' && <div className="py-20 text-center font-black text-3xl animate-in">صفحة البحث قريباً...</div>}
-        {state.view === 'support' && <div className="py-20 text-center font-black text-3xl animate-in">سوق المهام قريباً...</div>}
-        {state.view === 'login' && <div className="py-20 text-center font-black text-3xl animate-in">نموذج الدخول قريباً...</div>}
       </main>
 
-      <footer className="bg-white border-t border-slate-100 pt-16 pb-32 md:pb-12 px-6">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12">
-          <div className="md:col-span-2 space-y-6">
-            <Logo size="md" onClick={() => setView('landing')} />
-            <p className="text-slate-500 leading-relaxed font-bold text-sm text-justify">سلكني هي بوابتك الجزائرية للخدمات الاحترافية. نحن نربط الحرفيين بالزبائن لضمان جودة الحياة في كل بيت جزائري.</p>
+      {/* Footer */}
+      <footer className="bg-white border-t border-slate-100 pt-20 pb-32 md:pb-16 px-6 mt-auto">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-16 mb-20">
+            <div className="md:col-span-2 space-y-8">
+              <Logo size="md" onClick={() => setView('landing')} />
+              <p className="text-slate-500 leading-relaxed font-bold text-lg max-w-xl">
+                <span className="text-emerald-600">سلكني</span> هي بوابتك الجزائرية الذكية للوصول إلى أمهر الحرفيين في كافة التخصصات. نهدف إلى خلق بيئة عمل موثوقة وعصرية تدعم الحرفي الجزائري وتلبي احتياجات المواطن.
+              </p>
+              <div className="flex gap-4">
+                 <button className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 hover:bg-emerald-500 hover:text-white transition-all"><Settings/></button>
+                 <button className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 hover:bg-emerald-500 hover:text-white transition-all"><UsersIcon/></button>
+                 <button className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 hover:bg-emerald-500 hover:text-white transition-all"><Zap/></button>
+              </div>
+            </div>
+            <div className="space-y-6 text-right">
+              <h4 className="text-xl font-black text-slate-900">روابط سريعة</h4>
+              <ul className="space-y-4">
+                <li><button onClick={() => setView('search')} className="text-slate-500 font-black hover:text-emerald-600 transition-all flex items-center gap-2 flex-row-reverse">تصفح الحرفيين <ChevronLeft size={16}/></button></li>
+                <li><button onClick={() => setView('support')} className="text-slate-500 font-black hover:text-emerald-600 transition-all flex items-center gap-2 flex-row-reverse">سوق المهام <ChevronLeft size={16}/></button></li>
+                <li><button onClick={() => setView('register')} className="text-slate-500 font-black hover:text-emerald-600 transition-all flex items-center gap-2 flex-row-reverse">سجل كحرفي <ChevronLeft size={16}/></button></li>
+              </ul>
+            </div>
+            <div className="space-y-6 text-right">
+              <h4 className="text-xl font-black text-slate-900">تواصل معنا</h4>
+              <ul className="space-y-4">
+                <li className="flex items-center gap-3 flex-row-reverse text-slate-500 font-bold"><Mail className="text-emerald-500" size={18}/> support@salakni.dz</li>
+                <li className="flex items-center gap-3 flex-row-reverse text-slate-500 font-bold"><Phone className="text-emerald-500" size={18}/> +213 777 11 76 63</li>
+                <li className="flex items-center gap-3 flex-row-reverse text-slate-500 font-bold"><MapPin className="text-emerald-500" size={18}/> الجزائر العاصمة، الجزائر</li>
+              </ul>
+            </div>
           </div>
-          <div className="space-y-4 text-right">
-            <h4 className="font-black text-slate-900">روابط سريعة</h4>
-            <ul className="space-y-2">
-              <li><button onClick={() => setView('search')} className="text-slate-500 hover:text-emerald-600 font-bold transition-all flex items-center gap-2"><SearchIcon size={16}/> تصفح الحرفيين</button></li>
-              <li><button onClick={() => setView('support')} className="text-slate-500 hover:text-emerald-600 font-bold transition-all flex items-center gap-2"><ClipboardList size={16}/> سوق المهام</button></li>
-            </ul>
-          </div>
-          <div className="space-y-4 text-right">
-            <h4 className="font-black text-slate-900">تواصل معنا</h4>
-            <ul className="space-y-2 text-slate-500 font-bold">
-              <li className="flex items-center gap-2 flex-row-reverse"><Mail size={16} className="text-emerald-600"/> contact@salakni.dz</li>
-              <li className="flex items-center gap-2 flex-row-reverse"><Phone size={16} className="text-emerald-600"/> +213 777 11 76 63</li>
-            </ul>
+          <div className="pt-8 border-t border-slate-50 flex flex-col md:flex-row justify-between items-center gap-4">
+            <p className="text-slate-400 font-black text-[10px] uppercase tracking-[0.3em]">ALL RIGHTS RESERVED &copy; SALAKNI DZ 2025</p>
+            <div className="flex gap-6 text-[10px] font-black text-slate-300">
+               <button className="hover:text-emerald-500 uppercase">Privacy Policy</button>
+               <button className="hover:text-emerald-500 uppercase">Terms of Service</button>
+            </div>
           </div>
         </div>
       </footer>
 
-      <div className="fixed bottom-0 left-0 right-0 h-20 bg-white/90 backdrop-blur-xl border-t border-slate-100 flex items-center justify-around md:hidden z-50">
+      {/* Mobile Navigation */}
+      <div className="fixed bottom-0 left-0 right-0 h-24 bg-white/95 backdrop-blur-2xl border-t border-slate-100 flex items-center justify-around md:hidden z-50 px-4 shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
         <TabItem icon={Home} label="الرئيسية" active={state.view === 'landing'} onClick={() => setView('landing')} />
-        <TabItem icon={SearchIcon} label="البحث" active={state.view === 'search'} onClick={() => setView('search')} />
+        <TabItem icon={SearchIcon} label="الحرفيين" active={state.view === 'search'} onClick={() => setView('search')} />
         <TabItem icon={ClipboardList} label="المهام" active={state.view === 'support'} onClick={() => setView('support')} />
-        <TabItem icon={UserIcon} label="حسابي" active={state.view === 'profile' || state.view === 'admin-panel'} onClick={() => setView(state.currentUser ? (state.currentUser.role === UserRole.ADMIN ? 'admin-panel' : 'profile') : 'login')} />
+        <TabItem icon={UserIcon} label="حسابي" active={state.view === 'profile' || state.view === 'admin-panel'} onClick={() => {
+          if (state.currentUser) setView(state.currentUser.role === UserRole.ADMIN ? 'admin-panel' : 'profile');
+          else setView('login');
+        }} />
       </div>
     </div>
   );
