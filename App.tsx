@@ -160,7 +160,7 @@ export default function App() {
             <NavButton active={state.view === 'support'} onClick={() => setView('support')}>سوق المهام</NavButton>
             {state.currentUser?.role === UserRole.ADMIN && (
               <button onClick={() => setView('admin-panel')} className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl font-black text-xs transition-all ${state.view === 'admin-panel' ? 'bg-emerald-600 text-white shadow-lg' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}>
-                <Shield size={16} /> لوحة الإدارة
+                <Shield size={16} /> لوحة المشرف
               </button>
             )}
           </div>
@@ -182,7 +182,7 @@ export default function App() {
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                <button onClick={() => setView('login')} className="hidden sm:block text-slate-500 font-black px-4 py-2">دخول</button>
+                <button onClick={() => setView('login')} className="hidden sm:block text-slate-500 font-black px-4 py-2 hover:text-emerald-600 transition-colors">دخول</button>
                 <button onClick={() => setView('register')} className="bg-emerald-600 text-white px-6 py-2.5 rounded-xl font-black text-sm shadow-xl shadow-emerald-600/20 active:scale-95 transition-all">ابدأ الآن</button>
               </div>
             )}
@@ -214,7 +214,6 @@ export default function App() {
         {state.view === 'edit-profile' && state.currentUser && <EditProfileView user={state.currentUser} onSave={(u: User) => { updateCurrentUser(u); setView('profile'); }} onCancel={() => setView('profile')} />}
       </main>
 
-      {/* Footer with Admin Access */}
       <footer className="bg-white border-t border-slate-100 py-10 px-6 mt-auto">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
           <Logo size="sm" onClick={() => setView('landing')} />
@@ -223,7 +222,7 @@ export default function App() {
             onClick={() => setView('admin-panel')} 
             className="flex items-center gap-2 text-slate-300 hover:text-emerald-600 transition-colors font-black text-xs uppercase tracking-widest"
           >
-            <Lock size={14} /> لوحة الإدارة (للمشرفين)
+            <Lock size={14} /> لوحة المشرف
           </button>
         </div>
       </footer>
@@ -286,17 +285,17 @@ const AdminPanelView = ({ safe }: any) => {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-        <StatCard label="إجمالي المستخدمين" value={stats.users} icon={Users} color="emerald" />
-        <StatCard label="الحرفيين المسجلين" value={stats.workers} icon={Briefcase} color="blue" />
-        <StatCard label="المهام المنشورة" value={stats.tasks} icon={ClipboardList} color="purple" />
-        <StatCard label="طلبات توثيق معلقة" value={stats.pending} icon={ShieldQuestion} color="amber" />
+        <StatCard label="المستخدمين" value={stats.users} icon={Users} />
+        <StatCard label="الحرفيين" value={stats.workers} icon={Briefcase} />
+        <StatCard label="المهام" value={stats.tasks} icon={ClipboardList} />
+        <StatCard label="التوثيقات المعلقة" value={stats.pending} icon={ShieldQuestion} />
       </div>
 
       <div className="flex gap-2 mb-8 bg-white p-2 rounded-2xl border border-slate-100 w-fit shadow-sm overflow-x-auto no-scrollbar">
         <TabButton active={activeTab === 'overview'} onClick={() => setActiveTab('overview')}>نظرة عامة</TabButton>
-        <TabButton active={activeTab === 'users'} onClick={() => setActiveTab('users')}>المستخدمين</TabButton>
-        <TabButton active={activeTab === 'tasks'} onClick={() => setActiveTab('tasks')}>المهام</TabButton>
-        <TabButton active={activeTab === 'verifications'} onClick={() => setActiveTab('verifications')}>التوثيقات ({stats.pending})</TabButton>
+        <TabButton active={activeTab === 'users'} onClick={() => setActiveTab('users')}>قائمة المستخدمين</TabButton>
+        <TabButton active={activeTab === 'tasks'} onClick={() => setActiveTab('tasks')}>إدارة المهام</TabButton>
+        <TabButton active={activeTab === 'verifications'} onClick={() => setActiveTab('verifications')}>طلبات التوثيق</TabButton>
       </div>
 
       {loading ? (
@@ -368,7 +367,7 @@ const AdminPanelView = ({ safe }: any) => {
   );
 };
 
-const StatCard = ({ label, value, icon: Icon, color }: any) => (
+const StatCard = ({ label, value, icon: Icon }: any) => (
   <div className="admin-stat-card border-t-4 border-t-emerald-500">
     <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 bg-emerald-50 text-emerald-600`}>
       <Icon size={24} />
@@ -468,7 +467,7 @@ const TasksMarketView = ({ currentUser, safe, onContact, setView }: any) => {
           <h2 className="text-4xl md:text-6xl font-black text-slate-900 tracking-tighter">سوق المهام <span className="text-emerald-500">DZ</span></h2>
           <p className="text-slate-500 font-bold">تصفح طلبات الزبائن وقدم عروضك.</p>
         </div>
-        <button onClick={() => currentUser ? setView('support') : setView('login')} className="bg-emerald-600 text-white p-4 rounded-2xl shadow-xl active:scale-95 transition-all"><Plus size={32}/></button>
+        <button onClick={() => currentUser ? setView('support') : setView('login')} className="bg-emerald-600 text-white p-4 rounded-2xl shadow-xl active:scale-95 transition-all hover:bg-emerald-500"><Plus size={32}/></button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -485,7 +484,7 @@ const TasksMarketView = ({ currentUser, safe, onContact, setView }: any) => {
                 <img src={task.seeker_avatar || `https://ui-avatars.com/api/?name=${task.seeker_name}`} className="w-10 h-10 rounded-xl" />
                 <span className="text-sm font-black">{safe(task.seeker_name)}</span>
               </div>
-              <button onClick={() => setSelectedTask(task)} className="bg-slate-950 text-white px-6 py-3 rounded-2xl font-black text-sm flex items-center gap-2">
+              <button onClick={() => setSelectedTask(task)} className="bg-slate-950 text-white px-6 py-3 rounded-2xl font-black text-sm flex items-center gap-2 hover:bg-emerald-600 transition-colors">
                 <Eye size={16} /> عرض التفاصيل
               </button>
             </div>
@@ -500,7 +499,7 @@ const TasksMarketView = ({ currentUser, safe, onContact, setView }: any) => {
 const TaskDetailModal = ({ task, onClose, onContact, safe }: any) => (
   <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in">
     <div className="bg-white w-full max-w-2xl rounded-[3.5rem] shadow-2xl overflow-hidden relative animate-slide p-10 space-y-8">
-      <button onClick={onClose} className="absolute top-6 left-6 p-2 bg-slate-50 text-slate-400 rounded-xl"><X size={24}/></button>
+      <button onClick={onClose} className="absolute top-6 left-6 p-2 bg-slate-50 text-slate-400 rounded-xl hover:text-red-500 transition-colors"><X size={24}/></button>
       <div className="flex gap-3">
         <span className="bg-emerald-50 text-emerald-700 px-5 py-2 rounded-2xl text-xs font-black border border-emerald-100 uppercase">{safe(task.category)}</span>
         <span className="bg-slate-50 text-slate-500 px-5 py-2 rounded-2xl text-xs font-black border border-slate-100">{safe(task.wilaya)}</span>
@@ -712,6 +711,7 @@ const TabItem = ({ icon: Icon, label, active, onClick }: any) => (
 );
 
 const AuthForm = ({ type, onSuccess, onSwitch, safe, isAdminLink }: any) => {
+  // Pre-fill admin credentials ONLY if admin link is requested for fast check
   const [formData, setFormData] = useState({ 
     firstName: '', 
     lastName: '', 
@@ -728,13 +728,47 @@ const AuthForm = ({ type, onSuccess, onSwitch, safe, isAdminLink }: any) => {
     setError('');
     try {
       if (type === 'login') {
+        // Logique spéciale pour les identifiants Admin fournis
+        if (formData.phone === '0777117663' && formData.password === 'vampirewahab31_') {
+          const adminUser = {
+            id: 'admin-main-id',
+            firstName: 'سلكني',
+            lastName: 'المشرف',
+            phone: '0777117663',
+            role: UserRole.ADMIN,
+            location: { wilaya: 'الجزائر', daira: '' },
+            verificationStatus: 'verified' as VerificationStatus,
+            categories: [],
+            skills: [],
+            portfolio: [],
+            rating: 5,
+            ratingCount: 1,
+            completedJobs: 99
+          };
+          onSuccess(adminUser);
+          return;
+        }
+
         const { data, error: sbError } = await supabase.from('users').select('*').eq('phone', formData.phone).eq('password', formData.password).maybeSingle();
         if (sbError || !data) throw new Error('رقم الهاتف أو كلمة المرور غير صحيحة');
-        onSuccess({ ...data, firstName: data.first_name, lastName: data.last_name, location: { wilaya: data.wilaya, daira: '' }, verificationStatus: data.verification_status });
+        onSuccess({ 
+          ...data, 
+          firstName: data.first_name, 
+          lastName: data.last_name, 
+          role: data.role,
+          location: { wilaya: data.wilaya, daira: '' }, 
+          verificationStatus: data.verification_status 
+        });
       } else {
         const { data, error: sbError } = await supabase.from('users').insert([{ first_name: formData.firstName, last_name: formData.lastName, phone: formData.phone, password: formData.password, role: formData.role, wilaya: WILAYAS[0], categories: [], skills: [], portfolio: [], verification_status: 'none' }]).select().single();
         if (sbError) throw sbError;
-        onSuccess({ ...data, firstName: data.first_name, lastName: data.last_name, location: { wilaya: data.wilaya, daira: '' }, verificationStatus: data.verification_status });
+        onSuccess({ 
+          ...data, 
+          firstName: data.first_name, 
+          lastName: data.last_name, 
+          location: { wilaya: data.wilaya, daira: '' }, 
+          verificationStatus: data.verification_status 
+        });
       }
     } catch (err: any) { setError(err.message); } finally { setLoading(false); }
   };
@@ -748,7 +782,7 @@ const AuthForm = ({ type, onSuccess, onSwitch, safe, isAdminLink }: any) => {
       {isAdminLink && (
         <div className="mb-6 p-5 bg-emerald-50 text-emerald-700 rounded-3xl border border-emerald-100 font-bold text-sm flex items-center gap-3">
           <div className="bg-emerald-600 text-white p-2 rounded-xl"><Shield size={18}/></div>
-          تم تفعيل بيانات المشرف تلقائياً للوصول السريع.
+          دخول المشرف الرئيسي. يرجى تأكيد البيانات.
         </div>
       )}
 
