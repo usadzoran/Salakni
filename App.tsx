@@ -34,7 +34,9 @@ import {
   Info,
   Edit,
   Save,
-  Check
+  Check,
+  ExternalLink,
+  Award
 } from 'lucide-react';
 
 // --- Global Styles ---
@@ -122,6 +124,115 @@ function TabItem({ icon: Icon, label, active, onClick }: { icon: any; label: str
 }
 
 // --- Specific Views ---
+
+function WorkerView({ worker, onBack }: { worker: User; onBack: () => void }) {
+  return (
+    <div className="max-w-4xl mx-auto py-12 px-6 animate-fade-in text-right">
+      <button onClick={onBack} className="flex items-center gap-2 text-slate-500 font-black mb-8 hover:text-emerald-600 transition-all">
+         <ArrowRight size={20} className="rotate-180"/> العودة للبحث
+      </button>
+
+      <div className="bg-white rounded-[4rem] shadow-2xl border border-slate-100 overflow-hidden mb-10">
+        <div className="h-48 bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-500 relative">
+          <div className="absolute top-6 right-6">
+             {worker.verificationStatus === 'verified' && (
+               <span className="bg-white/20 backdrop-blur-md text-white px-4 py-2 rounded-full text-[10px] font-black border border-white/20 flex items-center gap-2">
+                 <ShieldCheck size={16}/> حرفي موثق رسمياً
+               </span>
+             )}
+          </div>
+        </div>
+        
+        <div className="px-8 md:px-12 pb-12">
+          <div className="relative -mt-20 mb-8 flex flex-col md:flex-row items-center md:items-end gap-6">
+            <img src={worker.avatar || `https://ui-avatars.com/api/?name=${worker.firstName}`} className="w-44 h-44 rounded-[3.5rem] border-[10px] border-white shadow-2xl object-cover bg-slate-50" />
+            <div className="text-center md:text-right flex-grow">
+               <h2 className="text-4xl font-black text-slate-900 mb-2">{worker.firstName} {worker.lastName}</h2>
+               <div className="flex flex-wrap items-center justify-center md:justify-start gap-4">
+                  <span className="text-emerald-600 font-black flex items-center gap-1.5"><MapPin size={18}/> {worker.location.wilaya}</span>
+                  <div className="flex items-center gap-1 text-yellow-500">
+                    <Star size={18} fill="currentColor"/>
+                    <span className="text-lg font-black">{worker.rating || '5.0'}</span>
+                    <span className="text-slate-400 text-sm font-bold">({worker.ratingCount || 0} تقييم)</span>
+                  </div>
+               </div>
+            </div>
+            <div className="flex gap-3">
+               <button className="bg-emerald-600 text-white p-4 rounded-3xl shadow-lg shadow-emerald-100 hover:bg-emerald-500 transition-all active:scale-95"><Phone size={24}/></button>
+               <button className="bg-slate-900 text-white p-4 rounded-3xl shadow-lg hover:bg-slate-800 transition-all active:scale-95"><MessageSquare size={24}/></button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-12">
+             <div className="md:col-span-2 space-y-10">
+                <section>
+                  <h4 className="text-xl font-black text-slate-900 mb-4 flex items-center gap-2">حول الحرفي <Info size={20} className="text-emerald-500"/></h4>
+                  <div className="bg-slate-50 p-6 rounded-[2.5rem] border border-slate-100">
+                     <p className="text-slate-600 font-medium leading-relaxed text-lg">
+                       {worker.bio || 'هذا الحرفي لم يضف نبذة شخصية بعد، لكنه جاهز لخدمتكم بأفضل جودة.'}
+                     </p>
+                  </div>
+                </section>
+
+                <section>
+                  <h4 className="text-xl font-black text-slate-900 mb-4">التخصصات والخدمات المقدمة</h4>
+                  <div className="flex flex-wrap gap-3">
+                    {ensureArray(worker.categories).map(c => (
+                      <span key={c} className="bg-emerald-50 text-emerald-700 px-5 py-2.5 rounded-2xl font-black text-sm border border-emerald-100 flex items-center gap-2">
+                        <Check size={16}/> {c}
+                      </span>
+                    ))}
+                  </div>
+                </section>
+
+                <section>
+                   <h4 className="text-xl font-black text-slate-900 mb-4">المهارات والخبرات</h4>
+                   <div className="flex flex-wrap gap-3">
+                    {ensureArray(worker.skills).map(s => (
+                      <span key={s} className="bg-slate-100 text-slate-600 px-5 py-2.5 rounded-2xl font-black text-sm border border-slate-200">
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                </section>
+             </div>
+
+             <div className="space-y-6">
+                <div className="bg-emerald-600 text-white p-8 rounded-[3rem] shadow-xl shadow-emerald-100 relative overflow-hidden group">
+                   <div className="absolute -right-6 -bottom-6 text-white/10 group-hover:scale-125 transition-transform"><Trophy size={140}/></div>
+                   <h5 className="font-black text-xl mb-4 relative z-10">إحصائيات العمل</h5>
+                   <div className="space-y-4 relative z-10">
+                      <div className="flex justify-between items-center bg-white/10 p-3 rounded-2xl">
+                        <span className="font-bold text-sm">مهام مكتملة</span>
+                        <span className="font-black text-2xl">{worker.completedJobs || 0}</span>
+                      </div>
+                      <div className="flex justify-between items-center bg-white/10 p-3 rounded-2xl">
+                        <span className="font-bold text-sm">سنوات الخبرة</span>
+                        <span className="font-black text-2xl">+5</span>
+                      </div>
+                   </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-[3rem] border border-slate-100 shadow-sm">
+                   <h5 className="font-black text-slate-900 mb-4">تواصل مباشر</h5>
+                   <div className="space-y-4">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">متاح حالياً في</p>
+                      <div className="flex items-center gap-3 text-slate-700 font-black">
+                         <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600"><MapPin size={20}/></div>
+                         <span>{worker.location.wilaya}</span>
+                      </div>
+                      <button className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-emerald-600 transition-all">
+                        <Phone size={18}/> اطلب الرقم
+                      </button>
+                   </div>
+                </div>
+             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function EditProfileView({ user, onSaved, onCancel }: { user: User; onSaved: (u: User) => void; onCancel: () => void }) {
   const [formData, setFormData] = useState({
@@ -358,7 +469,7 @@ function TaskDetailsModal({ task, onClose }: { task: Task; onClose: () => void }
   );
 }
 
-function SearchWorkersView({ onNavigate }: { onNavigate: (view: AppState['view']) => void }) {
+function SearchWorkersView({ onNavigate, onViewWorker }: { onNavigate: (view: AppState['view']) => void, onViewWorker: (worker: User) => void }) {
   const [filters, setFilters] = useState({ query: '', wilaya: '', category: '' });
   const [workers, setWorkers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
@@ -436,7 +547,7 @@ function SearchWorkersView({ onNavigate }: { onNavigate: (view: AppState['view']
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {workers.map(w => (
-                <div key={w.id} className="worker-card bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 transition-all group flex flex-col cursor-pointer" onClick={() => onNavigate('profile')}>
+                <div key={w.id} className="worker-card bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 transition-all group flex flex-col cursor-pointer" onClick={() => onViewWorker(w)}>
                   <div className="flex items-center gap-4 mb-4">
                     <div className="relative">
                       <img src={w.avatar || `https://ui-avatars.com/api/?name=${w.firstName}`} className="w-20 h-20 rounded-2xl object-cover border-4 border-slate-50 shadow-md" />
@@ -446,11 +557,12 @@ function SearchWorkersView({ onNavigate }: { onNavigate: (view: AppState['view']
                         </div>
                       )}
                     </div>
-                    <div className="flex-grow">
+                    <div className="flex-grow text-right">
                       <h3 className="text-xl font-black text-slate-900 group-hover:text-emerald-600 transition-colors">{w.firstName} {w.lastName}</h3>
                       <div className="flex items-center gap-1 text-yellow-500 mt-1">
-                        <Star size={14} fill="currentColor"/><Star size={14} fill="currentColor"/><Star size={14} fill="currentColor"/><Star size={14} fill="currentColor"/><Star size={14} fill="currentColor"/>
-                        <span className="text-[10px] font-black text-slate-400 mr-1">5.0 (20 تقييم)</span>
+                        <Star size={14} fill="currentColor"/>
+                        <span className="text-[11px] font-black text-slate-700">5.0</span>
+                        <span className="text-[10px] font-black text-slate-400 mr-1">(20 تقييم)</span>
                       </div>
                     </div>
                   </div>
@@ -463,7 +575,7 @@ function SearchWorkersView({ onNavigate }: { onNavigate: (view: AppState['view']
                   <div className="flex justify-between items-center border-t border-slate-50 pt-5 mt-auto">
                     <span className="text-[11px] font-black text-slate-400 flex items-center gap-1.5"><MapPin size={14} className="text-emerald-500"/> {w.location.wilaya}</span>
                     <button className="bg-slate-900 text-white px-6 py-2.5 rounded-xl font-black text-[11px] hover:bg-emerald-600 transition-all flex items-center gap-2">
-                       تواصل الآن <MessageSquare size={14}/>
+                       ملف الحرفي <ExternalLink size={14}/>
                     </button>
                   </div>
                 </div>
@@ -680,7 +792,12 @@ function LandingView({ onStart, onRegister }: { onStart: () => void; onRegister:
 export default function App() {
   const [state, setState] = useState<AppState>(() => {
     const saved = localStorage.getItem('user');
-    return { currentUser: saved ? JSON.parse(saved) : null, workers: [], view: 'landing' };
+    return { 
+      currentUser: saved ? JSON.parse(saved) : null, 
+      selectedWorker: null,
+      workers: [], 
+      view: 'landing' 
+    };
   });
 
   const setView = (view: AppState['view']) => { setState(prev => ({ ...prev, view })); window.scrollTo(0, 0); };
@@ -699,6 +816,11 @@ export default function App() {
     setView('profile');
   };
 
+  const openWorkerDetails = (worker: User) => {
+    setState(prev => ({ ...prev, selectedWorker: worker, view: 'worker-details' }));
+    window.scrollTo(0, 0);
+  };
+
   return (
     <div className="min-h-screen flex flex-col arabic-text bg-slate-50 text-slate-900 pb-24 md:pb-0 custom-scrollbar" dir="rtl">
       <GlobalStyles />
@@ -708,7 +830,7 @@ export default function App() {
           <Logo onClick={() => setView('landing')} size="md" />
           <div className="hidden md:flex items-center gap-12">
             <NavButton active={state.view === 'landing'} onClick={() => setView('landing')}>الرئيسية</NavButton>
-            <NavButton active={state.view === 'search'} onClick={() => setView('search')}>البحث عن حرفيين</NavButton>
+            <NavButton active={state.view === 'search' || state.view === 'worker-details'} onClick={() => setView('search')}>البحث عن حرفيين</NavButton>
             <NavButton active={state.view === 'support'} onClick={() => setView('support')}>سوق المهام</NavButton>
           </div>
           <div className="flex items-center gap-4">
@@ -729,7 +851,8 @@ export default function App() {
 
       <main className="flex-grow">
         {state.view === 'landing' && <LandingView onStart={() => setView('search')} onRegister={() => setView('register')} />}
-        {state.view === 'search' && <SearchWorkersView onNavigate={setView} />}
+        {state.view === 'search' && <SearchWorkersView onNavigate={setView} onViewWorker={openWorkerDetails} />}
+        {state.view === 'worker-details' && state.selectedWorker && <WorkerView worker={state.selectedWorker} onBack={() => setView('search')} />}
         {state.view === 'support' && <TasksMarketView />}
         {state.view === 'profile' && state.currentUser && (
           <div className="max-w-4xl mx-auto py-24 px-6 animate-fade-in text-right">
@@ -737,7 +860,7 @@ export default function App() {
                 <div className="h-40 bg-gradient-to-r from-emerald-600 to-teal-500"></div>
                 <div className="px-12 pb-12">
                    <div className="relative -mt-20 mb-8">
-                     <img src={state.currentUser.avatar || `https://ui-avatars.com/api/?name=${state.currentUser.firstName}`} className="w-40 h-40 rounded-[3rem] border-8 border-white mx-auto shadow-2xl object-cover" />
+                     <img src={state.currentUser.avatar || `https://ui-avatars.com/api/?name=${state.currentUser.firstName}`} className="w-40 h-40 rounded-[3rem] border-8 border-white mx-auto shadow-2xl object-cover bg-white" />
                      {state.currentUser.verificationStatus === 'verified' && (
                        <div className="absolute bottom-4 right-1/2 translate-x-12 translate-y-2 bg-blue-500 text-white p-2 rounded-2xl border-4 border-white shadow-lg"><Check size={24}/></div>
                      )}
@@ -825,7 +948,7 @@ export default function App() {
       {/* Mobile Bar */}
       <div className="fixed bottom-0 left-0 right-0 h-24 bg-white/95 backdrop-blur-2xl border-t border-slate-100 flex items-center justify-around md:hidden z-50 px-6 shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
         <TabItem icon={Home} label="الرئيسية" active={state.view === 'landing'} onClick={() => setView('landing')} />
-        <TabItem icon={SearchIcon} label="البحث" active={state.view === 'search'} onClick={() => setView('search')} />
+        <TabItem icon={SearchIcon} label="البحث" active={state.view === 'search' || state.view === 'worker-details'} onClick={() => setView('search')} />
         <TabItem icon={ClipboardList} label="المهام" active={state.view === 'support'} onClick={() => setView('support')} />
         <TabItem icon={UserIcon} label="حسابي" active={state.view === 'profile' || state.view === 'edit-profile'} onClick={() => setView(state.currentUser ? 'profile' : 'login')} />
       </div>
