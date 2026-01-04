@@ -48,7 +48,8 @@ function GlobalStyles() {
       .no-scrollbar::-webkit-scrollbar { display: none; }
       .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       .ad-html-container img { max-width: 100%; height: auto; border-radius: 1.5rem; display: block; margin: 0 auto; }
-      .admin-stat-card { background: white; border-radius: 2rem; padding: 1.5rem; border: 1px solid #f1f5f9; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05); }
+      .admin-stat-card { background: white; border-radius: 2rem; padding: 1.5rem; border: 1px solid #f1f5f9; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05); transition: transform 0.2s; }
+      .admin-stat-card:hover { transform: translateY(-4px); }
       .emerald-gradient { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
     `}</style>
   );
@@ -111,44 +112,63 @@ function AdPlacement({ position }: { position: string }) {
   );
 }
 
-// --- Views ---
+// --- Admin Sub-components ---
 
-function AboutUsView() {
+function AdminAdForm({ onClose, onSave }: { onClose: () => void; onSave: () => void }) {
+  const [formData, setFormData] = useState({ title: '', html_content: '', placements: [] as string[] });
+  const [loading, setLoading] = useState(false);
+
+  const togglePlacement = (id: string) => {
+    setFormData(prev => ({
+      ...prev,
+      placements: prev.placements.includes(id) 
+        ? prev.placements.filter(p => p !== id) 
+        : [...prev.placements, id]
+    }));
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.title || !formData.html_content || formData.placements.length === 0) {
+      alert('يرجى ملء جميع الحقول واختيار مكان واحد على الأقل');
+      return;
+    }
+
+    setLoading(true);
+    const { error } = await supabase.from('advertisements').insert([{
+      title: formData.title,
+      html_content: formData.html_content,
+      placements: formData.placements,
+      is_active: true
+    }]);
+
+    if (error) alert(error.message); else onSave();
+    setLoading(false);
+  };
+
   return (
-    <div className="max-w-4xl mx-auto py-20 px-6 animate-in text-right">
-      <div className="bg-white rounded-[3.5rem] p-10 md:p-16 shadow-2xl border border-slate-100">
-        <h2 className="text-4xl md:text-6xl font-black text-slate-900 mb-8 tracking-tighter">
-          من نحن؟ <span className="text-emerald-600">سلكني</span> يسلكها!
-        </h2>
-        <div className="space-y-6 text-slate-600 text-lg leading-relaxed font-medium">
-          <p>
-            <span className="text-emerald-600 font-black">سلكني (Salakni)</span> هي المنصة الجزائرية الأولى التي تهدف إلى عصرنة قطاع الخدمات المنزلية والمهنية. نحن نؤمن بأن الحرفي الجزائري يمتلك مهارات ذهبية، لكنه يحتاج إلى الوسيلة الصحيحة للوصول إلى جمهوره.
-          </p>
-          <p>
-            مهمتنا هي تبسيط حياة المواطنين عبر توفير قاعدة بيانات موثوقة تضم أفضل الحرفيين في 58 ولاية، مع نظام تقييم شفاف يضمن جودة الخدمة وأمان التعامل.
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-10">
-            <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
-              <ShieldCheck className="text-emerald-600 mb-4" size={32}/>
-              <h4 className="font-black text-slate-900 mb-2">ثقة وأمان</h4>
-              <p className="text-sm">نحرص على التحقق من هوية الحرفيين لضمان أقصى درجات الأمان.</p>
-            </div>
-            <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
-              <Zap className="text-emerald-600 mb-4" size={32}/>
-              <h4 className="font-black text-slate-900 mb-2">سرعة قصوى</h4>
-              <p className="text-sm">بلمسة زر واحدة، ستجد أقرب حرفي متاح في منطقتك.</p>
-            </div>
-            <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
-              <Star className="text-emerald-600 mb-4" size={32}/>
-              <h4 className="font-black text-slate-900 mb-2">جودة مضمونة</h4>
-              <p className="text-sm">نعتمد على تقييمات الزبائن الحقيقية لاختيار النخبة فقط.</p>
-            </div>
+    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-xl animate-in text-right">
+      <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl p-8 relative overflow-y-auto max-h-[90vh] no-scrollbar">
+        <button onClick={onClose} className="absolute top-6 left-6 p-2 text-slate-400 hover:bg-slate-50 rounded-xl"><X size={20}/></button>
+        <h3 className="text-2xl font-black text-slate-900 mb-6 flex items-center gap-2 flex-row-reverse">
+           <Code2 className="text-emerald-600" /> إضافة إعلان HTML مخصص
+        </h3>
+        <form onSubmit={handleSave} className="space-y-6">
+          <input required placeholder="عنوان الإعلان" className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
+          <textarea required rows={6} className="w-full p-4 bg-slate-900 text-emerald-400 rounded-2xl border-none font-mono text-sm leading-relaxed" value={formData.html_content} onChange={e => setFormData({...formData, html_content: e.target.value})} placeholder="<div style='...'>...</div>" />
+          <div className="grid grid-cols-2 gap-2">
+            {['landing_top', 'search_sidebar', 'market_banner', 'profile_bottom'].map(p => (
+              <button key={p} type="button" onClick={() => togglePlacement(p)} className={`p-3 rounded-xl border-2 transition-all font-black text-xs ${formData.placements.includes(p) ? 'bg-emerald-50 border-emerald-500 text-emerald-700' : 'bg-slate-50 border-transparent text-slate-400'}`}>{p}</button>
+            ))}
           </div>
-        </div>
+          <button disabled={loading} className="w-full bg-emerald-600 text-white py-4 rounded-2xl font-black text-lg shadow-xl hover:bg-emerald-500 transition-all">{loading ? 'جاري النشر...' : 'نشر الإعلان الآن'}</button>
+        </form>
       </div>
     </div>
   );
 }
+
+// --- Admin Panel View ---
 
 function AdminPanelView() {
   const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'tasks' | 'ads'>('overview');
@@ -184,7 +204,7 @@ function AdminPanelView() {
   return (
     <div className="max-w-7xl mx-auto py-10 px-6 animate-in">
       <div className="flex justify-between items-center mb-10">
-        <h2 className="text-3xl font-black text-slate-900 flex items-center gap-3"><Shield className="text-emerald-600" /> بوابة المسؤول</h2>
+        <h2 className="text-3xl font-black text-slate-900 flex items-center gap-3"><Shield className="text-emerald-600" /> لوحة المشرف الرئيسي</h2>
         <div className="flex gap-2">
           {activeTab === 'ads' && (
             <button onClick={() => setShowAdForm(true)} className="bg-emerald-600 text-white px-6 py-2.5 rounded-xl font-black text-sm flex items-center gap-2 shadow-lg hover:bg-emerald-500 transition-all">
@@ -262,7 +282,7 @@ function AdminPanelView() {
                     <h4 className="font-black text-slate-800 text-sm">{ad.title}</h4>
                     <div className="flex gap-1">
                        <button onClick={async () => { await supabase.from('advertisements').update({ is_active: !ad.is_active }).eq('id', ad.id); refresh(); }} className={`p-1.5 rounded-lg transition-all ${ad.is_active ? 'text-emerald-600 bg-emerald-100' : 'text-slate-300 bg-white'}`}><ToggleIcon size={16}/></button>
-                       <button onClick={async () => { if(confirm('حذف؟')) { await supabase.from('advertisements').delete().eq('id', ad.id); refresh(); } }} className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg"><Trash2 size={16}/></button>
+                       <button onClick={async () => { if(confirm('حذف؟')) { await supabase.from('advertisements').delete().eq('id', ad.id); refresh(); } }} className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg transition-all"><Trash2 size={16}/></button>
                     </div>
                   </div>
                   <div className="p-3 bg-slate-900 rounded-xl text-[8px] font-mono text-emerald-400/60 overflow-hidden h-16 relative">{ad.html_content}</div>
@@ -273,39 +293,6 @@ function AdminPanelView() {
         </div>
       )}
       {showAdForm && <AdminAdForm onClose={() => setShowAdForm(false)} onSave={() => { setShowAdForm(false); refresh(); }} />}
-    </div>
-  );
-}
-
-function AdminAdForm({ onClose, onSave }: { onClose: () => void; onSave: () => void }) {
-  const [formData, setFormData] = useState({ title: '', html_content: '', placements: [] as string[] });
-  const [loading, setLoading] = useState(false);
-  const togglePlacement = (id: string) => setFormData(prev => ({ ...prev, placements: prev.placements.includes(id) ? prev.placements.filter(p => p !== id) : [...prev.placements, id] }));
-
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    const { error } = await supabase.from('advertisements').insert([{ title: formData.title, html_content: formData.html_content, placements: formData.placements, is_active: true }]);
-    if (error) alert(error.message); else onSave();
-    setLoading(false);
-  };
-
-  return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-xl animate-in text-right">
-      <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl p-8 relative overflow-y-auto max-h-[90vh]">
-        <button onClick={onClose} className="absolute top-6 left-6 p-2 text-slate-400 hover:bg-slate-50 rounded-xl"><X size={20}/></button>
-        <h3 className="text-2xl font-black text-slate-900 mb-6 flex items-center gap-2 flex-row-reverse"><Code2 className="text-emerald-600" /> إضافة إعلان HTML مخصص</h3>
-        <form onSubmit={handleSave} className="space-y-6">
-          <input required placeholder="عنوان الإعلان" className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
-          <textarea required rows={6} className="w-full p-4 bg-slate-900 text-emerald-400 rounded-2xl border-none font-mono text-sm" value={formData.html_content} onChange={e => setFormData({...formData, html_content: e.target.value})} placeholder="<img src='...' />" />
-          <div className="grid grid-cols-2 gap-2">
-            {['landing_top', 'search_sidebar', 'market_banner', 'profile_bottom'].map(p => (
-              <button key={p} type="button" onClick={() => togglePlacement(p)} className={`p-3 rounded-xl border-2 transition-all font-black text-xs ${formData.placements.includes(p) ? 'bg-emerald-50 border-emerald-500 text-emerald-700' : 'bg-slate-50 border-transparent text-slate-400'}`}>{p}</button>
-            ))}
-          </div>
-          <button disabled={loading} className="w-full bg-emerald-600 text-white py-4 rounded-2xl font-black text-lg shadow-xl hover:bg-emerald-500 transition-all">{loading ? 'جاري الحفظ...' : 'نشر الإعلان الآن'}</button>
-        </form>
-      </div>
     </div>
   );
 }
@@ -362,10 +349,9 @@ export default function App() {
           </div>
         )}
         {state.view === 'admin-panel' && <AdminPanelView />}
-        {state.view === 'about' && <AboutUsView />}
-        {/* views stubs below for clarity */}
-        {state.view === 'search' && <div className="py-20 text-center font-black text-3xl">صفحة البحث قريباً...</div>}
-        {state.view === 'support' && <div className="py-20 text-center font-black text-3xl">سوق المهام قريباً...</div>}
+        {state.view === 'search' && <div className="py-20 text-center font-black text-3xl animate-in">صفحة البحث قريباً...</div>}
+        {state.view === 'support' && <div className="py-20 text-center font-black text-3xl animate-in">سوق المهام قريباً...</div>}
+        {state.view === 'login' && <div className="py-20 text-center font-black text-3xl animate-in">نموذج الدخول قريباً...</div>}
       </main>
 
       <footer className="bg-white border-t border-slate-100 pt-16 pb-32 md:pb-12 px-6">
@@ -374,18 +360,18 @@ export default function App() {
             <Logo size="md" onClick={() => setView('landing')} />
             <p className="text-slate-500 leading-relaxed font-bold text-sm text-justify">سلكني هي بوابتك الجزائرية للخدمات الاحترافية. نحن نربط الحرفيين بالزبائن لضمان جودة الحياة في كل بيت جزائري.</p>
           </div>
-          <div className="space-y-4">
-            <h4 className="font-black text-slate-900">روابط مهمة</h4>
+          <div className="space-y-4 text-right">
+            <h4 className="font-black text-slate-900">روابط سريعة</h4>
             <ul className="space-y-2">
-              <li><button onClick={() => setView('about')} className="text-slate-500 hover:text-emerald-600 font-bold transition-all flex items-center gap-2"><Info size={16}/> من نحن؟</button></li>
               <li><button onClick={() => setView('search')} className="text-slate-500 hover:text-emerald-600 font-bold transition-all flex items-center gap-2"><SearchIcon size={16}/> تصفح الحرفيين</button></li>
+              <li><button onClick={() => setView('support')} className="text-slate-500 hover:text-emerald-600 font-bold transition-all flex items-center gap-2"><ClipboardList size={16}/> سوق المهام</button></li>
             </ul>
           </div>
-          <div className="space-y-4">
+          <div className="space-y-4 text-right">
             <h4 className="font-black text-slate-900">تواصل معنا</h4>
             <ul className="space-y-2 text-slate-500 font-bold">
-              <li className="flex items-center gap-2"><Mail size={16} className="text-emerald-600"/> contact@salakni.dz</li>
-              <li className="flex items-center gap-2"><Phone size={16} className="text-emerald-600"/> +213 777 11 76 63</li>
+              <li className="flex items-center gap-2 flex-row-reverse"><Mail size={16} className="text-emerald-600"/> contact@salakni.dz</li>
+              <li className="flex items-center gap-2 flex-row-reverse"><Phone size={16} className="text-emerald-600"/> +213 777 11 76 63</li>
             </ul>
           </div>
         </div>
