@@ -88,8 +88,25 @@ export default function App() {
 
   const setView = (view: AppState['view']) => {
     setState(prev => ({ ...prev, view }));
+    // Update URL without reloading to support "links"
+    const url = new URL(window.location.href);
+    url.searchParams.set('view', view);
+    window.history.pushState({}, '', url);
     window.scrollTo(0, 0);
   };
+
+  // Handle URL parameters on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const viewParam = params.get('view') as AppState['view'];
+    if (viewParam && ['landing', 'search', 'support', 'profile', 'admin-panel'].includes(viewParam)) {
+      if (viewParam === 'admin-panel' && state.currentUser?.role !== UserRole.ADMIN) {
+        setState(prev => ({ ...prev, view: 'login' }));
+      } else {
+        setState(prev => ({ ...prev, view: viewParam }));
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (!state.currentUser) return;
@@ -125,7 +142,7 @@ export default function App() {
           .select().single();
         if (newChat) setActiveChat({ ...newChat, other_participant: targetUser });
       }
-      setView('profile'); // We now show chats inside profile
+      setView('profile');
     } catch (e) { console.error(e); } finally { setLoading(false); }
   };
 
@@ -141,6 +158,14 @@ export default function App() {
           <div className="hidden md:flex items-center gap-8">
             <NavButton active={state.view === 'search'} onClick={() => setView('search')}>تصفح الحرفيين</NavButton>
             <NavButton active={state.view === 'support'} onClick={() => setView('support')}>سوق المهام</NavButton>
+            {state.currentUser?.role === UserRole.ADMIN && (
+              <button 
+                onClick={() => setView('admin-panel')} 
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl font-black text-sm transition-all ${state.view === 'admin-panel' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-200' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}
+              >
+                <ShieldCheck size={18} /> لوحة التحكم
+              </button>
+            )}
           </div>
 
           <div className="flex items-center gap-4">
@@ -188,6 +213,7 @@ export default function App() {
             safe={s} 
           />
         )}
+        {state.view === 'admin-panel' && state.currentUser?.role === UserRole.ADMIN && <AdminPanelView safe={s} />}
         {state.view === 'edit-profile' && state.currentUser && <EditProfileView user={state.currentUser} onSave={(u: User) => { updateCurrentUser(u); setView('profile'); }} onCancel={() => setView('profile')} />}
         {state.view === 'login' && <AuthForm type="login" onSuccess={(u: User) => { updateCurrentUser(u); setView('profile'); }} onSwitch={() => setView('register')} safe={s} />}
         {state.view === 'register' && <AuthForm type="register" onSuccess={(u: User) => { updateCurrentUser(u); setView('profile'); }} onSwitch={() => setView('login')} safe={s} />}
@@ -203,6 +229,108 @@ export default function App() {
     </div>
   );
 }
+
+// --- Admin Panel Component ---
+
+const AdminPanelView = ({ safe }: any) => {
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'tasks' | 'verifications'>('overview');
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({ totalUsers: 0, totalWorkers: 0, totalTasks: 0, pendingVerifs: 0 });
+  const [data, setData] = useState<{ users: User[], tasks: any[], verifications: User[] }>({ users: [], tasks: [], verifications: [] });
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const { data: usersData } = await supabase.from('users').select('*').order('created_at', { ascending: false });
+      const { data: rawTasksData } = await supabase.from('tasks').select('*, users!seeker_id(first_name, last_name, avatar, phone)').order('created_at', { ascending: false });
+      
+      const mappedUsers = (usersData || []).map(u => ({
+        ...u,
+        firstName: safe(u.first_name),
+        lastName: safe(u.last_name),
+        phone: safe(u.phone),
+        role: u.role,
+        location: { wilaya: safe(u.wilaya), daira: '' },
+        verificationStatus: u.verification_status,
+        categories: Array.isArray(u.categories) ? u.categories : []
+      } as any));
+
+      const verifications = mappedUsers.filter(u => u.verificationStatus === 'pending');
+      const mappedTasks = (rawTasksData || []).map(t => ({
+        ...t,
+        seeker_name: t.users ? `${safe(t.users.first_name)} ${safe(t.users.last_name)}`.trim() : 'مستخدم مجهول',
+      }));
+
+      setData({ users: mappedUsers, tasks: mappedTasks, verifications: verifications });
+      setStats({
+        totalUsers: mappedUsers.length,
+        totalWorkers: mappedUsers.filter(u => u.role === UserRole.WORKER).length,
+        totalTasks: mappedTasks.length,
+        pendingVerifs: verifications.length
+      });
+    } catch (e) { console.error(e); } finally { setLoading(false); }
+  };
+
+  useEffect(() => { fetchData(); }, []);
+
+  const handleVerification = async (id: string, status: VerificationStatus) => {
+    await supabase.from('users').update({ verification_status: status }).eq('id', id);
+    fetchData();
+  };
+
+  return (
+    <div className="max-w-7xl mx-auto py-12 px-6 animate-in">
+      <div className="flex justify-between items-center mb-12">
+        <h2 className="text-4xl font-black text-slate-900 tracking-tighter">لوحة التحكم <span className="text-emerald-600">Admin</span></h2>
+        <button onClick={fetchData} className="bg-white border border-slate-200 p-3 rounded-xl hover:bg-slate-50 transition-all shadow-sm"><Zap size={20} className="text-yellow-500" /></button>
+      </div>
+
+      <div className="flex gap-2 mb-10 overflow-x-auto no-scrollbar pb-2">
+        <button onClick={() => setActiveTab('overview')} className={`px-6 py-3 rounded-xl font-black text-sm transition-all ${activeTab === 'overview' ? 'bg-emerald-600 text-white' : 'bg-white text-slate-500'}`}>نظرة عامة</button>
+        <button onClick={() => setActiveTab('users')} className={`px-6 py-3 rounded-xl font-black text-sm transition-all ${activeTab === 'users' ? 'bg-emerald-600 text-white' : 'bg-white text-slate-500'}`}>المستخدمين</button>
+        <button onClick={() => setActiveTab('tasks')} className={`px-6 py-3 rounded-xl font-black text-sm transition-all ${activeTab === 'tasks' ? 'bg-emerald-600 text-white' : 'bg-white text-slate-500'}`}>المهام</button>
+        <button onClick={() => setActiveTab('verifications')} className={`px-6 py-3 rounded-xl font-black text-sm transition-all ${activeTab === 'verifications' ? 'bg-emerald-600 text-white' : 'bg-white text-slate-500'}`}>التوثيقات ({stats.pendingVerifs})</button>
+      </div>
+
+      {loading ? (
+        <div className="py-40 flex justify-center"><div className="loading-spinner"></div></div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+          <StatCard label="المستخدمين" value={stats.totalUsers} color="emerald" />
+          <StatCard label="الحرفيين" value={stats.totalWorkers} color="blue" />
+          <StatCard label="المهام" value={stats.totalTasks} color="purple" />
+          <StatCard label="معلق" value={stats.pendingVerifs} color="orange" />
+        </div>
+      )}
+
+      {activeTab === 'verifications' && (
+        <div className="space-y-6">
+          {data.verifications.map(u => (
+            <div key={u.id} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl flex items-center gap-8">
+              <img src={u.avatar || `https://ui-avatars.com/api/?name=${u.firstName}`} className="w-24 h-24 rounded-3xl object-cover" />
+              <div className="flex-1">
+                <h3 className="text-xl font-black">{u.firstName} {u.lastName}</h3>
+                <p className="text-slate-500 font-bold">{u.location.wilaya} • {u.phone}</p>
+              </div>
+              <div className="flex gap-4">
+                <button onClick={() => handleVerification(u.id, 'verified')} className="bg-emerald-600 text-white px-6 py-3 rounded-2xl font-black hover:bg-emerald-500">قبول</button>
+                <button onClick={() => handleVerification(u.id, 'rejected')} className="bg-red-50 text-red-600 px-6 py-3 rounded-2xl font-black hover:bg-red-100">رفض</button>
+              </div>
+            </div>
+          ))}
+          {data.verifications.length === 0 && <div className="text-center py-20 text-slate-400 font-bold">لا توجد طلبات توثيق حالياً</div>}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const StatCard = ({ label, value, color }: any) => (
+  <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+    <p className="text-slate-400 font-black text-[10px] uppercase tracking-widest mb-1">{label}</p>
+    <h4 className={`text-3xl font-black text-slate-900`}>{value}</h4>
+  </div>
+);
 
 // --- Sub-Components ---
 
