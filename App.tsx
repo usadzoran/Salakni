@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { UserRole, AppState, User, VerificationStatus, Task } from './types.ts';
+import { UserRole, AppState, User, VerificationStatus, Task, Message, Chat, Notification as AppNotification } from './types.ts';
 import { SERVICE_CATEGORIES, WILAYAS } from './constants.tsx';
 import { supabase } from './lib/supabase.ts';
 import { 
@@ -40,7 +40,10 @@ import {
   LayoutDashboard,
   BarChart3,
   AlertCircle,
-  Send
+  Send,
+  Bell,
+  MoreVertical,
+  Circle
 } from 'lucide-react';
 
 // --- Global Components & Styles ---
@@ -48,46 +51,18 @@ import {
 const GlobalStyles = () => (
   <style>{`
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
     .animate-in { animation: fadeIn 0.4s ease-out forwards; }
+    .animate-slide { animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
     .arabic-text { font-family: 'Tajawal', sans-serif; }
     .loading-spinner { border: 3px solid rgba(16, 185, 129, 0.1); border-left-color: #10b981; border-radius: 50%; width: 32px; height: 32px; animation: spin 0.8s linear infinite; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     .profile-banner { background: linear-gradient(135deg, #065f46 0%, #0d9488 100%); position: relative; overflow: hidden; }
     .profile-banner::after { content: ''; position: absolute; inset: 0; background: url('https://www.transparenttextures.com/patterns/cubes.png'); opacity: 0.1; }
     .no-scrollbar::-webkit-scrollbar { display: none; }
-    .glass-morphism { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.2); }
-    input, select, textarea { -webkit-appearance: none; appearance: none; }
-    .custom-shadow { box-shadow: 0 15px 40px -10px rgba(16, 185, 129, 0.2); }
-    .admin-stat-card { background: white; border: 1px solid #f1f5f9; border-radius: 2rem; padding: 1.5rem; transition: all 0.3s; }
-    .admin-stat-card:hover { transform: translateY(-5px); box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1); }
+    .chat-bubble-me { border-radius: 1.5rem 0.2rem 1.5rem 1.5rem; background: #059669; color: white; }
+    .chat-bubble-other { border-radius: 0.2rem 1.5rem 1.5rem 1.5rem; background: #f1f5f9; color: #1e293b; }
   `}</style>
-);
-
-const VerificationBadge = ({ status, size = 'md' }: { status?: VerificationStatus, size?: 'sm' | 'md' }) => {
-  if (status !== 'verified' && status !== 'pending') return null;
-  const isSm = size === 'sm';
-  const config = status === 'verified' 
-    ? { color: 'text-emerald-600 bg-emerald-50 border-emerald-100', dot: 'bg-emerald-500', text: isSm ? 'مفعل' : 'موثق' }
-    : { color: 'text-orange-600 bg-orange-50 border-orange-100', dot: 'bg-orange-500 animate-pulse', text: isSm ? 'انتظار' : 'قيد المراجعة' };
-
-  return (
-    <div className={`flex items-center gap-1.5 ${config.color} ${isSm ? 'px-2 py-0.5 rounded-lg' : 'px-4 py-1.5 rounded-full'} border font-black ${isSm ? 'text-[9px]' : 'text-xs'}`}>
-      <span className={`${isSm ? 'w-1.5 h-1.5' : 'w-2.5 h-2.5'} rounded-full ${config.dot} shadow-sm`}></span>
-      {config.text}
-    </div>
-  );
-};
-
-const Logo = ({ onClick, size = 'md' }: { onClick?: () => void, size?: 'sm' | 'md' | 'lg' }) => (
-  <div onClick={onClick} className="flex items-center gap-2 cursor-pointer group select-none transition-transform active:scale-95">
-    <div className={`${size === 'lg' ? 'w-16 h-16 rounded-3xl' : size === 'sm' ? 'w-8 h-8 rounded-lg' : 'w-10 h-10 rounded-xl'} bg-emerald-600 flex items-center justify-center text-white font-black shadow-lg transition-all group-hover:rotate-6`}>
-      <span className={size === 'lg' ? 'text-3xl' : 'text-lg'}>S</span>
-    </div>
-    <div className="flex flex-col items-start leading-none">
-      <span className={`${size === 'lg' ? 'text-3xl' : size === 'sm' ? 'text-lg' : 'text-xl'} font-black text-slate-900 tracking-tighter`}>Salakni</span>
-      <span className={`${size === 'lg' ? 'text-sm' : 'text-[10px]'} font-black text-emerald-600 uppercase`}>dz platform</span>
-    </div>
-  </div>
 );
 
 // --- Main Application ---
@@ -99,39 +74,70 @@ export default function App() {
   });
   const [loading, setLoading] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
+  const [activeChat, setActiveChat] = useState<Chat | null>(null);
   const [taskFilters, setTaskFilters] = useState({ category: '', wilaya: '', sortBy: 'newest' });
   const [searchFilters, setSearchFilters] = useState({ query: '', wilaya: '', category: '' });
   const [chatTarget, setChatTarget] = useState<User | null>(null);
 
-  // Improved helper function to safely render strings and avoid [object Object]
   const s = (val: any): string => {
     if (val === null || val === undefined) return '';
     if (typeof val === 'string') return val;
-    if (Array.isArray(val)) {
-      if (val.length === 0) return '';
-      return val.map(item => s(item)).filter(Boolean).join(', ');
-    }
+    if (Array.isArray(val)) return val.map(item => s(item)).filter(Boolean).join(', ');
     if (typeof val === 'object') {
-      // Handle Supabase join objects
       const firstName = val.first_name || val.firstName;
       const lastName = val.last_name || val.lastName;
-      if (firstName || lastName) {
-        return `${s(firstName)} ${s(lastName)}`.trim();
-      }
-      if (val.name) return s(val.name);
-      if (val.title) return s(val.title);
-      // If it's a generic object without known keys, don't return [object Object]
-      return '';
+      if (firstName || lastName) return `${s(firstName)} ${s(lastName)}`.trim();
+      return val.name || val.title || '';
     }
     return String(val);
   };
-
-  const toArray = (val: any): any[] => Array.isArray(val) ? val : (val ? [val] : []);
 
   const setView = (view: AppState['view']) => {
     setState(prev => ({ ...prev, view }));
     window.scrollTo(0, 0);
   };
+
+  // Real-time Subscriptions
+  useEffect(() => {
+    if (!state.currentUser) return;
+
+    // Listen for new notifications
+    const notificationChannel = supabase
+      .channel(`user-notifications-${state.currentUser.id}`)
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'notifications', 
+        filter: `user_id=eq.${state.currentUser.id}` 
+      }, (payload) => {
+        const newNotif = payload.new as AppNotification;
+        setNotifications(prev => [newNotif, ...prev]);
+        setUnreadNotificationsCount(prev => prev + 1);
+        // Toast logic could be added here
+      })
+      .subscribe();
+
+    // Fetch initial notifications
+    const fetchNotifications = async () => {
+      const { data } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', state.currentUser!.id)
+        .order('created_at', { ascending: false })
+        .limit(20);
+      if (data) {
+        setNotifications(data);
+        setUnreadNotificationsCount(data.filter(n => !n.is_read).length);
+      }
+    };
+    fetchNotifications();
+
+    return () => {
+      notificationChannel.unsubscribe();
+    };
+  }, [state.currentUser?.id]);
 
   const mapDbUser = (d: any): User => ({
     ...d,
@@ -143,9 +149,9 @@ export default function App() {
     location: { wilaya: s(d.wilaya), daira: s(d.daira) },
     avatar: d.avatar,
     bio: s(d.bio),
-    categories: toArray(d.categories).map(c => s(c)),
-    skills: toArray(d.skills).map(sk => s(sk)),
-    portfolio: toArray(d.portfolio),
+    categories: Array.isArray(d.categories) ? d.categories : [],
+    skills: Array.isArray(d.skills) ? d.skills : [],
+    portfolio: Array.isArray(d.portfolio) ? d.portfolio : [],
     verificationStatus: d.verification_status || 'none',
     rating: d.rating || 0,
     ratingCount: d.rating_count || 0,
@@ -153,54 +159,35 @@ export default function App() {
     createdAt: d.created_at
   });
 
-  const fetchWorkers = async () => {
-    setLoading(true);
-    try {
-      let query = supabase.from('users').select('*').eq('role', UserRole.WORKER);
-      if (searchFilters.wilaya) query = query.eq('wilaya', searchFilters.wilaya);
-      if (searchFilters.category) query = query.contains('categories', [searchFilters.category]);
-      if (searchFilters.query) query = query.or(`first_name.ilike.%${searchFilters.query}%,last_name.ilike.%${searchFilters.query}%,bio.ilike.%${searchFilters.query}%`);
-      
-      const { data, error } = await query;
-      if (error) throw error;
-      setState(prev => ({ ...prev, workers: (data || []).map(mapDbUser) }));
-    } catch (e) { console.error(e); } finally { setLoading(false); }
-  };
-
-  const fetchTasks = async () => {
-    setLoading(true);
-    try {
-      let query = supabase.from('tasks').select('*, users(id, first_name, last_name, avatar, phone)').order('created_at', { ascending: taskFilters.sortBy === 'oldest' });
-      if (taskFilters.wilaya) query = query.eq('wilaya', taskFilters.wilaya);
-      if (taskFilters.category) query = query.eq('category', taskFilters.category);
-      if (taskFilters.sortBy === 'budget_desc') query = query.order('budget', { ascending: false });
-      if (taskFilters.sortBy === 'budget_asc') query = query.order('budget', { ascending: true });
-
-      const { data, error } = await query;
-      if (error) throw error;
-
-      setTasks((data || []).map(t => {
-        const userData = Array.isArray(t.users) ? t.users[0] : t.users;
-        return {
-          ...t,
-          seeker_id: userData?.id,
-          seeker_name: userData ? `${s(userData.first_name)} ${s(userData.last_name)}`.trim() : 'مستخدم مجهول',
-          seeker_avatar: userData?.avatar,
-          seeker_phone: userData?.phone
-        };
-      }));
-    } catch (e) { console.error(e); } finally { setLoading(false); }
-  };
-
-  useEffect(() => {
-    if (state.view === 'search') fetchWorkers();
-    if (state.view === 'support') fetchTasks();
-  }, [state.view, searchFilters, taskFilters]);
-
   const updateCurrentUser = (u: User | null) => {
     setState(prev => ({ ...prev, currentUser: u }));
     if (u) localStorage.setItem('user', JSON.stringify(u));
     else localStorage.removeItem('user');
+  };
+
+  const startChatWithUser = async (targetUser: User) => {
+    if (!state.currentUser) return setView('login');
+    setLoading(true);
+    try {
+      // Check if chat exists
+      const { data: existingChats } = await supabase
+        .from('chats')
+        .select('*')
+        .or(`and(participant_1.eq.${state.currentUser.id},participant_2.eq.${targetUser.id}),and(participant_1.eq.${targetUser.id},participant_2.eq.${state.currentUser.id})`)
+        .single();
+
+      if (existingChats) {
+        setActiveChat({ ...existingChats, other_participant: targetUser });
+      } else {
+        const { data: newChat, error } = await supabase
+          .from('chats')
+          .insert([{ participant_1: state.currentUser.id, participant_2: targetUser.id }])
+          .select()
+          .single();
+        if (newChat) setActiveChat({ ...newChat, other_participant: targetUser });
+      }
+      setView('chats');
+    } catch (e) { console.error(e); } finally { setLoading(false); }
   };
 
   return (
@@ -215,16 +202,24 @@ export default function App() {
           <div className="hidden md:flex items-center gap-8">
             <NavButton active={state.view === 'search'} onClick={() => setView('search')}>تصفح الحرفيين</NavButton>
             <NavButton active={state.view === 'support'} onClick={() => setView('support')}>سوق المهام</NavButton>
-            {state.currentUser?.role === UserRole.ADMIN && (
-              <button onClick={() => setView('admin-panel')} className="bg-emerald-600 text-white px-5 py-2 rounded-2xl text-sm font-black flex items-center gap-2 shadow-lg shadow-emerald-200"><ShieldCheck size={18} /> لوحة التحكم</button>
-            )}
+            <NavButton active={state.view === 'chats'} onClick={() => setView('chats')}>المحادثات</NavButton>
           </div>
 
           <div className="flex items-center gap-4">
             {state.currentUser ? (
-              <div onClick={() => { setChatTarget(null); setView('profile'); }} className="flex items-center gap-3 cursor-pointer p-1 pr-4 bg-slate-100 rounded-full border border-slate-200 hover:border-emerald-200 transition-all">
-                <span className="font-black text-xs hidden sm:block">{s(state.currentUser.firstName)}</span>
-                <img src={state.currentUser.avatar || `https://ui-avatars.com/api/?name=${state.currentUser.firstName}`} className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm" />
+              <div className="flex items-center gap-4">
+                <button className="relative p-2 text-slate-400 hover:text-emerald-600 transition-colors">
+                  <Bell size={24} />
+                  {unreadNotificationsCount > 0 && (
+                    <span className="absolute top-0 right-0 w-5 h-5 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white animate-pulse">
+                      {unreadNotificationsCount}
+                    </span>
+                  )}
+                </button>
+                <div onClick={() => { setChatTarget(null); setView('profile'); }} className="flex items-center gap-3 cursor-pointer p-1 pr-4 bg-slate-100 rounded-full border border-slate-200 hover:border-emerald-200 transition-all">
+                  <span className="font-black text-xs hidden sm:block">{s(state.currentUser.firstName)}</span>
+                  <img src={state.currentUser.avatar || `https://ui-avatars.com/api/?name=${state.currentUser.firstName}`} className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm" />
+                </div>
               </div>
             ) : (
               <div className="flex items-center gap-2">
@@ -239,27 +234,244 @@ export default function App() {
       {/* Main Content Area */}
       <main className="flex-grow">
         {state.view === 'landing' && <LandingView onStart={() => setView('search')} onRegister={() => setView('register')} />}
-        {state.view === 'search' && <SearchWorkersView workers={state.workers} loading={loading} filters={searchFilters} onFilterChange={setSearchFilters} onProfile={(w: User) => { setChatTarget(w); setView('profile'); }} safe={s} />}
-        {state.view === 'support' && <TasksMarketView tasks={tasks} loading={loading} filters={taskFilters} onFilterChange={setTaskFilters} currentUser={state.currentUser} onTaskCreated={fetchTasks} safe={s} />}
+        {state.view === 'search' && <SearchWorkersView onProfile={(w: User) => { setChatTarget(w); setView('profile'); }} filters={searchFilters} onFilterChange={setSearchFilters} safe={s} />}
+        {state.view === 'support' && <TasksMarketView currentUser={state.currentUser} safe={s} onContact={startChatWithUser} />}
         {state.view === 'profile' && (state.currentUser || chatTarget) && (
-          <ProfileView user={chatTarget || state.currentUser!} isOwn={!chatTarget || chatTarget?.id === state.currentUser?.id} onEdit={() => setView('edit-profile')} onLogout={() => { updateCurrentUser(null); setView('landing'); }} onBack={() => { setChatTarget(null); setView('search'); }} onDataUpdate={(u: User) => { if (chatTarget) setChatTarget(u); if (state.currentUser?.id === u.id) updateCurrentUser(u); }} safe={s} />
+          <ProfileView 
+            user={chatTarget || state.currentUser!} 
+            isOwn={!chatTarget || chatTarget?.id === state.currentUser?.id} 
+            onEdit={() => setView('edit-profile')} 
+            onLogout={() => { updateCurrentUser(null); setView('landing'); }} 
+            onBack={() => { setChatTarget(null); setView('search'); }} 
+            onChat={startChatWithUser}
+            safe={s} 
+          />
         )}
-        {state.view === 'edit-profile' && state.currentUser && <EditProfileView user={state.currentUser} onSave={(u: User) => { updateCurrentUser(u); setView('profile'); }} onCancel={() => setView('profile')} />}
+        {state.view === 'chats' && state.currentUser && (
+          <ChatsView 
+            currentUser={state.currentUser} 
+            activeChat={activeChat} 
+            setActiveChat={setActiveChat} 
+            safe={s} 
+          />
+        )}
         {state.view === 'login' && <AuthForm type="login" onSuccess={(u: User) => { updateCurrentUser(u); setView('profile'); }} onSwitch={() => setView('register')} safe={s} />}
         {state.view === 'register' && <AuthForm type="register" onSuccess={(u: User) => { updateCurrentUser(u); setView('profile'); }} onSwitch={() => setView('login')} safe={s} />}
-        {state.view === 'admin-panel' && state.currentUser?.role === UserRole.ADMIN && <AdminPanelView safe={s} />}
       </main>
 
       {/* Mobile Tab Bar */}
       <div className="fixed bottom-0 left-0 right-0 h-20 bg-white/90 backdrop-blur-xl border-t border-slate-100 flex items-center justify-around md:hidden z-50 px-2 rounded-t-[2rem] shadow-2xl">
         <TabItem icon={Home} label="الرئيسية" active={state.view === 'landing'} onClick={() => setView('landing')} />
         <TabItem icon={Search} label="الحرفيين" active={state.view === 'search'} onClick={() => setView('search')} />
-        <TabItem icon={Briefcase} label="المهام" active={state.view === 'support'} onClick={() => setView('support')} />
+        <TabItem icon={MessageSquare} label="المحادثات" active={state.view === 'chats'} onClick={() => setView('chats')} />
         <TabItem icon={UserIcon} label="حسابي" active={state.view === 'profile' || state.view === 'login'} onClick={() => state.currentUser ? setView('profile') : setView('login')} />
       </div>
     </div>
   );
 }
+
+// --- Sub-Views ---
+
+const ChatsView = ({ currentUser, activeChat, setActiveChat, safe }: any) => {
+  const [chats, setChats] = useState<Chat[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchChats = async () => {
+      const { data, error } = await supabase
+        .from('chats')
+        .select(`
+          *,
+          p1:participant_1(id, first_name, last_name, avatar),
+          p2:participant_2(id, first_name, last_name, avatar)
+        `)
+        .or(`participant_1.eq.${currentUser.id},participant_2.eq.${currentUser.id}`)
+        .order('updated_at', { ascending: false });
+
+      if (data) {
+        const mappedChats = data.map((c: any) => {
+          const other = c.participant_1 === currentUser.id ? c.p2 : c.p1;
+          return {
+            ...c,
+            other_participant: {
+              id: other.id,
+              firstName: other.first_name,
+              lastName: other.last_name,
+              avatar: other.avatar
+            }
+          };
+        });
+        setChats(mappedChats);
+      }
+      setLoading(false);
+    };
+    fetchChats();
+  }, [currentUser.id]);
+
+  return (
+    <div className="max-w-7xl mx-auto h-[calc(100vh-5rem)] flex animate-in">
+      <div className={`${activeChat ? 'hidden md:flex' : 'flex'} w-full md:w-96 flex-col border-l border-slate-100 bg-white`}>
+        <div className="p-6 border-b border-slate-100">
+          <h2 className="text-2xl font-black">المحادثات</h2>
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          {loading ? (
+            <div className="p-10 flex justify-center"><div className="loading-spinner"></div></div>
+          ) : chats.length > 0 ? chats.map(chat => (
+            <div 
+              key={chat.id} 
+              onClick={() => setActiveChat(chat)}
+              className={`p-4 flex items-center gap-4 cursor-pointer transition-all hover:bg-slate-50 border-b border-slate-50 ${activeChat?.id === chat.id ? 'bg-emerald-50/50 border-r-4 border-emerald-500' : ''}`}
+            >
+              <img src={chat.other_participant?.avatar || `https://ui-avatars.com/api/?name=${chat.other_participant?.firstName}`} className="w-14 h-14 rounded-2xl object-cover" />
+              <div className="flex-1 truncate">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="font-black text-sm">{safe(chat.other_participant?.firstName)} {safe(chat.other_participant?.lastName)}</span>
+                  <span className="text-[10px] text-slate-400 font-bold">{new Date(chat.updated_at).toLocaleDateString('ار-DZ')}</span>
+                </div>
+                <p className="text-xs text-slate-500 truncate">{chat.last_message || 'ابدأ المحادثة الآن...'}</p>
+              </div>
+            </div>
+          )) : (
+            <div className="p-10 text-center text-slate-400 font-bold">لا يوجد محادثات حالياً</div>
+          )}
+        </div>
+      </div>
+
+      <div className={`${activeChat ? 'flex' : 'hidden md:flex'} flex-1 flex-col bg-slate-50/30`}>
+        {activeChat ? (
+          <ChatRoom chat={activeChat} currentUser={currentUser} onBack={() => setActiveChat(null)} safe={safe} />
+        ) : (
+          <div className="flex-1 flex flex-col items-center justify-center text-slate-300">
+            <MessageSquare size={100} className="mb-6 opacity-20" />
+            <p className="text-xl font-black">اختر محادثة للبدء</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const ChatRoom = ({ chat, currentUser, onBack, safe }: any) => {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [sending, setSending] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const fetchMessages = async () => {
+      const { data } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('chat_id', chat.id)
+        .order('created_at', { ascending: true });
+      if (data) setMessages(data);
+    };
+    fetchMessages();
+
+    // Subscribe to new messages
+    const messageChannel = supabase
+      .channel(`chat-room-${chat.id}`)
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'messages', 
+        filter: `chat_id=eq.${chat.id}` 
+      }, (payload) => {
+        const msg = payload.new as Message;
+        setMessages(prev => [...prev, msg]);
+      })
+      .subscribe();
+
+    return () => { messageChannel.unsubscribe(); };
+  }, [chat.id]);
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [messages]);
+
+  const sendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMessage.trim() || sending) return;
+    setSending(true);
+    try {
+      const { error } = await supabase.from('messages').insert([{
+        chat_id: chat.id,
+        sender_id: currentUser.id,
+        content: newMessage
+      }]);
+      if (!error) {
+        setNewMessage('');
+        // Update chat's updated_at and last_message
+        await supabase.from('chats').update({ 
+          last_message: newMessage, 
+          updated_at: new Date().toISOString() 
+        }).eq('id', chat.id);
+
+        // Notify other user
+        const otherId = chat.participant_1 === currentUser.id ? chat.participant_2 : chat.participant_1;
+        await supabase.from('notifications').insert([{
+          user_id: otherId,
+          title: 'رسالة جديدة',
+          content: `${currentUser.firstName}: ${newMessage.substring(0, 30)}...`,
+          type: 'message',
+          link: `/chats?id=${chat.id}`
+        }]);
+      }
+    } catch (e) { console.error(e); } finally { setSending(false); }
+  };
+
+  return (
+    <div className="flex flex-col h-full bg-white md:bg-transparent">
+      <div className="p-4 md:p-6 bg-white border-b border-slate-100 flex items-center justify-between shadow-sm">
+        <div className="flex items-center gap-4">
+          <button onClick={onBack} className="md:hidden p-2 text-slate-400"><ChevronRight size={24} /></button>
+          <img src={chat.other_participant?.avatar || `https://ui-avatars.com/api/?name=${chat.other_participant?.firstName}`} className="w-12 h-12 rounded-xl object-cover" />
+          <div>
+            <h3 className="font-black text-sm">{safe(chat.other_participant?.firstName)} {safe(chat.other_participant?.lastName)}</h3>
+            <span className="text-[10px] text-emerald-500 font-bold flex items-center gap-1"><Circle size={8} fill="currentColor" /> متصل الآن</span>
+          </div>
+        </div>
+        <button className="p-2 text-slate-400 hover:text-emerald-600 transition-colors"><MoreVertical size={20} /></button>
+      </div>
+
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6 bg-slate-50/50">
+        {messages.map((msg, idx) => {
+          const isMe = msg.sender_id === currentUser.id;
+          return (
+            <div key={msg.id} className={`flex ${isMe ? 'justify-start' : 'justify-end'}`}>
+              <div className={`max-w-[80%] p-4 shadow-sm ${isMe ? 'chat-bubble-me' : 'chat-bubble-other'}`}>
+                <p className="text-sm font-medium leading-relaxed">{msg.content}</p>
+                <span className={`block text-[8px] mt-2 font-bold uppercase ${isMe ? 'text-emerald-100 text-left' : 'text-slate-400 text-right'}`}>
+                  {new Date(msg.created_at).toLocaleTimeString('ار-DZ', { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <form onSubmit={sendMessage} className="p-4 md:p-6 bg-white border-t border-slate-100">
+        <div className="flex gap-4 items-center max-w-4xl mx-auto">
+          <button type="button" className="p-3 text-slate-400 hover:text-emerald-600 transition-colors bg-slate-50 rounded-2xl"><Plus size={24} /></button>
+          <input 
+            value={newMessage}
+            onChange={e => setNewMessage(e.target.value)}
+            placeholder="اكتب رسالتك هنا..." 
+            className="flex-1 p-4 bg-slate-50 border-none rounded-[2rem] font-bold text-sm focus:ring-4 ring-emerald-50 transition-all"
+          />
+          <button 
+            type="submit" 
+            disabled={!newMessage.trim() || sending}
+            className="p-4 bg-emerald-600 text-white rounded-[2rem] shadow-xl shadow-emerald-900/20 hover:bg-emerald-500 active:scale-95 disabled:bg-slate-300 transition-all"
+          >
+            <Send size={24} />
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+};
 
 // --- Helper Components ---
 
@@ -277,7 +489,40 @@ const TabItem = ({ icon: Icon, label, active, onClick }: any) => (
   </button>
 );
 
-// --- Sub-Views ---
+/**
+ * VerificationBadge component for displaying user verification status.
+ * Fixes: "Cannot find name 'VerificationBadge'"
+ */
+const VerificationBadge = ({ status, size = 'md' }: { status: VerificationStatus, size?: 'sm' | 'md' }) => {
+  if (status === 'none' || !status) return null;
+  
+  const getStatusConfig = (s: VerificationStatus) => {
+    switch (s) {
+      case 'verified':
+        return { icon: ShieldCheck, color: 'text-emerald-600 bg-emerald-50 border-emerald-200', text: 'موثق' };
+      case 'pending':
+        return { icon: ShieldQuestion, color: 'text-amber-600 bg-amber-50 border-amber-200', text: 'قيد المراجعة' };
+      case 'rejected':
+        return { icon: ShieldAlert, color: 'text-red-600 bg-red-50 border-red-200', text: 'مرفوض' };
+      default:
+        return null;
+    }
+  };
+
+  const config = getStatusConfig(status);
+  if (!config) return null;
+
+  const Icon = config.icon;
+
+  return (
+    <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full border font-black ${config.color} ${size === 'sm' ? 'text-[10px]' : 'text-xs'}`}>
+      <Icon size={size === 'sm' ? 14 : 16} />
+      <span>{config.text}</span>
+    </div>
+  );
+};
+
+// --- Reuseable Components from previous update (simplified) ---
 
 const LandingView = ({ onStart, onRegister }: any) => (
   <div className="relative min-h-[85vh] flex items-center justify-center text-center px-6 overflow-hidden">
@@ -295,408 +540,8 @@ const LandingView = ({ onStart, onRegister }: any) => (
   </div>
 );
 
-const SearchWorkersView = ({ workers, loading, filters, onFilterChange, onProfile, safe }: any) => (
-  <div className="max-w-7xl mx-auto px-4 md:px-10 py-10 md:py-16 animate-in">
-    <div className="bg-white p-6 md:p-12 rounded-[3rem] shadow-xl border border-slate-100 mb-12 flex flex-col md:flex-row gap-6">
-      <div className="flex-1 relative">
-        <input placeholder="ابحث عن حرفي أو خدمة..." className="w-full p-5 pr-14 bg-slate-50 rounded-[2rem] font-bold border-none focus:ring-4 ring-emerald-50 transition-all" value={filters.query} onChange={e => onFilterChange({...filters, query: e.target.value})} />
-        <Search className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-300" size={24} />
-      </div>
-      <select className="p-5 bg-slate-50 rounded-[2rem] font-black text-sm min-w-[180px] border-none focus:ring-4 ring-emerald-50 transition-all cursor-pointer" value={filters.wilaya} onChange={e => onFilterChange({...filters, wilaya: e.target.value})}>
-        <option value="">كل الولايات 🇩🇿</option>
-        {WILAYAS.map(w => <option key={w} value={w}>{w}</option>)}
-      </select>
-      <select className="p-5 bg-slate-50 rounded-[2rem] font-black text-sm min-w-[200px] border-none focus:ring-4 ring-emerald-50 transition-all cursor-pointer" value={filters.category} onChange={e => onFilterChange({...filters, category: e.target.value})}>
-        <option value="">كل التخصصات ⚒️</option>
-        {SERVICE_CATEGORIES.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-      </select>
-    </div>
-
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-      {loading ? (
-        <div className="col-span-full py-40 flex flex-col items-center gap-4">
-          <div className="loading-spinner"></div>
-          <p className="text-slate-400 font-bold">جاري البحث عن الكفاءات...</p>
-        </div>
-      ) : (workers || []).length > 0 ? workers.map((w: User) => (
-        <div key={w.id} onClick={() => onProfile(w)} className="bg-white p-8 rounded-[3.5rem] shadow-lg border border-slate-100 cursor-pointer hover:-translate-y-3 hover:shadow-2xl transition-all group overflow-hidden relative">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50 rounded-bl-[3.5rem] -mr-12 -mt-12 group-hover:scale-110 transition-transform"></div>
-          <div className="flex items-center gap-6 mb-8 relative z-10">
-            <img src={w.avatar || `https://ui-avatars.com/api/?name=${w.firstName}`} className="w-20 h-20 rounded-[2rem] object-cover border-4 border-white shadow-md bg-slate-100" />
-            <div className="text-right flex-1 truncate">
-              <h3 className="text-xl font-black text-slate-900 group-hover:text-emerald-600 transition-colors">{safe(w.firstName)} {safe(w.lastName)}</h3>
-              <div className="mt-1 flex gap-2"><VerificationBadge status={w.verificationStatus} size="sm" /></div>
-            </div>
-          </div>
-          <p className="text-slate-500 text-sm line-clamp-3 h-14 mb-8 font-medium leading-relaxed">{safe(w.bio) || 'حرفي متمرس يسعى لتقديم أفضل خدمة لزبائن سلكني.'}</p>
-          <div className="flex flex-wrap gap-2 mb-8">
-            {w.categories.slice(0, 2).map(c => <span key={safe(c)} className="bg-slate-50 text-slate-600 px-3 py-1 rounded-lg text-[10px] font-black border border-slate-100 uppercase">{safe(c)}</span>)}
-            {w.categories.length > 2 && <span className="text-slate-300 font-black text-[10px]">+ {w.categories.length - 2}</span>}
-          </div>
-          <div className="flex justify-between items-center pt-6 border-t border-slate-50">
-            <span className="text-slate-400 text-xs font-black flex items-center gap-1.5"><MapPin size={16} className="text-emerald-500" /> {safe(w.location.wilaya)}</span>
-            <div className="flex items-center gap-1.5 text-yellow-500 font-black text-lg bg-yellow-50 px-4 py-1 rounded-full"><Star size={18} fill="currentColor" /> {w.rating?.toFixed(1) || '0.0'}</div>
-          </div>
-        </div>
-      )) : (
-        <div className="col-span-full py-32 text-center bg-white rounded-[4rem] border-4 border-dashed border-slate-100">
-          <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-8"><Search size={48} className="text-slate-200" /></div>
-          <p className="text-slate-500 font-black text-3xl mb-4">لم نجد أي حرفيين</p>
-          <p className="text-slate-400 font-bold text-lg">جرب تغيير الفلتر أو البحث في ولاية أخرى</p>
-        </div>
-      )}
-    </div>
-  </div>
-);
-
-const AuthForm = ({ type, onSuccess, onSwitch, safe }: any) => {
-  const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({ firstName: '', lastName: '', phone: '', password: '', role: UserRole.SEEKER, wilaya: WILAYAS[0] });
-
-  const handleSubmit = async (e: any) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      if (type === 'login') {
-        const { data, error } = await supabase.from('users').select('*').eq('phone', formData.phone).eq('password', formData.password).single();
-        if (error) throw new Error("بيانات الدخول غير صحيحة");
-        onSuccess(mapUser(data));
-      } else {
-        const { data, error } = await supabase.from('users').insert([{
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          phone: formData.phone,
-          password: formData.password,
-          role: formData.role,
-          wilaya: formData.wilaya,
-          verification_status: 'none'
-        }]).select().single();
-        if (error) throw error;
-        onSuccess(mapUser(data));
-      }
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const mapUser = (d: any): User => {
-    const toArray = (v: any) => Array.isArray(v) ? v : (v ? [v] : []);
-    return {
-      ...d,
-      id: safe(d.id),
-      firstName: safe(d.first_name),
-      lastName: safe(d.last_name),
-      location: { wilaya: safe(d.wilaya), daira: '' },
-      categories: toArray(d.categories).map(c => safe(c)),
-      skills: toArray(d.skills).map(sk => safe(sk)),
-      portfolio: toArray(d.portfolio),
-      verificationStatus: d.verification_status || 'none',
-      rating: d.rating || 0,
-      ratingCount: d.rating_count || 0,
-      completedJobs: d.completed_jobs || 0
-    };
-  };
-
-  return (
-    <div className="min-h-[80vh] flex items-center justify-center p-6 animate-in">
-      <div className="bg-white w-full max-w-xl p-10 md:p-16 rounded-[4rem] shadow-2xl border border-slate-100 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-bl-full -mr-16 -mt-16"></div>
-        <h2 className="text-4xl md:text-5xl font-black mb-12 border-r-[12px] border-emerald-600 pr-6 tracking-tighter leading-none">
-          {type === 'login' ? 'مرحباً بك مجدداً 👋' : 'أنشئ حسابك الآن ✨'}
-        </h2>
-        
-        <form onSubmit={handleSubmit} className="space-y-8">
-          {type === 'register' && (
-            <>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-3">
-                  <label className="text-xs font-black text-slate-400 mr-2 uppercase tracking-widest">الاسم</label>
-                  <input required placeholder="الاسم" className="w-full p-5 bg-slate-50 rounded-2xl border-none font-bold focus:ring-4 ring-emerald-50" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} />
-                </div>
-                <div className="space-y-3">
-                  <label className="text-xs font-black text-slate-400 mr-2 uppercase tracking-widest">اللقب</label>
-                  <input required placeholder="اللقب" className="w-full p-5 bg-slate-50 rounded-2xl border-none font-bold focus:ring-4 ring-emerald-50" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} />
-                </div>
-              </div>
-              <div className="space-y-3">
-                <label className="text-xs font-black text-slate-400 mr-2 uppercase tracking-widest">الولاية</label>
-                <select className="w-full p-5 bg-slate-50 rounded-2xl border-none font-bold focus:ring-4 ring-emerald-50" value={formData.wilaya} onChange={e => setFormData({...formData, wilaya: e.target.value})}>
-                  {WILAYAS.map(w => <option key={w} value={w}>{w}</option>)}
-                </select>
-              </div>
-              <div className="space-y-3">
-                <label className="text-xs font-black text-slate-400 mr-2 uppercase tracking-widest">نوع الحساب</label>
-                <div className="flex gap-4">
-                  <button type="button" onClick={() => setFormData({...formData, role: UserRole.SEEKER})} className={`flex-1 py-4 rounded-2xl font-black transition-all border-2 ${formData.role === UserRole.SEEKER ? 'bg-emerald-600 text-white border-emerald-600 shadow-lg shadow-emerald-900/20' : 'bg-slate-50 text-slate-400 border-transparent'}`}>أنا زبون</button>
-                  <button type="button" onClick={() => setFormData({...formData, role: UserRole.WORKER})} className={`flex-1 py-4 rounded-2xl font-black transition-all border-2 ${formData.role === UserRole.WORKER ? 'bg-emerald-600 text-white border-emerald-600 shadow-lg shadow-emerald-900/20' : 'bg-slate-50 text-slate-400 border-transparent'}`}>أنا حرفي</button>
-                </div>
-              </div>
-            </>
-          )}
-
-          <div className="space-y-3">
-            <label className="text-xs font-black text-slate-400 mr-2 uppercase tracking-widest">رقم الهاتف</label>
-            <input required placeholder="0550123456" className="w-full p-5 bg-slate-50 rounded-2xl border-none font-black text-xl tracking-widest focus:ring-4 ring-emerald-50" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
-          </div>
-
-          <div className="space-y-3">
-            <label className="text-xs font-black text-slate-400 mr-2 uppercase tracking-widest">كلمة المرور</label>
-            <input required type="password" placeholder="••••••••" className="w-full p-5 bg-slate-50 rounded-2xl border-none font-black text-xl focus:ring-4 ring-emerald-50" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
-          </div>
-
-          <button disabled={loading} className="w-full bg-emerald-600 text-white py-6 rounded-[2.5rem] font-black text-2xl shadow-2xl shadow-emerald-900/30 hover:bg-emerald-500 active:scale-95 transition-all mt-6">
-            {loading ? 'جاري التحقق...' : type === 'login' ? 'دخول' : 'إنشاء الحساب'}
-          </button>
-
-          <p className="text-center font-bold text-slate-400 mt-6">
-            {type === 'login' ? 'ليس لديك حساب؟ ' : 'لديك حساب بالفعل؟ '}
-            <button type="button" onClick={onSwitch} className="text-emerald-600 font-black hover:underline">{type === 'login' ? 'سجل الآن' : 'سجل دخولك'}</button>
-          </p>
-        </form>
-      </div>
-    </div>
-  );
-};
-
-const TasksMarketView = ({ tasks, loading, filters, onFilterChange, currentUser, onTaskCreated, safe }: any) => {
-  const [showCreate, setShowCreate] = useState(false);
-  const [selectedTask, setSelectedTask] = useState<any>(null);
-
-  return (
-    <div className="max-w-7xl mx-auto px-4 md:px-10 py-12 animate-in">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 mb-16">
-        <div>
-          <h2 className="text-4xl md:text-6xl font-black text-slate-900 mb-3 tracking-tighter">سوق المهام <span className="text-emerald-500">DZ</span> 🇩🇿</h2>
-          <p className="text-slate-500 font-bold text-lg md:text-xl">تصفح طلبات الزبائن في جميع الولايات.</p>
-        </div>
-        <button onClick={() => currentUser ? setShowCreate(true) : alert('يجب تسجيل الدخول لنشر طلب')} className="w-full md:w-auto bg-emerald-600 text-white px-10 py-5 rounded-[2rem] font-black text-xl shadow-2xl shadow-emerald-900/30 hover:bg-emerald-500 hover:scale-105 transition-all flex items-center justify-center gap-4">
-          <Plus size={28} /> انشر طلبك الآن
-        </button>
-      </div>
-
-      <div className="bg-white p-6 rounded-[3rem] shadow-xl border border-slate-100 mb-12 flex flex-col md:flex-row gap-6">
-        <select className="p-5 bg-slate-50 rounded-[2rem] font-black border-none min-w-[160px]" value={filters.wilaya} onChange={e => onFilterChange({...filters, wilaya: e.target.value})}>
-          <option value="">كل الولايات</option>
-          {WILAYAS.map(w => <option key={w} value={w}>{w}</option>)}
-        </select>
-        <select className="p-5 bg-slate-50 rounded-[2rem] font-black border-none min-w-[180px]" value={filters.category} onChange={e => onFilterChange({...filters, category: e.target.value})}>
-          <option value="">كل التخصصات</option>
-          {SERVICE_CATEGORIES.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-        </select>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-        {loading ? <div className="col-span-full py-40 flex justify-center"><div className="loading-spinner"></div></div> : (tasks || []).length > 0 ? tasks.map((t: any) => (
-          <div key={t.id} className="bg-white p-8 rounded-[3.5rem] shadow-lg border border-slate-100 group hover:shadow-2xl transition-all relative overflow-hidden flex flex-col h-full">
-            <div className="flex justify-between items-start mb-6">
-              <span className="bg-emerald-50 text-emerald-700 px-4 py-1.5 rounded-xl text-[10px] font-black border border-emerald-100 uppercase">{safe(t.category)}</span>
-              <span className="text-emerald-600 font-black text-2xl tracking-tighter">{t.budget > 0 ? `${t.budget.toLocaleString()} دج` : 'سعر مفتوح'}</span>
-            </div>
-            <h3 className="text-2xl font-black mb-4 line-clamp-2 leading-tight group-hover:text-emerald-600 transition-colors">{safe(t.title)}</h3>
-            <p className="text-slate-500 text-sm line-clamp-3 h-14 mb-8">{safe(t.description)}</p>
-            <div className="flex items-center gap-4 text-slate-400 text-xs font-black mb-8 mt-auto">
-              <span className="flex items-center gap-1.5"><MapPin size={16} className="text-emerald-500"/> {safe(t.wilaya)}</span>
-              <span className="flex items-center gap-1.5"><Calendar size={16} className="text-emerald-500"/> {new Date(t.created_at).toLocaleDateString('ar-DZ')}</span>
-            </div>
-            <div className="flex items-center justify-between pt-6 border-t border-slate-50">
-              <div className="flex items-center gap-3">
-                <img src={t.seeker_avatar || `https://ui-avatars.com/api/?name=${t.seeker_name}`} className="w-10 h-10 rounded-xl object-cover border-2 border-white shadow-sm" />
-                <span className="text-xs font-black text-slate-800">{safe(t.seeker_name)}</span>
-              </div>
-              <button onClick={() => setSelectedTask(t)} className="bg-slate-950 text-white px-6 py-3 rounded-2xl font-black text-sm active:scale-95 transition-all hover:bg-emerald-600">تقديم عرض</button>
-            </div>
-          </div>
-        )) : (
-          <div className="col-span-full py-32 text-center bg-white rounded-[4rem] border-4 border-dashed border-slate-100">
-            <ClipboardList size={64} className="mx-auto text-slate-100 mb-6" />
-            <p className="text-slate-300 font-black text-2xl">لا توجد طلبات منشورة حالياً</p>
-          </div>
-        )}
-      </div>
-
-      {showCreate && <CreateTaskModal onClose={() => setShowCreate(false)} currentUser={currentUser} onCreated={onTaskCreated} />}
-      {selectedTask && <TaskDetailsModal task={selectedTask} onClose={() => setSelectedTask(null)} safe={safe} />}
-    </div>
-  );
-};
-
-const TaskDetailsModal = ({ task, onClose, safe }: any) => {
-  const [proposal, setProposal] = useState('');
-  const [sent, setSent] = useState(false);
-
-  const handleSend = () => {
-    if (!proposal.trim()) return alert('يرجى كتابة رسالة العرض');
-    setSent(true);
-    setTimeout(() => {
-      alert('تم إرسال عرضك بنجاح! سيصل تنبيه لصاحب المهمة.');
-      onClose();
-    }, 1500);
-  };
-
-  return (
-    <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-xl z-[100] flex items-center justify-center p-4 md:p-10 animate-in">
-      <div className="bg-white w-full max-w-4xl rounded-[4rem] shadow-2xl overflow-hidden relative flex flex-col md:flex-row max-h-[90vh]">
-        <button onClick={onClose} className="absolute top-6 left-6 z-20 text-slate-400 hover:text-red-500 transition-all"><X size={32} /></button>
-        
-        {/* Left Side: Info */}
-        <div className="flex-1 p-8 md:p-14 overflow-y-auto no-scrollbar">
-          <div className="flex gap-4 mb-8">
-            <span className="bg-emerald-50 text-emerald-700 px-5 py-2 rounded-2xl text-xs font-black border border-emerald-100 uppercase">{safe(task.category)}</span>
-            <span className="bg-slate-50 text-slate-500 px-5 py-2 rounded-2xl text-xs font-black border border-slate-100 uppercase">{safe(task.wilaya)}</span>
-          </div>
-          
-          <h2 className="text-3xl md:text-5xl font-black text-slate-900 mb-6 leading-tight tracking-tighter">{safe(task.title)}</h2>
-          
-          <div className="flex items-center gap-8 mb-10 text-slate-500">
-            <div className="flex flex-col">
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">الميزانية</span>
-              <span className="text-3xl font-black text-emerald-600 tracking-tighter">{task.budget > 0 ? `${task.budget.toLocaleString()} دج` : 'سعر مفتوح'}</span>
-            </div>
-            <div className="w-px h-10 bg-slate-100"></div>
-            <div className="flex flex-col">
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">تاريخ النشر</span>
-              <span className="text-lg font-bold text-slate-800">{new Date(task.created_at).toLocaleDateString('ar-DZ')}</span>
-            </div>
-          </div>
-
-          <div className="space-y-4 mb-10">
-            <h4 className="font-black text-slate-900 text-xl flex items-center gap-2 underline decoration-emerald-500 underline-offset-8">وصف المهمة</h4>
-            <p className="text-slate-600 font-medium text-lg leading-relaxed whitespace-pre-wrap">{safe(task.description)}</p>
-          </div>
-
-          <div className="bg-slate-50 p-6 rounded-[2.5rem] border border-slate-100 flex items-center gap-6">
-            <img src={task.seeker_avatar || `https://ui-avatars.com/api/?name=${task.seeker_name}`} className="w-16 h-16 rounded-[1.5rem] object-cover border-4 border-white shadow-md" />
-            <div>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">صاحب الطلب</p>
-              <h5 className="text-xl font-black text-slate-900">{safe(task.seeker_name)}</h5>
-            </div>
-            <div className="mr-auto flex gap-2">
-              <a href={`tel:${task.seeker_phone}`} className="p-4 bg-white text-emerald-600 rounded-2xl shadow-sm hover:bg-emerald-50 transition-all border border-emerald-50"><Phone size={20} /></a>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Side: Proposal Form */}
-        <div className="md:w-[400px] bg-slate-50 p-8 md:p-14 border-r border-slate-100 flex flex-col justify-center">
-          <div className="mb-8">
-            <h3 className="text-3xl font-black text-slate-900 mb-2">تقديم عرضك ✨</h3>
-            <p className="text-slate-500 font-bold text-sm">أخبر الزبون لماذا أنت الأنسب لهذه المهمة.</p>
-          </div>
-
-          <div className="space-y-6">
-            <textarea 
-              value={proposal}
-              onChange={e => setProposal(e.target.value)}
-              placeholder="اكتب رسالتك هنا... (مثال: السلام عليكم، أنا حرفي مختص وجاهز للبدء فوراً)"
-              className="w-full p-6 bg-white rounded-[2rem] border-none font-bold text-slate-700 h-64 resize-none shadow-sm focus:ring-4 ring-emerald-100 transition-all"
-            />
-            
-            <button 
-              onClick={handleSend}
-              disabled={sent}
-              className="w-full bg-emerald-600 text-white py-6 rounded-[2rem] font-black text-xl shadow-2xl shadow-emerald-900/30 flex items-center justify-center gap-3 transition-all hover:bg-emerald-500 active:scale-95 disabled:bg-slate-300"
-            >
-              {sent ? (
-                <>جاري الإرسال...</>
-              ) : (
-                <>إرسال العرض <Send size={24} /></>
-              )}
-            </button>
-            <p className="text-center text-[10px] text-slate-400 font-bold uppercase tracking-widest">ملاحظة: سيصل عرضك مباشرة إلى هاتف الزبون</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const CreateTaskModal = ({ onClose, currentUser, onCreated }: any) => {
-  const [formData, setFormData] = useState({ title: '', description: '', category: SERVICE_CATEGORIES[0].name, wilaya: WILAYAS[0], budget: '' });
-  const [loading, setLoading] = useState(false);
-
-  const submit = async (e: any) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      const { error } = await supabase.from('tasks').insert({
-        seeker_id: currentUser.id,
-        title: formData.title,
-        description: formData.description,
-        category: formData.category,
-        wilaya: formData.wilaya,
-        budget: formData.budget ? parseInt(formData.budget) : 0,
-        status: 'open'
-      });
-      if (error) throw error;
-      onCreated();
-      onClose();
-    } catch (err: any) { alert(err.message); } finally { setLoading(false); }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-xl z-[100] flex items-end sm:items-center justify-center p-0 sm:p-6 animate-in">
-      <div className="bg-white w-full max-w-2xl p-8 sm:p-12 rounded-t-[3rem] sm:rounded-[3.5rem] relative max-h-[90vh] overflow-y-auto no-scrollbar">
-        <button onClick={onClose} className="absolute top-8 left-8 text-slate-300 hover:text-red-500 transition-colors"><X size={32} /></button>
-        <h2 className="text-4xl font-black mb-10 border-r-[12px] border-emerald-600 pr-6 tracking-tighter">طلب خدمة جديد ⚒️</h2>
-        <form onSubmit={submit} className="space-y-8">
-          <div className="space-y-3">
-            <label className="text-xs font-black text-slate-400 mr-2 uppercase tracking-widest">ماذا تحتاج؟</label>
-            <input required placeholder="عنوان مختصر لطلبك" className="w-full p-5 bg-slate-50 rounded-2xl border-none font-bold shadow-inner" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-3">
-              <label className="text-xs font-black text-slate-400 mr-2 uppercase tracking-widest">التصنيف</label>
-              <select className="w-full p-5 bg-slate-50 rounded-2xl border-none font-black shadow-inner" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
-                {SERVICE_CATEGORIES.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-              </select>
-            </div>
-            <div className="space-y-3">
-              <label className="text-xs font-black text-slate-400 mr-2 uppercase tracking-widest">الولاية</label>
-              <select className="w-full p-5 bg-slate-50 rounded-2xl border-none font-black shadow-inner" value={formData.wilaya} onChange={e => setFormData({...formData, wilaya: e.target.value})}>
-                {WILAYAS.map(w => <option key={w} value={w}>{w}</option>)}
-              </select>
-            </div>
-          </div>
-          <div className="space-y-3">
-            <label className="text-xs font-black text-slate-400 mr-2 uppercase tracking-widest">الميزانية المقترحة (دج)</label>
-            <input type="number" placeholder="أدخل مبلغ تقريبي" className="w-full p-5 bg-slate-50 rounded-2xl border-none font-bold shadow-inner" value={formData.budget} onChange={e => setFormData({...formData, budget: e.target.value})} />
-          </div>
-          <div className="space-y-3">
-            <label className="text-xs font-black text-slate-400 mr-2 uppercase tracking-widest">تفاصيل الطلب</label>
-            <textarea required rows={4} placeholder="اشرح لنا ما الذي يجب فعله..." className="w-full p-5 bg-slate-50 rounded-2xl border-none font-bold resize-none shadow-inner" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
-          </div>
-          <button disabled={loading} className="w-full bg-emerald-600 text-white py-6 rounded-[2.5rem] font-black text-2xl shadow-2xl shadow-emerald-900/30 transition-all hover:bg-emerald-500 active:scale-95">
-            {loading ? 'جاري النشر...' : 'انشر المهمة الآن'}
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-};
-
-const ProfileView = ({ user, isOwn, onEdit, onLogout, onBack, onDataUpdate, safe }: any) => {
+const ProfileView = ({ user, isOwn, onEdit, onLogout, onBack, onChat, safe }: any) => {
   const isWorker = user.role === UserRole.WORKER;
-  const portfolioInputRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
-
-  const handlePortfolio = async (e: any) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const base64 = reader.result as string;
-      const current = Array.isArray(user.portfolio) ? user.portfolio : [];
-      if (current.length >= 10) return alert('الحد الأقصى 10 صور');
-      const next = [...current, base64];
-      const { error } = await supabase.from('users').update({ portfolio: next }).eq('id', user.id);
-      if (!error) onDataUpdate({ ...user, portfolio: next });
-      setUploading(false);
-    };
-    reader.readAsDataURL(file);
-  };
 
   return (
     <div className="max-w-6xl mx-auto py-8 px-4 md:px-10 animate-in">
@@ -740,10 +585,10 @@ const ProfileView = ({ user, isOwn, onEdit, onLogout, onBack, onDataUpdate, safe
             <div className="lg:col-span-1 space-y-8">
               <div className="bg-slate-950 text-white p-10 rounded-[3.5rem] shadow-2xl relative overflow-hidden group">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-600/20 blur-3xl -mr-16 -mt-16 group-hover:scale-150 transition-transform"></div>
-                <h4 className="font-black text-xl mb-8 flex items-center gap-3">اتصل الآن <div className="w-2 h-2 bg-emerald-500 rounded-full animate-ping"></div></h4>
+                <h4 className="font-black text-xl mb-8 flex items-center gap-3">تواصل الآن <div className="w-2 h-2 bg-emerald-500 rounded-full animate-ping"></div></h4>
                 <div className="space-y-4">
-                  <div className="text-4xl font-mono text-center py-6 bg-white/5 rounded-3xl tracking-widest border border-white/10 select-all">{safe(user.phone)}</div>
-                  <a href={`tel:${user.phone}`} className="flex items-center justify-center gap-3 w-full bg-emerald-600 py-6 rounded-[2.5rem] font-black text-2xl shadow-xl transition-all active:scale-95"><Phone size={24} /> اتصــال</a>
+                  <button onClick={() => onChat(user)} className="flex items-center justify-center gap-3 w-full bg-emerald-600 py-6 rounded-[2.5rem] font-black text-2xl shadow-xl transition-all active:scale-95 mb-4"><MessageSquare size={24} /> محادثة فورية</button>
+                  <a href={`tel:${user.phone}`} className="flex items-center justify-center gap-3 w-full bg-white/10 py-6 rounded-[2.5rem] font-black text-2xl border border-white/20 hover:bg-white/20 transition-all active:scale-95"><Phone size={24} /> اتصــال هاتفـي</a>
                 </div>
               </div>
             </div>
@@ -753,36 +598,6 @@ const ProfileView = ({ user, isOwn, onEdit, onLogout, onBack, onDataUpdate, safe
                 <h4 className="text-3xl font-black text-slate-900 flex items-center gap-4 mb-8"><Award size={32} className="text-emerald-500"/> نبذة تعريفية</h4>
                 <div className="bg-slate-50 p-10 rounded-[3.5rem] border border-slate-100 leading-relaxed"><p className="text-slate-600 font-medium text-xl leading-relaxed">{safe(user.bio) || 'لم يتم إضافة نبذة تعريفية بعد.'}</p></div>
               </section>
-
-              {isWorker && (
-                <section className="animate-in">
-                  <div className="flex items-center justify-between mb-10">
-                    <h4 className="text-3xl font-black text-slate-900 flex items-center gap-4"><ImageIcon size={32} className="text-emerald-500"/> ألبوم الأعمال</h4>
-                    {isOwn && (
-                      <>
-                        <button onClick={() => portfolioInputRef.current?.click()} disabled={uploading} className="bg-emerald-600 text-white px-6 py-3 rounded-2xl text-sm font-black shadow-xl disabled:bg-slate-300 transition-all active:scale-95 flex items-center gap-2"><Plus size={18}/> أضف صورة</button>
-                        <input type="file" hidden ref={portfolioInputRef} accept="image/*" onChange={handlePortfolio} />
-                      </>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-                    {(user.portfolio || []).length > 0 ? user.portfolio.map((img: string, idx: number) => (
-                      <div key={idx} className="group relative aspect-square rounded-[3rem] overflow-hidden border-[6px] border-white shadow-xl hover:scale-105 transition-all">
-                        <img src={img} className="w-full h-full object-cover" />
-                        {isOwn && (
-                          <button onClick={async () => { 
-                            const next = user.portfolio.filter((_: any, i: number) => i !== idx);
-                            await supabase.from('users').update({ portfolio: next }).eq('id', user.id);
-                            onDataUpdate({ ...user, portfolio: next });
-                          }} className="absolute top-4 left-4 p-3 bg-red-500 text-white rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={18}/></button>
-                        )}
-                      </div>
-                    )) : (
-                      <div className="col-span-full py-20 bg-slate-50 rounded-[3.5rem] border-4 border-dashed border-slate-100 text-center"><p className="text-slate-300 font-black text-xl">لا توجد أعمال منشورة</p></div>
-                    )}
-                  </div>
-                </section>
-              )}
             </div>
           </div>
         </div>
@@ -791,350 +606,202 @@ const ProfileView = ({ user, isOwn, onEdit, onLogout, onBack, onDataUpdate, safe
   );
 };
 
-const EditProfileView = ({ user, onSave, onCancel }: any) => {
-  const [formData, setFormData] = useState({ firstName: user.firstName, lastName: user.lastName, bio: user.bio || '', avatar: user.avatar || '', wilaya: user.location.wilaya });
+// ... AuthForm, SearchWorkersView, TasksMarketView (keep from previous versions but ensure 'safe' and 'onContact' / 'onChat' work together)
+
+const SearchWorkersView = ({ workers, loading, filters, onFilterChange, onProfile, safe }: any) => {
+  const [localWorkers, setLocalWorkers] = useState<User[]>([]);
+  const [localLoading, setLocalLoading] = useState(false);
+
+  useEffect(() => {
+    const fetch = async () => {
+      setLocalLoading(true);
+      let query = supabase.from('users').select('*').eq('role', UserRole.WORKER);
+      if (filters.wilaya) query = query.eq('wilaya', filters.wilaya);
+      if (filters.category) query = query.contains('categories', [filters.category]);
+      if (filters.query) query = query.or(`first_name.ilike.%${filters.query}%,last_name.ilike.%${filters.query}%,bio.ilike.%${filters.query}%`);
+      const { data } = await query;
+      if (data) setLocalWorkers(data.map((d: any) => ({
+        ...d,
+        firstName: d.first_name,
+        lastName: d.last_name,
+        location: { wilaya: d.wilaya, daira: d.daira },
+        categories: Array.isArray(d.categories) ? d.categories : [],
+        verificationStatus: d.verification_status,
+      })));
+      setLocalLoading(false);
+    };
+    fetch();
+  }, [filters]);
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 md:px-10 py-10 md:py-16 animate-in">
+      <div className="bg-white p-6 md:p-12 rounded-[3rem] shadow-xl border border-slate-100 mb-12 flex flex-col md:flex-row gap-6">
+        <div className="flex-1 relative">
+          <input placeholder="ابحث عن حرفي أو خدمة..." className="w-full p-5 pr-14 bg-slate-50 rounded-[2rem] font-bold border-none focus:ring-4 ring-emerald-50 transition-all" value={filters.query} onChange={e => onFilterChange({...filters, query: e.target.value})} />
+          <Search className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-300" size={24} />
+        </div>
+        <select className="p-5 bg-slate-50 rounded-[2rem] font-black text-sm border-none focus:ring-4 ring-emerald-50 cursor-pointer" value={filters.wilaya} onChange={e => onFilterChange({...filters, wilaya: e.target.value})}>
+          <option value="">كل الولايات</option>
+          {WILAYAS.map(w => <option key={w} value={w}>{w}</option>)}
+        </select>
+        <select className="p-5 bg-slate-50 rounded-[2rem] font-black text-sm border-none focus:ring-4 ring-emerald-50 cursor-pointer" value={filters.category} onChange={e => onFilterChange({...filters, category: e.target.value})}>
+          <option value="">كل التخصصات</option>
+          {SERVICE_CATEGORIES.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+        </select>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+        {localLoading ? <div className="col-span-full py-40 flex justify-center"><div className="loading-spinner"></div></div> : localWorkers.length > 0 ? localWorkers.map((w: any) => (
+          <div key={w.id} onClick={() => onProfile(w)} className="bg-white p-8 rounded-[3.5rem] shadow-lg border border-slate-100 cursor-pointer hover:-translate-y-3 hover:shadow-2xl transition-all group overflow-hidden relative">
+            <div className="flex items-center gap-6 mb-8 relative z-10">
+              <img src={w.avatar || `https://ui-avatars.com/api/?name=${w.firstName}`} className="w-20 h-20 rounded-[2rem] object-cover border-4 border-white shadow-md bg-slate-100" />
+              <div className="text-right flex-1 truncate">
+                <h3 className="text-xl font-black text-slate-900 group-hover:text-emerald-600 transition-colors">{safe(w.firstName)} {safe(w.lastName)}</h3>
+                <div className="mt-1 flex gap-2"><VerificationBadge status={w.verificationStatus} size="sm" /></div>
+              </div>
+            </div>
+            <p className="text-slate-400 text-xs font-black flex items-center gap-1.5"><MapPin size={16} className="text-emerald-500" /> {safe(w.location.wilaya)}</p>
+          </div>
+        )) : <div className="col-span-full text-center py-20 text-slate-400">لا توجد نتائج</div>}
+      </div>
+    </div>
+  );
+};
+
+const TasksMarketView = ({ currentUser, safe, onContact }: any) => {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetch = async () => {
+      const { data } = await supabase
+        .from('tasks')
+        .select('*, users(id, first_name, last_name, avatar, phone)')
+        .order('created_at', { ascending: false });
+      if (data) setTasks(data.map((t: any) => {
+        const u = Array.isArray(t.users) ? t.users[0] : t.users;
+        return {
+          ...t,
+          seeker_id: u?.id,
+          seeker_name: `${u?.first_name} ${u?.last_name}`,
+          seeker_avatar: u?.avatar,
+          seeker_phone: u?.phone,
+        };
+      }));
+      setLoading(false);
+    };
+    fetch();
+  }, []);
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 md:px-10 py-12 animate-in">
+      <div className="mb-16">
+        <h2 className="text-4xl md:text-6xl font-black text-slate-900 mb-3 tracking-tighter">سوق المهام <span className="text-emerald-500">DZ</span></h2>
+        <p className="text-slate-500 font-bold">تصفح طلبات الزبائن وتواصل معهم مباشرة.</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+        {loading ? <div className="col-span-full py-40 flex justify-center"><div className="loading-spinner"></div></div> : tasks.map((t: any) => (
+          <div key={t.id} className="bg-white p-8 rounded-[3.5rem] shadow-lg border border-slate-100 flex flex-col h-full">
+            <div className="flex justify-between items-start mb-6">
+              <span className="bg-emerald-50 text-emerald-700 px-4 py-1.5 rounded-xl text-[10px] font-black border border-emerald-100 uppercase">{safe(t.category)}</span>
+              <span className="text-emerald-600 font-black text-2xl tracking-tighter">{t.budget > 0 ? `${t.budget} دج` : 'سعر مفتوح'}</span>
+            </div>
+            <h3 className="text-2xl font-black mb-4 line-clamp-2 leading-tight">{safe(t.title)}</h3>
+            <p className="text-slate-500 text-sm line-clamp-3 mb-8 flex-1">{safe(t.description)}</p>
+            <div className="flex items-center justify-between pt-6 border-t border-slate-50">
+              <div className="flex items-center gap-3">
+                <img src={t.seeker_avatar || `https://ui-avatars.com/api/?name=${t.seeker_name}`} className="w-10 h-10 rounded-xl object-cover" />
+                <span className="text-xs font-black text-slate-800">{safe(t.seeker_name)}</span>
+              </div>
+              <button 
+                onClick={() => onContact({ id: t.seeker_id, firstName: t.seeker_name, phone: t.seeker_phone })} 
+                className="bg-slate-950 text-white px-6 py-3 rounded-2xl font-black text-sm active:scale-95 transition-all hover:bg-emerald-600"
+              >
+                تواصل الآن
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const AuthForm = ({ type, onSuccess, onSwitch, safe }: any) => {
   const [loading, setLoading] = useState(false);
-  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [formData, setFormData] = useState({ firstName: '', lastName: '', phone: '', password: '', role: UserRole.SEEKER, wilaya: WILAYAS[0] });
 
-  const handleAvatar = (e: any) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setFormData({ ...formData, avatar: reader.result as string });
-    reader.readAsDataURL(file);
-  };
-
-  const submit = async (e: any) => {
+  const handleSubmit = async (e: any) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const { error } = await supabase.from('users').update({
-        first_name: formData.firstName,
-        last_name: formData.lastName,
-        bio: formData.bio,
-        avatar: formData.avatar,
-        wilaya: formData.wilaya
-      }).eq('id', user.id);
-      if (error) throw error;
-      onSave({ ...user, ...formData, location: { ...user.location, wilaya: formData.wilaya } });
+      if (type === 'login') {
+        const { data, error } = await supabase.from('users').select('*').eq('phone', formData.phone).eq('password', formData.password).single();
+        if (error) throw new Error("بيانات الدخول غير صحيحة");
+        onSuccess({
+          ...data,
+          firstName: data.first_name,
+          lastName: data.last_name,
+          location: { wilaya: data.wilaya, daira: data.daira },
+        });
+      } else {
+        const { data, error } = await supabase.from('users').insert([{
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          phone: formData.phone,
+          password: formData.password,
+          role: formData.role,
+          wilaya: formData.wilaya,
+          verification_status: 'none'
+        }]).select().single();
+        if (error) throw error;
+        onSuccess({
+          ...data,
+          firstName: data.first_name,
+          lastName: data.last_name,
+          location: { wilaya: data.wilaya, daira: data.daira },
+        });
+      }
     } catch (err: any) { alert(err.message); } finally { setLoading(false); }
   };
 
   return (
-    <div className="max-w-4xl mx-auto py-12 px-6 animate-in">
-      <div className="bg-white p-12 md:p-16 rounded-[4rem] shadow-2xl border border-slate-100">
-        <h2 className="text-4xl font-black mb-16 border-r-[12px] border-emerald-600 pr-6 tracking-tighter">إعدادات الحساب ⚙️</h2>
-        <form onSubmit={submit} className="space-y-12">
-          <div className="flex flex-col items-center gap-4">
-            <div className="relative group cursor-pointer" onClick={() => avatarInputRef.current?.click()}>
-              <img src={formData.avatar || `https://ui-avatars.com/api/?name=${formData.firstName}`} className="w-48 h-48 rounded-[3.5rem] object-cover border-[10px] border-emerald-50 shadow-2xl" />
-              <div className="absolute inset-0 bg-slate-900/40 rounded-[3.5rem] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><Camera className="text-white" size={48} /></div>
+    <div className="min-h-[80vh] flex items-center justify-center p-6 animate-in">
+      <div className="bg-white w-full max-w-xl p-10 md:p-16 rounded-[4rem] shadow-2xl border border-slate-100 relative overflow-hidden">
+        <h2 className="text-4xl font-black mb-12 border-r-[12px] border-emerald-600 pr-6">
+          {type === 'login' ? 'مرحباً بك مجدداً 👋' : 'أنشئ حسابك الآن ✨'}
+        </h2>
+        
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {type === 'register' && (
+            <div className="grid grid-cols-2 gap-4">
+              <input required placeholder="الاسم" className="w-full p-5 bg-slate-50 rounded-2xl border-none font-bold" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} />
+              <input required placeholder="اللقب" className="w-full p-5 bg-slate-50 rounded-2xl border-none font-bold" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} />
             </div>
-            <input type="file" hidden ref={avatarInputRef} accept="image/*" onChange={handleAvatar} />
-            <p className="text-xs font-black text-slate-400 uppercase tracking-widest">تغيير الصورة الشخصية</p>
-          </div>
-          <div className="grid grid-cols-2 gap-6">
-            <input required className="w-full p-5 bg-slate-50 rounded-2xl border-none font-bold shadow-inner" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} />
-            <input required className="w-full p-5 bg-slate-50 rounded-2xl border-none font-bold shadow-inner" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} />
-          </div>
-          <textarea className="w-full p-8 bg-slate-50 rounded-[2.5rem] border-none font-medium text-lg leading-relaxed h-56 resize-none shadow-inner" value={formData.bio} onChange={e => setFormData({...formData, bio: e.target.value})} placeholder="اكتب نبذة عن نفسك للزبائن..." />
-          <div className="flex flex-col sm:flex-row gap-6">
-            <button disabled={loading} className="w-full bg-emerald-600 text-white py-6 rounded-[2.5rem] font-black text-2xl shadow-2xl shadow-emerald-900/20 active:scale-95 transition-all">{loading ? 'جاري الحفظ...' : 'حفظ التغييرات'}</button>
-            <button type="button" onClick={onCancel} className="w-full bg-slate-100 text-slate-500 py-6 rounded-[2.5rem] font-black text-2xl active:scale-95 transition-all">إلغاء</button>
-          </div>
+          )}
+          <input required placeholder="رقم الهاتف" className="w-full p-5 bg-slate-50 rounded-2xl border-none font-black text-xl tracking-widest" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
+          <input required type="password" placeholder="كلمة المرور" className="w-full p-5 bg-slate-50 rounded-2xl border-none font-black" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
+          <button disabled={loading} className="w-full bg-emerald-600 text-white py-6 rounded-[2.5rem] font-black text-2xl shadow-2xl shadow-emerald-900/30 hover:bg-emerald-500 active:scale-95 transition-all mt-6">
+            {loading ? 'جاري التحقق...' : type === 'login' ? 'دخول' : 'إنشاء الحساب'}
+          </button>
+          <p className="text-center font-bold text-slate-400 mt-6">
+            <button type="button" onClick={onSwitch} className="text-emerald-600 font-black hover:underline">{type === 'login' ? 'ليس لديك حساب؟ سجل الآن' : 'لديك حساب؟ سجل دخولك'}</button>
+          </p>
         </form>
       </div>
     </div>
   );
 };
 
-// --- Admin Panel Component ---
-
-const AdminPanelView = ({ safe }: any) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'tasks' | 'verifications'>('overview');
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({ totalUsers: 0, totalWorkers: 0, totalTasks: 0, pendingVerifs: 0 });
-  const [data, setData] = useState<{ users: User[], tasks: any[], verifications: User[] }>({ users: [], tasks: [], verifications: [] });
-
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      // Fetch all required data for admin
-      const { data: usersData } = await supabase.from('users').select('*').order('created_at', { ascending: false });
-      const { data: rawTasksData } = await supabase.from('tasks').select('*, users(first_name, last_name, avatar, phone)').order('created_at', { ascending: false });
-      
-      const mappedUsers = (usersData || []).map(u => ({
-        ...u,
-        firstName: safe(u.first_name),
-        lastName: safe(u.last_name),
-        phone: safe(u.phone),
-        role: u.role,
-        location: { wilaya: safe(u.wilaya), daira: '' },
-        verificationStatus: u.verification_status
-      } as any));
-
-      const verifications = mappedUsers.filter(u => u.verificationStatus === 'pending');
-
-      // Map tasks data to properly extract joined user info
-      const mappedTasks = (rawTasksData || []).map(t => {
-        const userData = Array.isArray(t.users) ? t.users[0] : t.users;
-        return {
-          ...t,
-          seeker_name: userData ? `${safe(userData.first_name)} ${safe(userData.last_name)}`.trim() : 'مستخدم مجهول',
-          seeker_avatar: userData?.avatar,
-          seeker_phone: userData?.phone
-        };
-      });
-
-      setData({
-        users: mappedUsers,
-        tasks: mappedTasks,
-        verifications: verifications
-      });
-
-      setStats({
-        totalUsers: mappedUsers.length,
-        totalWorkers: mappedUsers.filter(u => u.role === UserRole.WORKER).length,
-        totalTasks: mappedTasks.length,
-        pendingVerifs: verifications.length
-      });
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const handleVerification = async (id: string, status: VerificationStatus) => {
-    try {
-      const { error } = await supabase.from('users').update({ verification_status: status }).eq('id', id);
-      if (error) throw error;
-      fetchData(); // Refresh data
-    } catch (e: any) {
-      alert(e.message);
-    }
-  };
-
-  const deleteItem = async (table: string, id: string) => {
-    if (!confirm('هل أنت متأكد من الحذف؟ لا يمكن التراجع عن هذه الخطوة.')) return;
-    try {
-      const { error } = await supabase.from(table).delete().eq('id', id);
-      if (error) throw error;
-      fetchData();
-    } catch (e: any) {
-      alert(e.message);
-    }
-  };
-
-  return (
-    <div className="max-w-7xl mx-auto py-12 px-6 animate-in">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
-        <div>
-          <h2 className="text-4xl md:text-6xl font-black text-slate-900 mb-2 tracking-tighter">لوحة التحكم <span className="text-emerald-600">Admin</span></h2>
-          <p className="text-slate-500 font-bold text-lg">إدارة المنصة، المستخدمين، والطلبات.</p>
-        </div>
-        <button onClick={fetchData} className="bg-white border border-slate-200 p-4 rounded-2xl hover:bg-slate-50 transition-all shadow-sm flex items-center gap-3 font-black text-sm">
-          <Zap size={18} className="text-yellow-500" /> تحديث البيانات
-        </button>
-      </div>
-
-      {/* Admin Tabs */}
-      <div className="flex gap-2 mb-10 overflow-x-auto no-scrollbar pb-2">
-        <AdminTab active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} icon={LayoutDashboard} label="نظرة عامة" />
-        <AdminTab active={activeTab === 'users'} onClick={() => setActiveTab('users')} icon={Users} label="المستخدمين" />
-        <AdminTab active={activeTab === 'tasks'} onClick={() => setActiveTab('tasks')} icon={ClipboardList} label="المهام" />
-        <AdminTab active={activeTab === 'verifications'} onClick={() => setActiveTab('verifications')} icon={ShieldCheck} label="التوثيقات" count={stats.pendingVerifs} />
-      </div>
-
-      {loading ? (
-        <div className="py-40 flex flex-col items-center gap-4">
-          <div className="loading-spinner"></div>
-          <p className="text-slate-400 font-bold">جاري جلب بيانات الإدارة...</p>
-        </div>
-      ) : (
-        <>
-          {activeTab === 'overview' && (
-            <div className="space-y-12">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                <StatCard label="إجمالي المستخدمين" value={stats.totalUsers} icon={Users} color="emerald" />
-                <StatCard label="إجمالي الحرفيين" value={stats.totalWorkers} icon={Briefcase} color="blue" />
-                <StatCard label="المهام المنشورة" value={stats.totalTasks} icon={ClipboardList} color="purple" />
-                <StatCard label="توثيقات معلقة" value={stats.pendingVerifs} icon={ShieldAlert} color="orange" />
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div className="bg-white p-8 rounded-[3.5rem] border border-slate-100 shadow-xl">
-                  <h3 className="text-2xl font-black mb-8 flex items-center gap-3"><Users className="text-emerald-500" /> آخر المسجلين</h3>
-                  <div className="space-y-4">
-                    {data.users.slice(0, 5).map(u => (
-                      <div key={u.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
-                        <div className="flex items-center gap-4">
-                          <img src={u.avatar || `https://ui-avatars.com/api/?name=${u.firstName}`} className="w-10 h-10 rounded-xl object-cover" />
-                          <div>
-                            <p className="font-black text-sm">{u.firstName} {u.lastName}</p>
-                            <p className="text-[10px] text-slate-400 font-bold uppercase">{u.role}</p>
-                          </div>
-                        </div>
-                        <span className="text-[10px] font-bold text-slate-400">{new Date(u.createdAt || '').toLocaleDateString('ar-DZ')}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="bg-white p-8 rounded-[3.5rem] border border-slate-100 shadow-xl">
-                  <h3 className="text-2xl font-black mb-8 flex items-center gap-3"><ClipboardList className="text-emerald-500" /> آخر المهام</h3>
-                  <div className="space-y-4">
-                    {data.tasks.slice(0, 5).map(t => (
-                      <div key={t.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
-                        <div className="flex-1">
-                          <p className="font-black text-sm line-clamp-1">{safe(t.title)}</p>
-                          <p className="text-[10px] text-slate-400 font-bold">{safe(t.category)} • {safe(t.wilaya)}</p>
-                        </div>
-                        <p className="text-emerald-600 font-black text-xs mr-4">{t.budget ? `${t.budget} دج` : 'سعر مفتوح'}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'users' && (
-            <div className="bg-white rounded-[3.5rem] border border-slate-100 shadow-xl overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-right border-collapse">
-                  <thead>
-                    <tr className="bg-slate-50 border-b border-slate-100">
-                      <th className="p-6 font-black text-sm text-slate-500 uppercase">المستخدم</th>
-                      <th className="p-6 font-black text-sm text-slate-500 uppercase">الدور</th>
-                      <th className="p-6 font-black text-sm text-slate-500 uppercase">الموقع</th>
-                      <th className="p-6 font-black text-sm text-slate-500 uppercase">الحالة</th>
-                      <th className="p-6 font-black text-sm text-slate-500 uppercase text-center">إجراءات</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {data.users.map(u => (
-                      <tr key={u.id} className="hover:bg-slate-50 transition-all">
-                        <td className="p-6">
-                          <div className="flex items-center gap-4">
-                            <img src={u.avatar || `https://ui-avatars.com/api/?name=${u.firstName}`} className="w-12 h-12 rounded-2xl object-cover shadow-sm" />
-                            <div>
-                              <p className="font-black text-base">{u.firstName} {u.lastName}</p>
-                              <p className="text-xs text-slate-400 font-mono">{u.phone}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="p-6 font-bold text-sm">
-                          <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase ${u.role === UserRole.WORKER ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-slate-50 text-slate-600 border border-slate-100'}`}>{u.role}</span>
-                        </td>
-                        <td className="p-6 font-bold text-sm text-slate-500">{u.location.wilaya}</td>
-                        <td className="p-6"><VerificationBadge status={u.verificationStatus} size="sm" /></td>
-                        <td className="p-6">
-                          <div className="flex justify-center gap-2">
-                            <button onClick={() => deleteItem('users', u.id)} className="p-3 bg-red-50 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all"><Trash2 size={18} /></button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'tasks' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {data.tasks.map(t => (
-                <div key={t.id} className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-xl flex flex-col group relative overflow-hidden h-full">
-                  <button onClick={() => deleteItem('tasks', t.id)} className="absolute top-6 left-6 p-2 bg-red-50 text-red-500 rounded-xl opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={16} /></button>
-                  <div className="flex items-center gap-3 mb-6">
-                    <span className="bg-emerald-50 text-emerald-700 px-4 py-1.5 rounded-xl text-[10px] font-black uppercase border border-emerald-100">{safe(t.category)}</span>
-                    <span className="text-slate-300 font-bold text-[10px]">{new Date(t.created_at).toLocaleDateString('ar-DZ')}</span>
-                  </div>
-                  <h3 className="text-xl font-black mb-4 line-clamp-1">{safe(t.title)}</h3>
-                  <p className="text-slate-500 text-xs line-clamp-2 h-8 mb-6">{safe(t.description)}</p>
-                  <div className="mt-auto pt-6 border-t border-slate-50 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600 font-black text-[10px]">S</div>
-                      <span className="text-xs font-bold text-slate-800">{safe(t.seeker_name)}</span>
-                    </div>
-                    <span className="text-emerald-600 font-black text-sm">{t.budget > 0 ? `${t.budget} دج` : 'سعر مفتوح'}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {activeTab === 'verifications' && (
-            <div className="space-y-8">
-              {data.verifications.length > 0 ? data.verifications.map(u => (
-                <div key={u.id} className="bg-white p-8 md:p-12 rounded-[4rem] border border-slate-100 shadow-xl flex flex-col lg:flex-row gap-10">
-                  <div className="flex-shrink-0 flex flex-col items-center">
-                    <img src={u.avatar || `https://ui-avatars.com/api/?name=${u.firstName}`} className="w-40 h-40 rounded-[2.5rem] object-cover border-[8px] border-slate-50 shadow-lg" />
-                    <div className="mt-6 flex flex-wrap justify-center gap-2">
-                      {u.categories.map(c => <span key={c} className="bg-emerald-50 text-emerald-700 px-3 py-1 rounded-lg text-[9px] font-black uppercase border border-emerald-100">{c}</span>)}
-                    </div>
-                  </div>
-                  <div className="flex-1 space-y-6">
-                    <div>
-                      <h3 className="text-3xl font-black mb-2">{u.firstName} {u.lastName}</h3>
-                      <div className="flex items-center gap-4 text-slate-400 font-bold text-sm">
-                        <span className="flex items-center gap-1.5"><MapPin size={16} className="text-emerald-500" /> {u.location.wilaya}</span>
-                        <span className="flex items-center gap-1.5"><Phone size={16} className="text-emerald-500" /> {u.phone}</span>
-                      </div>
-                    </div>
-                    <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
-                      <p className="text-slate-600 font-medium leading-relaxed italic">"{u.bio || 'لا يوجد نبذة تعريفية.'}"</p>
-                    </div>
-                  </div>
-                  <div className="flex flex-row lg:flex-col justify-center gap-4">
-                    <button onClick={() => handleVerification(u.id, 'verified')} className="flex-1 lg:flex-none bg-emerald-600 text-white px-10 py-5 rounded-[2rem] font-black shadow-lg shadow-emerald-900/20 active:scale-95 transition-all flex items-center justify-center gap-2"><CheckCircle2 size={24} /> قبول التوثيق</button>
-                    <button onClick={() => handleVerification(u.id, 'rejected')} className="flex-1 lg:flex-none bg-red-50 text-red-600 px-10 py-5 rounded-[2rem] font-black border border-red-100 active:scale-95 transition-all flex items-center justify-center gap-2"><X size={24} /> رفض الطلب</button>
-                  </div>
-                </div>
-              )) : (
-                <div className="py-40 text-center bg-white rounded-[4rem] border-4 border-dashed border-slate-100">
-                  <ShieldCheck size={80} className="mx-auto text-slate-100 mb-6" />
-                  <p className="text-slate-300 font-black text-3xl">لا يوجد طلبات توثيق معلقة</p>
-                </div>
-              )}
-            </div>
-          )}
-        </>
-      )}
+const Logo = ({ onClick, size = 'md' }: { onClick?: () => void, size?: 'sm' | 'md' | 'lg' }) => (
+  <div onClick={onClick} className="flex items-center gap-2 cursor-pointer group select-none transition-transform active:scale-95">
+    <div className={`${size === 'lg' ? 'w-16 h-16 rounded-3xl' : size === 'sm' ? 'w-8 h-8 rounded-lg' : 'w-10 h-10 rounded-xl'} bg-emerald-600 flex items-center justify-center text-white font-black shadow-lg transition-all group-hover:rotate-6`}>
+      <span className={size === 'lg' ? 'text-3xl' : 'text-lg'}>S</span>
     </div>
-  );
-};
-
-// --- Admin Sub-Components ---
-
-const AdminTab = ({ active, onClick, icon: Icon, label, count }: any) => (
-  <button onClick={onClick} className={`flex items-center gap-3 px-8 py-4 rounded-[2rem] font-black text-sm transition-all flex-shrink-0 border ${active ? 'bg-emerald-600 text-white border-emerald-600 shadow-lg shadow-emerald-200' : 'bg-white text-slate-500 border-slate-100 hover:bg-slate-50'}`}>
-    <Icon size={20} />
-    {label}
-    {count !== undefined && count > 0 && <span className="bg-white text-emerald-600 w-6 h-6 rounded-full flex items-center justify-center text-[10px] shadow-sm">{count}</span>}
-  </button>
+    <div className="flex flex-col items-start leading-none">
+      <span className={`${size === 'lg' ? 'text-3xl' : size === 'sm' ? 'text-lg' : 'text-xl'} font-black text-slate-900 tracking-tighter`}>Salakni</span>
+      <span className={`${size === 'lg' ? 'text-sm' : 'text-[10px]'} font-black text-emerald-600 uppercase`}>dz platform</span>
+    </div>
+  </div>
 );
-
-const StatCard = ({ label, value, icon: Icon, color }: any) => {
-  const colors: any = {
-    emerald: 'text-emerald-600 bg-emerald-50 border-emerald-100',
-    blue: 'text-blue-600 bg-blue-50 border-blue-100',
-    purple: 'text-purple-600 bg-purple-50 border-purple-100',
-    orange: 'text-orange-600 bg-orange-50 border-orange-100'
-  };
-
-  return (
-    <div className="admin-stat-card group">
-      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-6 border ${colors[color]}`}>
-        <Icon size={24} />
-      </div>
-      <p className="text-slate-400 font-black text-xs uppercase tracking-widest mb-1">{label}</p>
-      <h4 className="text-4xl font-black text-slate-900 tabular-nums">{value.toLocaleString()}</h4>
-    </div>
-  );
-};
