@@ -93,5 +93,5 @@ export interface Advertisement {
 export interface AppState {
   currentUser: User | null;
   workers: User[];
-  view: 'landing' | 'register' | 'login' | 'dashboard' | 'search' | 'profile' | 'edit-profile' | 'support' | 'admin-panel' | 'chats';
+  view: 'landing' | 'register' | 'login' | 'dashboard' | 'search' | 'profile' | 'edit-profile' | 'support' | 'admin-panel' | 'chats' | 'about';
 }
