@@ -32,7 +32,7 @@ import {
   Check,
   ExternalLink,
   Camera,
-  Image as ImageIcon,
+  ImageIcon,
   UploadCloud,
   Bell,
   Send,
@@ -143,8 +143,10 @@ function TabItem({ icon: Icon, label, active, onClick, badge }: { icon: any; lab
 
 // --- Tasks Market Components ---
 
-// Fix: Added key to component props to resolve TypeScript error in list mapping
-function TaskCard({ task, onClick, onChat }: { task: Task; onClick: () => void; onChat: (id: string) => void; key?: string | number }) {
+/**
+ * FIXED: Added 'key' to TaskCard props type to resolve TypeScript error in map function.
+ */
+function TaskCard({ task, onClick, onChat }: { task: Task; onClick: () => void; onChat: (id: string, initialMsg?: string) => void; key?: React.Key }) {
   return (
     <div 
       className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100 flex flex-col cursor-pointer hover:border-emerald-200 hover:shadow-xl transition-all group animate-fade-in"
@@ -170,7 +172,7 @@ function TaskCard({ task, onClick, onChat }: { task: Task; onClick: () => void; 
       <div className="mt-auto pt-6 border-t border-slate-50 flex justify-between items-center">
          <div className="flex items-center gap-2 text-slate-600 font-bold text-xs">
             <div className="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 overflow-hidden border border-slate-200">
-               {task.seeker_avatar ? <img src={task.seeker_avatar} className="w-full h-full object-cover"/> : <UserIcon size={14}/>}
+               {task.seeker_avatar ? <img src={task.seeker_avatar} className="w-full h-full object-cover" alt="Avatar"/> : <UserIcon size={14}/>}
             </div>
             <div className="flex flex-col">
                <span className="text-[10px] text-slate-400 font-black uppercase tracking-tighter">بواسطة</span>
@@ -183,10 +185,10 @@ function TaskCard({ task, onClick, onChat }: { task: Task; onClick: () => void; 
       </div>
       <div className="mt-4 flex gap-2">
          <button 
-           onClick={(e) => { e.stopPropagation(); onChat(task.seeker_id); }} 
+           onClick={(e) => { e.stopPropagation(); onClick(); }} 
            className="flex-grow bg-slate-900 text-white py-3 rounded-2xl font-black text-xs hover:bg-emerald-600 transition-all flex items-center justify-center gap-2 shadow-md active:scale-95"
          >
-           <MessageSquare size={14}/> تواصل الآن
+           عرض التفاصيل
          </button>
       </div>
     </div>
@@ -211,7 +213,6 @@ function AddTaskModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
     }
     setLoading(true);
     try {
-      // Logic for adding task to Supabase
       const { error } = await supabase.from('tasks').insert([{
         title: formData.title,
         description: formData.description,
@@ -282,12 +283,17 @@ function AddTaskModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
   );
 }
 
-function TasksMarketView({ onStartChat }: { onStartChat: (id: string) => void }) {
+function TasksMarketView({ onStartChat }: { onStartChat: (id: string, initialMsg?: string) => void }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [filters, setFilters] = useState({ wilaya: '', category: '', query: '' });
+  
+  // New state for handling initial offer message
+  const [offerMode, setOfferMode] = useState(false);
+  const [offerMessage, setOfferMessage] = useState('');
+  const [sendingOffer, setSendingOffer] = useState(false);
 
   const fetchTasks = async () => {
     setLoading(true);
@@ -310,6 +316,19 @@ function TasksMarketView({ onStartChat }: { onStartChat: (id: string) => void })
     fetchTasks();
   }, [filters]);
 
+  const handleSendOffer = async () => {
+    if (!offerMessage.trim()) return;
+    setSendingOffer(true);
+    // Simulate API call and then trigger chat navigation
+    setTimeout(() => {
+      onStartChat(selectedTask!.seeker_id, offerMessage);
+      setSendingOffer(false);
+      setSelectedTask(null);
+      setOfferMode(false);
+      setOfferMessage('');
+    }, 1000);
+  };
+
   return (
     <div className="max-w-7xl mx-auto py-12 px-6 animate-fade-in text-right">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-16 gap-8">
@@ -323,7 +342,6 @@ function TasksMarketView({ onStartChat }: { onStartChat: (id: string) => void })
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-10">
-         {/* Filters Sidebar */}
          <aside className="lg:col-span-1">
             <div className="bg-white p-8 rounded-[3rem] shadow-xl border border-slate-100 sticky top-28 space-y-8">
                <h4 className="font-black text-slate-900 text-xl flex items-center gap-2 border-b border-slate-50 pb-4"><Filter size={20} className="text-emerald-500"/> فرز المهام</h4>
@@ -359,7 +377,6 @@ function TasksMarketView({ onStartChat }: { onStartChat: (id: string) => void })
             </div>
          </aside>
 
-         {/* Tasks Grid */}
          <div className="lg:col-span-3">
             {loading ? (
               <div className="py-20 flex flex-col items-center gap-4">
@@ -372,7 +389,7 @@ function TasksMarketView({ onStartChat }: { onStartChat: (id: string) => void })
                   <TaskCard 
                     key={task.id} 
                     task={task} 
-                    onClick={() => setSelectedTask(task)} 
+                    onClick={() => { setSelectedTask(task); setOfferMode(false); }} 
                     onChat={onStartChat}
                   />
                 ))}
@@ -394,7 +411,7 @@ function TasksMarketView({ onStartChat }: { onStartChat: (id: string) => void })
       {selectedTask && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-fade-in text-right">
           <div className="bg-white w-full max-w-3xl rounded-[3.5rem] shadow-2xl p-10 relative max-h-[90vh] overflow-y-auto custom-scrollbar border border-slate-100">
-             <button onClick={() => setSelectedTask(null)} className="absolute top-10 left-10 p-4 text-slate-400 hover:bg-slate-50 hover:text-red-500 rounded-2xl transition-all"><X size={28}/></button>
+             <button onClick={() => { setSelectedTask(null); setOfferMode(false); }} className="absolute top-10 left-10 p-4 text-slate-400 hover:bg-slate-50 hover:text-red-500 rounded-2xl transition-all"><X size={28}/></button>
              
              <div className="flex flex-wrap items-center gap-3 mb-8">
                 <span className="bg-emerald-100 text-emerald-700 px-6 py-2 rounded-xl text-[10px] font-black border border-emerald-200 uppercase tracking-widest">{selectedTask.category}</span>
@@ -425,30 +442,64 @@ function TasksMarketView({ onStartChat }: { onStartChat: (id: string) => void })
                 </div>
              </div>
 
-             <div className="bg-emerald-600/5 p-8 rounded-[3rem] border border-emerald-100 mb-12 flex flex-col md:flex-row items-center gap-6">
-                <div className="w-16 h-16 bg-white rounded-2xl border border-emerald-100 flex items-center justify-center text-emerald-600 font-black shadow-sm overflow-hidden">
-                   {selectedTask.seeker_avatar ? <img src={selectedTask.seeker_avatar} className="w-full h-full object-cover"/> : <UserIcon size={32}/>}
-                </div>
-                <div className="flex-grow text-center md:text-right">
-                   <h5 className="font-black text-xl text-slate-900">{selectedTask.seeker_name || 'صاحب المهمة'}</h5>
-                   <p className="text-sm text-slate-400 font-bold">تواصل مع صاحب الطلب مباشرة لمناقشة التفاصيل والاتفاق.</p>
-                </div>
-             </div>
+             {!offerMode ? (
+               <>
+                 <div className="bg-emerald-600/5 p-8 rounded-[3rem] border border-emerald-100 mb-12 flex flex-col md:flex-row items-center gap-6">
+                    <div className="w-16 h-16 bg-white rounded-2xl border border-emerald-100 flex items-center justify-center text-emerald-600 font-black shadow-sm overflow-hidden">
+                       {selectedTask.seeker_avatar ? <img src={selectedTask.seeker_avatar} className="w-full h-full object-cover" alt="Avatar"/> : <UserIcon size={32}/>}
+                    </div>
+                    <div className="flex-grow text-center md:text-right">
+                       <h5 className="font-black text-xl text-slate-900">{selectedTask.seeker_name || 'صاحب المهمة'}</h5>
+                       <p className="text-sm text-slate-400 font-bold">تواصل مع صاحب الطلب مباشرة لمناقشة التفاصيل والاتفاق.</p>
+                    </div>
+                 </div>
 
-             <div className="flex flex-col sm:flex-row gap-5">
-                <button 
-                  onClick={() => { onStartChat(selectedTask.seeker_id); setSelectedTask(null); }} 
-                  className="flex-grow bg-emerald-600 text-white py-6 rounded-[2.5rem] font-black text-2xl shadow-2xl shadow-emerald-200 hover:bg-emerald-500 active:scale-95 transition-all flex items-center justify-center gap-4"
-                >
-                   <MessageSquare size={32}/> تواصل و قدم عرضك
-                </button>
-                <button 
-                  className="bg-slate-900 text-white p-6 rounded-[2.5rem] shadow-xl hover:bg-slate-800 active:scale-95 transition-all"
-                  title="اتصال هاتفي"
-                >
-                   <Phone size={28}/>
-                </button>
-             </div>
+                 <div className="flex flex-col sm:flex-row gap-5">
+                    <button 
+                      onClick={() => setOfferMode(true)} 
+                      className="flex-grow bg-emerald-600 text-white py-6 rounded-[2.5rem] font-black text-2xl shadow-2xl shadow-emerald-200 hover:bg-emerald-500 active:scale-95 transition-all flex items-center justify-center gap-4"
+                    >
+                       <MessageSquare size={32}/> تواصل و قدم عرضك
+                    </button>
+                    <button 
+                      className="bg-slate-900 text-white p-6 rounded-[2.5rem] shadow-xl hover:bg-slate-800 active:scale-95 transition-all"
+                      title="اتصال هاتفي"
+                    >
+                       <Phone size={28}/>
+                    </button>
+                 </div>
+               </>
+             ) : (
+               <div className="animate-fade-in space-y-6">
+                  <div className="bg-emerald-50 p-8 rounded-[3rem] border border-emerald-100">
+                     <h4 className="text-xl font-black text-emerald-900 mb-4 flex items-center gap-2"><Send size={20}/> اكتب عرضك أو رسالتك الأولى</h4>
+                     <textarea 
+                       rows={5} 
+                       className="w-full p-6 bg-white rounded-3xl border-none font-bold text-lg focus:ring-2 ring-emerald-500/20 shadow-sm"
+                       placeholder="مثلاً: السلام عليكم، أنا مهتم بهذه المهمة. سعري المبدئي هو ... وأستطيع إنجازها في غضون ..."
+                       value={offerMessage}
+                       onChange={e => setOfferMessage(e.target.value)}
+                     />
+                     <div className="flex flex-col sm:flex-row gap-4 mt-6">
+                        <button 
+                          disabled={sendingOffer || !offerMessage.trim()}
+                          onClick={handleSendOffer}
+                          className="flex-grow bg-emerald-600 text-white py-5 rounded-[2rem] font-black text-xl shadow-xl shadow-emerald-200 hover:bg-emerald-500 active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                        >
+                           {sendingOffer ? <div className="loading-spinner w-6 h-6 border-white"></div> : <CheckCircle2 size={24}/>}
+                           {sendingOffer ? 'جاري إرسال العرض...' : 'إرسال العرض والبدء بالدردشة'}
+                        </button>
+                        <button 
+                          onClick={() => setOfferMode(false)}
+                          className="bg-slate-100 text-slate-500 px-10 py-5 rounded-[2rem] font-black text-lg hover:bg-slate-200 transition-all"
+                        >
+                           تراجع
+                        </button>
+                     </div>
+                  </div>
+                  <p className="text-xs text-slate-400 font-bold text-center">سيتم إنشاء محادثة جديدة فور إرسال رسالتك.</p>
+               </div>
+             )}
           </div>
         </div>
       )}
@@ -456,34 +507,135 @@ function TasksMarketView({ onStartChat }: { onStartChat: (id: string) => void })
   );
 }
 
-// --- Missing Views Implementation ---
+// --- Chat View Implementation ---
 
-// Added missing ChatView component
-function ChatView({ currentUser, activeChat, onBack }: { currentUser: User; activeChat: Chat | null; onBack: () => void }) {
+function ChatView({ currentUser, activeChat, onBack, initialMessage }: { currentUser: User; activeChat: Chat | null; onBack: () => void; initialMessage?: string }) {
+  const [chats, setChats] = useState<Chat[]>([]);
+  const [selectedChat, setSelectedChat] = useState<Chat | null>(activeChat);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [newMessage, setNewMessage] = useState('');
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Mocking initial chats list
+    setChats([
+      { id: 'chat_1', participant_1: currentUser.id, participant_2: 'w_1', last_message: 'مرحباً، هل أنت متاح؟', updated_at: new Date().toISOString(), other_participant: { firstName: 'أحمد', lastName: 'الكهربائي', avatar: '' } as User },
+      { id: 'chat_2', participant_1: currentUser.id, participant_2: 'w_2', last_message: 'سأرسل لك الموقع الآن', updated_at: new Date().toISOString(), other_participant: { firstName: 'ياسين', lastName: 'مرصص', avatar: '' } as User },
+    ]);
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (selectedChat) {
+      const initialMsgs: Message[] = [
+        { id: '1', chat_id: selectedChat.id, sender_id: selectedChat.participant_2, content: 'السلام عليكم، كيف يمكنني مساعدتك؟', created_at: new Date(Date.now() - 1000000).toISOString(), is_read: true },
+        { id: '2', chat_id: selectedChat.id, sender_id: currentUser.id, content: 'وعليكم السلام، أحتاج لصيانة عطل كهربائي في منزلي', created_at: new Date(Date.now() - 500000).toISOString(), is_read: true }
+      ];
+      
+      if (initialMessage) {
+        initialMsgs.push({
+          id: 'offer_msg',
+          chat_id: selectedChat.id,
+          sender_id: currentUser.id,
+          content: initialMessage,
+          created_at: new Date().toISOString(),
+          is_read: false
+        });
+      }
+      
+      setMessages(initialMsgs);
+      setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: 'smooth' }), 200);
+    }
+  }, [selectedChat, currentUser, initialMessage]);
+
+  const sendMessage = () => {
+    if (!newMessage.trim() || !selectedChat) return;
+    const msg: Message = {
+      id: Date.now().toString(),
+      chat_id: selectedChat.id,
+      sender_id: currentUser.id,
+      content: newMessage,
+      created_at: new Date().toISOString(),
+      is_read: false
+    };
+    setMessages(prev => [...prev, msg]);
+    setNewMessage('');
+    setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+  };
+
   return (
-    <div className="max-w-4xl mx-auto h-[80vh] bg-white rounded-[3rem] shadow-2xl border border-slate-100 flex flex-col my-10 animate-fade-in">
-       <div className="p-6 border-b border-slate-50 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-             <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center text-emerald-600">
-                <MessageSquare size={24}/>
-             </div>
-             <div>
-                <h3 className="text-xl font-black text-slate-900">المحادثات</h3>
-                <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">تواصل مع الزبائن والحرفيين</p>
-             </div>
+    <div className="max-w-6xl mx-auto h-[calc(100vh-160px)] flex flex-col md:flex-row bg-white rounded-[3rem] shadow-2xl overflow-hidden border border-slate-100 animate-fade-in mt-6 mb-6">
+      <div className={`w-full md:w-1/3 border-l border-slate-50 flex flex-col ${selectedChat ? 'hidden md:flex' : 'flex'}`}>
+        <div className="p-8 border-b border-slate-50 flex items-center justify-between">
+           <h2 className="text-2xl font-black text-slate-900">المحادثات</h2>
+           <div className="w-8 h-8 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-600 font-black text-xs">2</div>
+        </div>
+        <div className="flex-grow overflow-y-auto custom-scrollbar p-4 space-y-2">
+          {chats.map(chat => (
+            <div 
+              key={chat.id} 
+              onClick={() => setSelectedChat(chat)}
+              className={`p-5 rounded-3xl cursor-pointer transition-all flex items-center gap-4 ${selectedChat?.id === chat.id ? 'bg-emerald-50 border-emerald-100' : 'hover:bg-slate-50 border-transparent'} border`}
+            >
+              <div className="w-14 h-14 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600 font-black text-xl">
+                {chat.other_participant?.avatar ? <img src={chat.other_participant.avatar} className="w-full h-full object-cover rounded-2xl" alt="Avatar"/> : chat.other_participant?.firstName[0]}
+              </div>
+              <div className="flex-grow text-right">
+                <h4 className="font-black text-slate-900">{chat.other_participant?.firstName} {chat.other_participant?.lastName}</h4>
+                <p className="text-xs text-slate-400 font-bold truncate">{chat.last_message}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className={`flex-grow flex flex-col ${!selectedChat ? 'hidden md:flex bg-slate-50 items-center justify-center' : 'flex'}`}>
+        {selectedChat ? (
+          <>
+            <div className="p-6 border-b border-slate-50 flex items-center justify-between bg-white">
+              <div className="flex items-center gap-4">
+                <button onClick={() => setSelectedChat(null)} className="md:hidden p-2 text-slate-400"><ArrowRight/></button>
+                <div className="w-12 h-12 bg-emerald-600 rounded-2xl flex items-center justify-center text-white font-black text-lg">
+                  {selectedChat.other_participant?.firstName[0]}
+                </div>
+                <div className="text-right">
+                  <h3 className="font-black text-slate-900 leading-none">{selectedChat.other_participant?.firstName} {selectedChat.other_participant?.lastName}</h3>
+                  <span className="text-[10px] text-emerald-500 font-black uppercase">متصل الآن</span>
+                </div>
+              </div>
+              <button className="p-3 text-slate-400 hover:bg-slate-50 rounded-2xl"><MoreVertical size={20}/></button>
+            </div>
+            <div className="flex-grow overflow-y-auto custom-scrollbar p-8 space-y-6 bg-slate-50/30">
+              {messages.map((m, idx) => (
+                <div key={idx} className={`flex ${m.sender_id === currentUser.id ? 'justify-start' : 'justify-end'}`}>
+                  <div className={`max-w-[80%] p-4 px-6 shadow-sm font-medium ${m.sender_id === currentUser.id ? 'chat-bubble-me' : 'chat-bubble-other'}`}>
+                    <p>{m.content}</p>
+                    <span className="text-[9px] opacity-60 block mt-1 text-left">{new Date(m.created_at).toLocaleTimeString('ar-DZ', { hour: '2-digit', minute: '2-digit' })}</span>
+                  </div>
+                </div>
+              ))}
+              <div ref={scrollRef} />
+            </div>
+            <div className="p-6 bg-white border-t border-slate-50">
+              <div className="flex gap-3">
+                <input type="text" placeholder="اكتب رسالتك..." className="flex-grow p-4 px-6 bg-slate-50 rounded-2xl border-none font-bold focus:ring-2 ring-emerald-500/20" value={newMessage} onChange={e => setNewMessage(e.target.value)} onKeyPress={e => e.key === 'Enter' && sendMessage()} />
+                <button onClick={sendMessage} className="bg-emerald-600 text-white p-4 px-6 rounded-2xl shadow-lg hover:bg-emerald-500 transition-all"><Send size={24}/></button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="text-center p-20 space-y-4">
+             <div className="w-24 h-24 bg-emerald-100 rounded-[2.5rem] flex items-center justify-center text-emerald-600 mx-auto mb-6"><MessageSquare size={48}/></div>
+             <h3 className="text-2xl font-black text-slate-900">ابدأ المحادثة</h3>
+             <p className="text-slate-400 font-bold max-w-xs mx-auto">تواصل مباشرة مع الحرفيين أو الزبائن لمناقشة التفاصيل.</p>
           </div>
-          <button onClick={onBack} className="p-3 text-slate-400 hover:bg-slate-50 rounded-xl transition-all"><X size={24}/></button>
-       </div>
-       <div className="flex-grow p-8 flex flex-col items-center justify-center text-center">
-          <MessageSquare size={80} className="text-slate-100 mb-6"/>
-          <h3 className="text-3xl font-black text-slate-300 italic">نظام المحادثات المباشرة قيد الصيانة</h3>
-          <p className="text-slate-400 font-bold mt-4 max-w-sm mx-auto">نحن نعمل على ترقية خوادم الدردشة لتوفير تجربة أسرع وأكثر أماناً. شكراً لصبركم.</p>
-       </div>
+        )}
+      </div>
     </div>
   );
 }
 
-// Added missing EditProfileView component
+// --- Edit Profile View ---
+
 function EditProfileView({ user, onSaved, onCancel }: { user: User; onSaved: (u: User) => void; onCancel: () => void }) {
   const [formData, setFormData] = useState<User>({...user});
 
@@ -500,19 +652,19 @@ function EditProfileView({ user, onSaved, onCancel }: { user: User; onSaved: (u:
              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                    <label className="text-xs font-black text-slate-400 mr-2 uppercase">الاسم الأول</label>
-                   <input className="w-full p-5 bg-slate-50 rounded-[2rem] border-none font-bold text-lg" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} />
+                   <input className="w-full p-5 bg-slate-50 rounded-[2rem] border-none font-bold text-lg focus:ring-2 ring-emerald-500/20" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} />
                 </div>
                 <div className="space-y-2">
                    <label className="text-xs font-black text-slate-400 mr-2 uppercase">اللقب</label>
-                   <input className="w-full p-5 bg-slate-50 rounded-[2rem] border-none font-bold text-lg" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} />
+                   <input className="w-full p-5 bg-slate-50 rounded-[2rem] border-none font-bold text-lg focus:ring-2 ring-emerald-500/20" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} />
                 </div>
              </div>
              <div className="space-y-2">
                 <label className="text-xs font-black text-slate-400 mr-2 uppercase">النبذة الشخصية</label>
-                <textarea rows={4} className="w-full p-8 bg-slate-50 rounded-[3rem] border-none font-bold text-lg" value={formData.bio || ''} onChange={e => setFormData({...formData, bio: e.target.value})} />
+                <textarea rows={4} className="w-full p-8 bg-slate-50 rounded-[3rem] border-none font-bold text-lg focus:ring-2 ring-emerald-500/20" value={formData.bio || ''} onChange={e => setFormData({...formData, bio: e.target.value})} />
              </div>
-             <div className="flex gap-4 pt-8">
-                <button type="submit" className="flex-grow bg-emerald-600 text-white py-6 rounded-[2.5rem] font-black text-2xl shadow-2xl shadow-emerald-200 hover:bg-emerald-500 transition-all flex items-center justify-center gap-3">
+             <div className="flex flex-col sm:flex-row gap-4 pt-8">
+                <button type="submit" className="flex-grow bg-emerald-600 text-white py-6 rounded-[2.5rem] font-black text-2xl shadow-2xl shadow-emerald-200 hover:bg-emerald-500 transition-all active:scale-95 flex items-center justify-center gap-3">
                    <Save size={28}/> حفظ التغييرات
                 </button>
                 <button type="button" onClick={onCancel} className="bg-slate-100 text-slate-500 px-10 rounded-[2.5rem] font-black text-xl hover:bg-slate-200 transition-all">إلغاء</button>
@@ -537,8 +689,14 @@ export default function App() {
       view: 'landing' 
     };
   });
+  
+  const [initialMsg, setInitialMsg] = useState<string | undefined>();
 
-  const setView = (view: AppState['view']) => { setState(prev => ({ ...prev, view })); window.scrollTo(0, 0); };
+  const setView = (view: AppState['view']) => { 
+    setState(prev => ({ ...prev, view })); 
+    window.scrollTo(0, 0); 
+    if (view !== 'chats') setInitialMsg(undefined); // Clear initial message when leaving chats
+  };
   
   const updateCurrentUser = (u: User | null) => { 
     setState(prev => ({ ...prev, currentUser: u })); 
@@ -546,18 +704,14 @@ export default function App() {
     else localStorage.removeItem('user'); 
   };
 
-  const handleProfileUpdate = (updatedUser: User) => {
-    updateCurrentUser(updatedUser);
-    setView('profile');
-  };
-
   const openWorkerDetails = (worker: User) => {
     setState(prev => ({ ...prev, selectedWorker: worker, view: 'worker-details' }));
     window.scrollTo(0, 0);
   };
 
-  const startChat = (participantId: string) => {
+  const startChat = (participantId: string, offerText?: string) => {
     if (!state.currentUser) { setView('login'); return; }
+    
     const mockChat: Chat = {
       id: `chat_${participantId}`,
       participant_1: state.currentUser.id,
@@ -565,7 +719,10 @@ export default function App() {
       updated_at: new Date().toISOString(),
       other_participant: { firstName: 'مستخدم', lastName: 'نشط', avatar: '' } as User
     };
+    
+    if (offerText) setInitialMsg(offerText);
     setState(prev => ({ ...prev, activeChat: mockChat, view: 'chats' }));
+    window.scrollTo(0, 0);
   };
 
   return (
@@ -592,7 +749,7 @@ export default function App() {
                   <span className="font-black text-sm text-slate-800">{state.currentUser.firstName}</span>
                   <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">حسابي</span>
                 </div>
-                <img src={state.currentUser.avatar || `https://ui-avatars.com/api/?name=${state.currentUser.firstName}`} className="w-12 h-12 rounded-2xl object-cover border-2 border-white shadow-sm" />
+                <img src={state.currentUser.avatar || `https://ui-avatars.com/api/?name=${state.currentUser.firstName}`} className="w-12 h-12 rounded-2xl object-cover border-2 border-white shadow-sm" alt="Profile" />
               </div>
             ) : (
               <button onClick={() => setView('login')} className="bg-emerald-600 text-white px-10 py-3.5 rounded-2xl font-black text-sm shadow-xl shadow-emerald-100 active:scale-95 transition-all">دخول</button>
@@ -605,7 +762,7 @@ export default function App() {
         {state.view === 'landing' && <LandingView onStart={() => setView('search')} onRegister={() => setView('register')} />}
         {state.view === 'search' && <SearchWorkersView onViewWorker={openWorkerDetails} />}
         {state.view === 'worker-details' && state.selectedWorker && <WorkerView worker={state.selectedWorker} onBack={() => setView('search')} onStartChat={() => startChat(state.selectedWorker!.id)} />}
-        {state.view === 'chats' && state.currentUser && <ChatView currentUser={state.currentUser} activeChat={state.activeChat || null} onBack={() => setView('landing')} />}
+        {state.view === 'chats' && state.currentUser && <ChatView currentUser={state.currentUser} activeChat={state.activeChat || null} onBack={() => setView('landing')} initialMessage={initialMsg} />}
         {state.view === 'support' && <TasksMarketView onStartChat={startChat} />}
         {state.view === 'notifications' && (
           <div className="max-w-3xl mx-auto py-20 px-6 animate-fade-in text-center">
@@ -620,7 +777,7 @@ export default function App() {
                 <div className="h-48 bg-gradient-to-r from-emerald-600 to-teal-500"></div>
                 <div className="px-12 pb-12">
                    <div className="relative -mt-24 mb-12">
-                     <img src={state.currentUser.avatar || `https://ui-avatars.com/api/?name=${state.currentUser.firstName}`} className="w-48 h-48 rounded-[3.5rem] border-8 border-white mx-auto shadow-2xl object-cover bg-white" />
+                     <img src={state.currentUser.avatar || `https://ui-avatars.com/api/?name=${state.currentUser.firstName}`} className="w-48 h-48 rounded-[3.5rem] border-8 border-white mx-auto shadow-2xl object-cover bg-white" alt="Profile" />
                      {state.currentUser.verificationStatus === 'verified' && (
                        <div className="absolute bottom-6 right-1/2 translate-x-16 translate-y-2 bg-blue-500 text-white p-2.5 rounded-2xl border-4 border-white shadow-lg"><CheckCircle2 size={24}/></div>
                      )}
@@ -720,7 +877,7 @@ function SearchWorkersView({ onViewWorker }: { onViewWorker: (w: User) => void }
             {workers.map(w => (
               <div key={w.id} className="bg-white p-10 rounded-[3.5rem] shadow-xl border border-slate-100 hover:-translate-y-2 transition-all cursor-pointer group" onClick={() => onViewWorker(w)}>
                  <div className="flex gap-6 items-center mb-8 flex-row-reverse">
-                    <img src={w.avatar || `https://ui-avatars.com/api/?name=${w.firstName}`} className="w-20 h-20 rounded-[1.5rem] object-cover border-4 border-slate-50 shadow-md"/>
+                    <img src={w.avatar || `https://ui-avatars.com/api/?name=${w.firstName}`} className="w-20 h-20 rounded-[1.5rem] object-cover border-4 border-slate-50 shadow-md" alt="Avatar"/>
                     <div className="text-right flex-1">
                        <h3 className="text-2xl font-black text-slate-900 group-hover:text-emerald-600 transition-colors">{w.firstName} {w.lastName}</h3>
                        <div className="flex flex-wrap gap-1 mt-1">
@@ -749,7 +906,7 @@ function WorkerView({ worker, onBack, onStartChat }: { worker: User; onBack: () 
           <div className="h-48 bg-gradient-to-r from-emerald-600 to-teal-500"></div>
           <div className="px-12 pb-12">
              <div className="relative -mt-24 mb-12 flex flex-col md:flex-row items-center md:items-end gap-8">
-                <img src={worker.avatar || `https://ui-avatars.com/api/?name=${worker.firstName}`} className="w-48 h-48 rounded-[3.5rem] border-8 border-white shadow-2xl object-cover bg-slate-50" />
+                <img src={worker.avatar || `https://ui-avatars.com/api/?name=${worker.firstName}`} className="w-48 h-48 rounded-[3.5rem] border-8 border-white shadow-2xl object-cover bg-slate-50" alt="Avatar" />
                 <div className="text-center md:text-right flex-grow">
                    <h2 className="text-5xl font-black text-slate-900 mb-4">{worker.firstName} {worker.lastName}</h2>
                    <div className="flex flex-wrap items-center justify-center md:justify-start gap-6 text-emerald-600 font-black">
@@ -773,7 +930,7 @@ function WorkerView({ worker, onBack, onStartChat }: { worker: User; onBack: () 
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-6">
                         {ensureArray(worker.portfolio).map((img, i) => (
                           <div key={i} className="aspect-square rounded-[2.5rem] bg-slate-100 border border-slate-200 shadow-sm overflow-hidden group">
-                             <img src={img} className="w-full h-full object-cover transition-transform group-hover:scale-110"/>
+                             <img src={img} className="w-full h-full object-cover transition-transform group-hover:scale-110" alt={`Work sample ${i}`}/>
                           </div>
                         ))}
                         {ensureArray(worker.portfolio).length === 0 && (
