@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { UserRole, AppState, User, Advertisement, Task, TaskStatus } from './types';
 import { SERVICE_CATEGORIES, WILAYAS } from './constants';
 import { supabase } from './lib/supabase';
@@ -36,7 +35,10 @@ import {
   Save,
   Check,
   ExternalLink,
-  Award
+  Award,
+  Camera,
+  Image as ImageIcon,
+  UploadCloud
 } from 'lucide-react';
 
 // --- Global Styles ---
@@ -57,6 +59,7 @@ function GlobalStyles() {
       .worker-card:hover { transform: translateY(-5px); box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1); }
       .task-card:hover { transform: translateY(-5px); border-color: #10b981; }
       .category-chip.active { background-color: #10b981; color: white; border-color: #10b981; }
+      .image-upload-wrapper:hover .upload-overlay { opacity: 1; }
     `}</style>
   );
 }
@@ -77,6 +80,15 @@ const ensureArray = (val: any): string[] => {
     return [val.trim()];
   }
   return [];
+};
+
+const fileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = error => reject(error);
+  });
 };
 
 // --- Shared Components ---
@@ -126,6 +138,8 @@ function TabItem({ icon: Icon, label, active, onClick }: { icon: any; label: str
 // --- Specific Views ---
 
 function WorkerView({ worker, onBack }: { worker: User; onBack: () => void }) {
+  const portfolio = ensureArray(worker.portfolio);
+  
   return (
     <div className="max-w-4xl mx-auto py-12 px-6 animate-fade-in text-right">
       <button onClick={onBack} className="flex items-center gap-2 text-slate-500 font-black mb-8 hover:text-emerald-600 transition-all">
@@ -175,22 +189,29 @@ function WorkerView({ worker, onBack }: { worker: User; onBack: () => void }) {
                 </section>
 
                 <section>
+                  <h4 className="text-xl font-black text-slate-900 mb-4">معرض الأعمال</h4>
+                  {portfolio.length > 0 ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                      {portfolio.map((img, idx) => (
+                        <div key={idx} className="aspect-square rounded-[2rem] overflow-hidden border border-slate-100 shadow-sm cursor-zoom-in group">
+                          <img src={img} className="w-full h-full object-cover transition-transform group-hover:scale-110" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-10 border-2 border-dashed border-slate-100 rounded-[2.5rem] text-center">
+                       <ImageIcon size={48} className="text-slate-200 mx-auto mb-2"/>
+                       <p className="text-slate-400 font-bold">لا توجد صور في المعرض حالياً.</p>
+                    </div>
+                  )}
+                </section>
+
+                <section>
                   <h4 className="text-xl font-black text-slate-900 mb-4">التخصصات والخدمات المقدمة</h4>
                   <div className="flex flex-wrap gap-3">
                     {ensureArray(worker.categories).map(c => (
                       <span key={c} className="bg-emerald-50 text-emerald-700 px-5 py-2.5 rounded-2xl font-black text-sm border border-emerald-100 flex items-center gap-2">
                         <Check size={16}/> {c}
-                      </span>
-                    ))}
-                  </div>
-                </section>
-
-                <section>
-                   <h4 className="text-xl font-black text-slate-900 mb-4">المهارات والخبرات</h4>
-                   <div className="flex flex-wrap gap-3">
-                    {ensureArray(worker.skills).map(s => (
-                      <span key={s} className="bg-slate-100 text-slate-600 px-5 py-2.5 rounded-2xl font-black text-sm border border-slate-200">
-                        {s}
                       </span>
                     ))}
                   </div>
@@ -235,16 +256,47 @@ function WorkerView({ worker, onBack }: { worker: User; onBack: () => void }) {
 }
 
 function EditProfileView({ user, onSaved, onCancel }: { user: User; onSaved: (u: User) => void; onCancel: () => void }) {
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const portfolioInputRef = useRef<HTMLInputElement>(null);
+
   const [formData, setFormData] = useState({
     firstName: user.firstName,
     lastName: user.lastName,
     bio: user.bio || '',
     wilaya: user.location.wilaya,
+    avatar: user.avatar || '',
     categories: ensureArray(user.categories),
     skills: ensureArray(user.skills),
+    portfolio: ensureArray(user.portfolio),
     skillInput: ''
   });
   const [saving, setSaving] = useState(false);
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const base64 = await fileToBase64(file);
+      setFormData(prev => ({ ...prev, avatar: base64 }));
+    }
+  };
+
+  const handlePortfolioAdd = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      if (formData.portfolio.length + files.length > 5) {
+        alert("يمكنك إضافة 5 صور كحد أقصى للألبوم.");
+        return;
+      }
+      
+      // Fix: Explicitly cast FileList to File array to fix TypeScript type inference error
+      const newImages = await Promise.all((Array.from(files) as File[]).map(f => fileToBase64(f)));
+      setFormData(prev => ({ ...prev, portfolio: [...prev.portfolio, ...newImages] }));
+    }
+  };
+
+  const removePortfolioItem = (idx: number) => {
+    setFormData(prev => ({ ...prev, portfolio: prev.portfolio.filter((_, i) => i !== idx) }));
+  };
 
   const toggleCategory = (catName: string) => {
     setFormData(prev => ({
@@ -280,8 +332,10 @@ function EditProfileView({ user, onSaved, onCancel }: { user: User; onSaved: (u:
         last_name: formData.lastName,
         bio: formData.bio,
         wilaya: formData.wilaya,
+        avatar: formData.avatar,
         categories: formData.categories,
-        skills: formData.skills
+        skills: formData.skills,
+        portfolio: formData.portfolio
       };
 
       const { error } = await supabase
@@ -296,9 +350,11 @@ function EditProfileView({ user, onSaved, onCancel }: { user: User; onSaved: (u:
         firstName: formData.firstName,
         lastName: formData.lastName,
         bio: formData.bio,
+        avatar: formData.avatar,
         location: { ...user.location, wilaya: formData.wilaya },
         categories: formData.categories,
-        skills: formData.skills
+        skills: formData.skills,
+        portfolio: formData.portfolio
       };
       
       onSaved(updatedUser);
@@ -316,7 +372,19 @@ function EditProfileView({ user, onSaved, onCancel }: { user: User; onSaved: (u:
         <button onClick={onCancel} className="p-3 text-slate-400 hover:bg-slate-100 rounded-full transition-all"><X size={24}/></button>
       </div>
 
-      <div className="bg-white rounded-[3rem] shadow-xl border border-slate-100 p-8 md:p-12 space-y-10">
+      <div className="bg-white rounded-[3rem] shadow-xl border border-slate-100 p-8 md:p-12 space-y-12">
+        {/* Avatar Section */}
+        <div className="flex flex-col items-center gap-6 pb-10 border-b border-slate-50">
+           <div className="relative group cursor-pointer" onClick={() => avatarInputRef.current?.click()}>
+              <img src={formData.avatar || `https://ui-avatars.com/api/?name=${formData.firstName}`} className="w-40 h-40 rounded-[3rem] object-cover border-4 border-emerald-100 shadow-xl group-hover:opacity-80 transition-all" />
+              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all bg-emerald-600/20 rounded-[3rem]">
+                 <Camera size={32} className="text-white"/>
+              </div>
+              <input type="file" ref={avatarInputRef} className="hidden" accept="image/*" onChange={handleAvatarChange} />
+           </div>
+           <button onClick={() => avatarInputRef.current?.click()} className="text-emerald-600 font-black text-sm flex items-center gap-2">تغيير صورة البروفايل <Edit size={16}/></button>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
             <label className="text-xs font-black text-slate-400 mr-2">الاسم الشخصي</label>
@@ -334,6 +402,39 @@ function EditProfileView({ user, onSaved, onCancel }: { user: User; onSaved: (u:
               onChange={e => setFormData({...formData, lastName: e.target.value})} 
             />
           </div>
+        </div>
+
+        {/* Portfolio Album */}
+        <div className="space-y-4">
+           <div className="flex items-center justify-between">
+              <label className="text-xs font-black text-slate-400 mr-2">ألبوم أعمالي (حتى 5 صور)</label>
+              <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full">{formData.portfolio.length}/5</span>
+           </div>
+           
+           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              {formData.portfolio.map((img, idx) => (
+                <div key={idx} className="relative aspect-square rounded-2xl overflow-hidden border border-slate-100 group">
+                   <img src={img} className="w-full h-full object-cover" />
+                   <button 
+                     onClick={() => removePortfolioItem(idx)}
+                     className="absolute top-2 left-2 p-1.5 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-all"
+                   >
+                     <Trash2 size={14}/>
+                   </button>
+                </div>
+              ))}
+              
+              {formData.portfolio.length < 5 && (
+                <button 
+                  onClick={() => portfolioInputRef.current?.click()}
+                  className="aspect-square rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-2 text-slate-400 hover:border-emerald-500 hover:text-emerald-500 transition-all bg-slate-50/30"
+                >
+                   <UploadCloud size={28}/>
+                   <span className="text-[10px] font-black uppercase">إضافة صورة</span>
+                </button>
+              )}
+           </div>
+           <input type="file" multiple ref={portfolioInputRef} className="hidden" accept="image/*" onChange={handlePortfolioAdd} />
         </div>
 
         <div className="space-y-2">
@@ -370,28 +471,6 @@ function EditProfileView({ user, onSaved, onCancel }: { user: User; onSaved: (u:
                 {formData.categories.includes(cat.name) && <Check size={14} className="inline ml-1"/>}
                 {cat.name}
               </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <label className="text-xs font-black text-slate-400 mr-2">المهارات الإضافية</label>
-          <div className="flex gap-2">
-            <input 
-              className="flex-grow p-4 bg-slate-50 rounded-2xl border-none font-bold text-sm focus:ring-2 ring-emerald-500/20" 
-              placeholder="مثلاً: إتقان اللغة الفرنسية، رخصة سياقة..."
-              value={formData.skillInput}
-              onChange={e => setFormData({...formData, skillInput: e.target.value})}
-              onKeyPress={e => e.key === 'Enter' && addSkill()}
-            />
-            <button onClick={addSkill} className="bg-slate-900 text-white px-6 rounded-2xl font-black text-sm">إضافة</button>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {formData.skills.map(skill => (
-              <span key={skill} className="bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2">
-                {skill}
-                <X size={14} className="cursor-pointer text-slate-400 hover:text-red-500" onClick={() => removeSkill(skill)}/>
-              </span>
             ))}
           </div>
         </div>
@@ -445,7 +524,7 @@ function TaskDetailsModal({ task, onClose }: { task: Task; onClose: () => void }
           <div className="flex items-center justify-between border-b border-slate-50 pb-4">
             <h4 className="text-xl font-black text-slate-900 flex items-center gap-3">وصف العمل <Info size={20} className="text-emerald-500"/></h4>
             <div className="flex items-center gap-2 text-slate-400 text-xs font-bold">
-               <Clock size={14}/> {new Date(task.created_at).toLocaleDateString('ar-DZ')}
+               <Clock size={14}/> {new Date(task.created_at).toLocaleDateString('ار-DZ')}
             </div>
           </div>
           <p className="text-slate-600 font-medium leading-[1.8] text-lg whitespace-pre-wrap bg-slate-50/30 p-6 rounded-3xl border border-dashed border-slate-100">
@@ -493,8 +572,10 @@ function SearchWorkersView({ onNavigate, onViewWorker }: { onNavigate: (view: Ap
             lastName: u.last_name || '', 
             location: { wilaya: u.wilaya || '', daira: '' }, 
             verificationStatus: u.verification_status || 'none',
+            avatar: u.avatar || '',
             categories: ensureArray(u.categories),
-            skills: ensureArray(u.skills)
+            skills: ensureArray(u.skills),
+            portfolio: ensureArray(u.portfolio)
           })));
         }
       } catch (err) {
@@ -644,7 +725,7 @@ function TasksMarketView() {
               <div className="flex flex-col gap-4 pt-6 border-t border-slate-50 mt-auto">
                 <div className="flex justify-between items-center text-[11px] font-black text-slate-400">
                   <span className="flex items-center gap-1.5"><MapPin size={16} className="text-emerald-500" /> {task.wilaya}</span>
-                  <span className="flex items-center gap-1.5"><Clock size={16} className="text-emerald-500" /> {new Date(task.created_at).toLocaleDateString('ar-DZ')}</span>
+                  <span className="flex items-center gap-1.5"><Clock size={16} className="text-emerald-500" /> {new Date(task.created_at).toLocaleDateString('ار-DZ')}</span>
                 </div>
                 <button 
                   className="w-full bg-slate-900 text-white py-3.5 rounded-2xl font-black text-xs group-hover:bg-emerald-600 transition-all shadow-md flex items-center justify-center gap-2"
