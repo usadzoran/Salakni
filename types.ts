@@ -81,6 +81,16 @@ export interface Task {
   seeker_phone?: string;
 }
 
+export interface Advertisement {
+  id: string;
+  title: string;
+  image_url: string;
+  link_url: string;
+  placements: string[]; // e.g., ['landing_top', 'search_sidebar', 'market_banner']
+  is_active: boolean;
+  created_at: string;
+}
+
 export interface AppState {
   currentUser: User | null;
   workers: User[];

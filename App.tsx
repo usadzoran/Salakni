@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { UserRole, AppState, User, VerificationStatus, Task, Message, Chat, Notification as AppNotification } from './types.ts';
+import { UserRole, AppState, User, VerificationStatus, Task, Message, Chat, Advertisement, Notification as AppNotification } from './types.ts';
 import { SERVICE_CATEGORIES, WILAYAS } from './constants.tsx';
 import { supabase } from './lib/supabase.ts';
 import { 
@@ -48,7 +48,15 @@ import {
   RefreshCw,
   Shield,
   Search as SearchIcon,
-  Lock
+  Lock,
+  Megaphone,
+  Layout,
+  Layers,
+  Link as LinkIcon,
+  ToggleLeft as ToggleIcon,
+  Info,
+  Mail,
+  HeadphonesContact
 } from 'lucide-react';
 
 // --- Global Styles ---
@@ -69,8 +77,46 @@ const GlobalStyles = () => (
     .chat-bubble-other { border-radius: 0.2rem 1.5rem 1.5rem 1.5rem; background: #f1f5f9; color: #1e293b; }
     .admin-stat-card { background: white; border-radius: 2rem; padding: 1.5rem; border: 1px solid #f1f5f9; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05); transition: transform 0.2s; }
     .admin-stat-card:hover { transform: translateY(-4px); }
+    .ad-banner-gradient { background: linear-gradient(90deg, #10b981 0%, #3b82f6 100%); }
+    .footer-link { transition: all 0.3s ease; display: flex; align-items: center; gap: 8px; font-weight: 700; color: #64748b; }
+    .footer-link:hover { color: #10b981; transform: translateX(-4px); }
   `}</style>
 );
+
+// --- Ad Component for Public View ---
+
+const AdPlacement = ({ position, safe }: { position: string, safe: any }) => {
+  const [ads, setAds] = useState<Advertisement[]>([]);
+
+  useEffect(() => {
+    const fetchAds = async () => {
+      const { data } = await supabase.from('advertisements').select('*').eq('is_active', true).contains('placements', [position]);
+      if (data) setAds(data);
+    };
+    fetchAds();
+  }, [position]);
+
+  if (ads.length === 0) return null;
+
+  return (
+    <div className="my-8 animate-in">
+      {ads.map(ad => (
+        <a key={ad.id} href={ad.link_url} target="_blank" rel="noopener noreferrer" className="block relative group overflow-hidden rounded-[2.5rem] shadow-xl border-4 border-white">
+          <img src={ad.image_url} alt={ad.title} className="w-full h-auto object-cover max-h-48 md:max-h-64 transition-transform duration-700 group-hover:scale-105" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex items-end p-8">
+            <div className="text-white">
+              <span className="bg-yellow-400 text-black px-3 py-1 rounded-full text-[10px] font-black uppercase mb-2 inline-block">إعلان ممول</span>
+              <h4 className="text-xl md:text-2xl font-black">{safe(ad.title)}</h4>
+            </div>
+          </div>
+          <div className="absolute top-4 left-4 bg-white/20 backdrop-blur-md p-2 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity">
+            <ExternalLink size={20} />
+          </div>
+        </a>
+      ))}
+    </div>
+  );
+};
 
 // --- Main Application ---
 
@@ -191,7 +237,7 @@ export default function App() {
       </nav>
 
       <main className="flex-grow">
-        {state.view === 'landing' && <LandingView onStart={() => setView('search')} onRegister={() => setView('register')} />}
+        {state.view === 'landing' && <LandingView onStart={() => setView('search')} onRegister={() => setView('register')} safe={s} />}
         {state.view === 'search' && <SearchWorkersView onProfile={(w: User) => { setChatTarget(w); setView('profile'); }} filters={searchFilters} onFilterChange={setSearchFilters} safe={s} />}
         {state.view === 'support' && <TasksMarketView currentUser={state.currentUser} safe={s} onContact={startChatWithUser} setView={setView} />}
         {state.view === 'profile' && (state.currentUser || chatTarget) && (
@@ -214,16 +260,61 @@ export default function App() {
         {state.view === 'edit-profile' && state.currentUser && <EditProfileView user={state.currentUser} onSave={(u: User) => { updateCurrentUser(u); setView('profile'); }} onCancel={() => setView('profile')} />}
       </main>
 
-      <footer className="bg-white border-t border-slate-100 py-10 px-6 mt-auto">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
-          <Logo size="sm" onClick={() => setView('landing')} />
-          <p className="text-slate-400 font-bold text-sm">جميع الحقوق محفوظة &copy; سلكني 2025</p>
-          <button 
-            onClick={() => setView('admin-panel')} 
-            className="flex items-center gap-2 text-slate-300 hover:text-emerald-600 transition-colors font-black text-xs uppercase tracking-widest"
-          >
-            <Lock size={14} /> لوحة المشرف
-          </button>
+      <footer className="bg-white border-t border-slate-100 pt-16 pb-32 md:pb-12 px-6 mt-auto">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
+            <div className="md:col-span-2 space-y-6">
+              <Logo size="md" onClick={() => setView('landing')} />
+              <div className="space-y-4">
+                <h4 className="text-xl font-black text-slate-900 flex items-center gap-2">
+                  <Info className="text-emerald-600" size={20} /> مـن نحن؟
+                </h4>
+                <p className="text-slate-500 leading-relaxed font-bold text-sm md:text-base text-justify">
+                  <span className="text-emerald-600">سلكني (Salakni)</span> هي المنصة الجزائرية الرائدة التي تسعى لتغيير مفهوم الخدمات المنزلية والمهنية. نحن نؤمن بأن الوصول إلى حرفي محترف وموثوق لا ينبغي أن يكون مهمة شاقة. من خلال شبكتنا التي تغطي 58 ولاية، نجمع بين التكنولوجيا والمهارة اليدوية لضمان جودة الحياة لكل العائلات الجزائرية، مع خلق فرص عمل حقيقية لشبابنا المبدع في كل ركن من أركان الوطن.
+                </p>
+              </div>
+            </div>
+            
+            <div className="space-y-6">
+              <h4 className="text-lg font-black text-slate-900">روابـط سريعة</h4>
+              <ul className="space-y-4">
+                <li><button onClick={() => setView('search')} className="footer-link"><Search size={16} /> تصفح الحرفيين</button></li>
+                <li><button onClick={() => setView('support')} className="footer-link"><ClipboardList size={16} /> سوق المهام</button></li>
+                <li><button onClick={() => setView('register')} className="footer-link"><UserIcon size={16} /> انضم كحرفي</button></li>
+                <li><button onClick={() => setView('login')} className="footer-link"><Lock size={16} /> دخول المشرفين</button></li>
+              </ul>
+            </div>
+
+            <div className="space-y-6">
+              <h4 className="text-lg font-black text-slate-900">تواصـل معنا</h4>
+              <ul className="space-y-4">
+                <li className="flex items-center gap-3 text-slate-500 font-bold text-sm">
+                  <div className="bg-emerald-50 p-2 rounded-lg text-emerald-600"><Mail size={16}/></div>
+                  support@salakni.dz
+                </li>
+                <li className="flex items-center gap-3 text-slate-500 font-bold text-sm">
+                  <div className="bg-emerald-50 p-2 rounded-lg text-emerald-600"><Phone size={16}/></div>
+                  +213 (0) 777 11 76 63
+                </li>
+                <li className="flex items-center gap-3 text-slate-500 font-bold text-sm">
+                  <div className="bg-emerald-50 p-2 rounded-lg text-emerald-600"><MapPin size={16}/></div>
+                  الجزائر العاصمة، الجزائر
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="pt-8 border-t border-slate-50 flex flex-col md:flex-row justify-between items-center gap-6">
+            <p className="text-slate-400 font-black text-xs">جميع الحقوق محفوظة &copy; سلكني 2025 - صُنع بكل فخر في الجزائر 🇩🇿</p>
+            <div className="flex gap-4">
+              <button 
+                onClick={() => setView('admin-panel')} 
+                className="flex items-center gap-2 text-slate-300 hover:text-emerald-600 transition-colors font-black text-xs uppercase tracking-widest"
+              >
+                <Shield size={14} /> بوابة الإدارة
+              </button>
+            </div>
+          </div>
         </div>
       </footer>
 
@@ -240,30 +331,35 @@ export default function App() {
 // --- Admin Panel Component ---
 
 const AdminPanelView = ({ safe }: any) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'tasks' | 'verifications'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'tasks' | 'verifications' | 'ads'>('overview');
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({ users: 0, workers: 0, tasks: 0, pending: 0 });
+  const [stats, setStats] = useState({ users: 0, workers: 0, tasks: 0, pending: 0, ads: 0 });
   const [data, setData] = useState<any[]>([]);
+  const [showAdForm, setShowAdForm] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
     try {
       const { data: users } = await supabase.from('users').select('*').order('created_at', { ascending: false });
       const { data: tasks } = await supabase.from('tasks').select('*, users!seeker_id(*)').order('created_at', { ascending: false });
+      const { data: ads } = await supabase.from('advertisements').select('*').order('created_at', { ascending: false });
       
       const u = users || [];
       const t = tasks || [];
+      const a = ads || [];
       
       setStats({
         users: u.length,
         workers: u.filter(user => user.role === 'WORKER').length,
         tasks: t.length,
-        pending: u.filter(user => user.verification_status === 'pending').length
+        pending: u.filter(user => user.verification_status === 'pending').length,
+        ads: a.length
       });
 
       if (activeTab === 'users') setData(u);
       else if (activeTab === 'tasks') setData(t);
       else if (activeTab === 'verifications') setData(u.filter(user => user.verification_status === 'pending'));
+      else if (activeTab === 'ads') setData(a);
     } catch (e) { console.error(e); } finally { setLoading(false); }
   };
 
@@ -274,6 +370,11 @@ const AdminPanelView = ({ safe }: any) => {
     if (!error) fetchData();
   };
 
+  const toggleAdStatus = async (adId: string, current: boolean) => {
+    await supabase.from('advertisements').update({ is_active: !current }).eq('id', adId);
+    fetchData();
+  };
+
   return (
     <div className="max-w-7xl mx-auto py-8 md:py-12 px-4 md:px-6 animate-in">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 md:mb-12">
@@ -281,16 +382,24 @@ const AdminPanelView = ({ safe }: any) => {
           <div className="bg-emerald-600 p-3 rounded-2xl text-white shadow-lg"><Shield size={24}/></div>
           <h2 className="text-2xl md:text-4xl font-black text-slate-900 tracking-tighter">لوحة إدارة <span className="text-emerald-600">سلكني</span></h2>
         </div>
-        <button onClick={fetchData} className="w-full md:w-auto p-3 bg-white border border-slate-100 rounded-2xl hover:bg-emerald-50 transition-all text-emerald-600 shadow-sm flex items-center justify-center gap-2 font-bold text-sm">
-          <RefreshCw size={18} /> تحديث البيانات
-        </button>
+        <div className="flex gap-2 w-full md:w-auto">
+          {activeTab === 'ads' && (
+            <button onClick={() => setShowAdForm(true)} className="flex-1 md:flex-none p-3 bg-emerald-600 text-white rounded-2xl hover:bg-emerald-500 transition-all shadow-sm flex items-center justify-center gap-2 font-black text-sm">
+              <Plus size={18} /> إضافة إعلان
+            </button>
+          )}
+          <button onClick={fetchData} className="flex-1 md:flex-none p-3 bg-white border border-slate-100 rounded-2xl hover:bg-emerald-50 transition-all text-emerald-600 shadow-sm flex items-center justify-center gap-2 font-bold text-sm">
+            <RefreshCw size={18} /> تحديث
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6 mb-8 md:mb-12">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-6 mb-8 md:mb-12">
         <StatCard label="المستخدمين" value={stats.users} icon={Users} />
         <StatCard label="الحرفيين" value={stats.workers} icon={Briefcase} />
         <StatCard label="المهام" value={stats.tasks} icon={ClipboardList} />
         <StatCard label="التوثيقات" value={stats.pending} icon={ShieldQuestion} />
+        <StatCard label="الإعلانات" value={stats.ads} icon={Megaphone} />
       </div>
 
       <div className="flex gap-2 mb-6 md:mb-8 bg-white p-1.5 md:p-2 rounded-2xl border border-slate-100 w-full md:w-fit shadow-sm overflow-x-auto no-scrollbar scroll-smooth">
@@ -298,6 +407,7 @@ const AdminPanelView = ({ safe }: any) => {
         <TabButton active={activeTab === 'users'} onClick={() => setActiveTab('users')}>المستخدمين</TabButton>
         <TabButton active={activeTab === 'tasks'} onClick={() => setActiveTab('tasks')}>المهام</TabButton>
         <TabButton active={activeTab === 'verifications'} onClick={() => setActiveTab('verifications')}>التوثيقات</TabButton>
+        <TabButton active={activeTab === 'ads'} onClick={() => setActiveTab('ads')}>الإعلانات 📢</TabButton>
       </div>
 
       {loading ? (
@@ -309,6 +419,38 @@ const AdminPanelView = ({ safe }: any) => {
               <div className="bg-emerald-50 w-20 h-20 md:w-24 md:h-24 rounded-[2rem] flex items-center justify-center mx-auto"><BarChart3 size={40} className="text-emerald-600" /></div>
               <h3 className="text-2xl md:text-3xl font-black text-slate-900">نظام الإدارة المتكامل</h3>
               <p className="text-slate-500 max-w-md mx-auto font-medium text-sm md:text-base">تتيح لك هذه اللوحة التحكم الكامل في نشاطات المنصة. يمكنك مراجعة طلبات التوثيق، مراقبة المهام الجديدة، وإدارة قاعدة بيانات المستخدمين بكل سهولة.</p>
+            </div>
+          ) : activeTab === 'ads' ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {data.map((ad: any) => (
+                <div key={ad.id} className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl overflow-hidden group">
+                  <div className="h-40 relative">
+                    <img src={ad.image_url} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                       <button onClick={() => toggleAdStatus(ad.id, ad.is_active)} className={`p-3 rounded-2xl ${ad.is_active ? 'bg-amber-500' : 'bg-emerald-500'} text-white shadow-lg`}>
+                         <ToggleIcon size={20} />
+                       </button>
+                       <button onClick={async () => { await supabase.from('advertisements').delete().eq('id', ad.id); fetchData(); }} className="p-3 bg-red-500 text-white rounded-2xl shadow-lg">
+                         <Trash2 size={20} />
+                       </button>
+                    </div>
+                  </div>
+                  <div className="p-6 space-y-4">
+                    <div className="flex justify-between items-start">
+                      <h4 className="font-black text-slate-900 line-clamp-1">{safe(ad.title)}</h4>
+                      <span className={`px-2 py-1 rounded-lg text-[8px] font-black uppercase ${ad.is_active ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+                        {ad.is_active ? 'نشط' : 'متوقف'}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {ad.placements.map((p: string) => (
+                        <span key={p} className="bg-slate-50 text-slate-500 px-3 py-1 rounded-full text-[9px] font-bold border border-slate-100">{p}</span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {data.length === 0 && <div className="col-span-full py-20 text-center text-slate-300 font-black">لا توجد إعلانات حالياً</div>}
             </div>
           ) : (
             <>
@@ -420,6 +562,75 @@ const AdminPanelView = ({ safe }: any) => {
           )}
         </div>
       )}
+      {showAdForm && <AdFormModal onClose={() => setShowAdForm(false)} onSave={() => { setShowAdForm(false); fetchData(); }} />}
+    </div>
+  );
+};
+
+const AdFormModal = ({ onClose, onSave }: any) => {
+  const [formData, setFormData] = useState({ title: '', image_url: '', link_url: '', placements: [] as string[] });
+  const [loading, setLoading] = useState(false);
+
+  const placementsList = [
+    { id: 'landing_top', name: 'أعلى الصفحة الرئيسية' },
+    { id: 'search_sidebar', name: 'صفحة البحث عن حرفيين' },
+    { id: 'market_banner', name: 'سوق المهام' },
+    { id: 'profile_bottom', name: 'أسفل ملف المستخدم' }
+  ];
+
+  const togglePlacement = (id: string) => {
+    setFormData(prev => ({
+      ...prev,
+      placements: prev.placements.includes(id) 
+        ? prev.placements.filter(p => p !== id) 
+        : [...prev.placements, id]
+    }));
+  };
+
+  const submit = async (e: any) => {
+    e.preventDefault();
+    if (formData.placements.length === 0) return alert('يرجى اختيار مكان واحد على الأقل');
+    setLoading(true);
+    await supabase.from('advertisements').insert([formData]);
+    onSave();
+  };
+
+  return (
+    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-xl animate-in">
+      <div className="bg-white w-full max-w-xl rounded-[3rem] shadow-2xl p-10 relative animate-slide overflow-y-auto max-h-[90vh] no-scrollbar">
+        <button onClick={onClose} className="absolute top-8 left-8 p-2 text-slate-400 hover:bg-slate-50 rounded-xl"><X size={24}/></button>
+        <h3 className="text-3xl font-black text-slate-900 mb-8 flex items-center gap-3">
+           <Megaphone className="text-emerald-600" /> إضافة إعلان جديد
+        </h3>
+        <form onSubmit={submit} className="space-y-6">
+          <div className="space-y-2">
+            <label className="text-xs font-black text-slate-400 mr-2 uppercase tracking-widest">عنوان الإعلان</label>
+            <input required className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} placeholder="مثال: خصم 50% على خدمات الترصيص" />
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-black text-slate-400 mr-2 uppercase tracking-widest">رابط الصورة (Image URL)</label>
+            <input required className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold" value={formData.image_url} onChange={e => setFormData({...formData, image_url: e.target.value})} placeholder="https://..." />
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-black text-slate-400 mr-2 uppercase tracking-widest">رابط الوجهة (Destination Link)</label>
+            <input required className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold" value={formData.link_url} onChange={e => setFormData({...formData, link_url: e.target.value})} placeholder="https://..." />
+          </div>
+          <div className="space-y-3">
+            <label className="text-xs font-black text-slate-400 mr-2 uppercase tracking-widest block">أماكن الظهور (يمكنك اختيار عدة أماكن)</label>
+            <div className="grid grid-cols-1 gap-2">
+              {placementsList.map(p => (
+                <div key={p.id} onClick={() => togglePlacement(p.id)} className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-center justify-between ${formData.placements.includes(p.id) ? 'bg-emerald-50 border-emerald-500 text-emerald-700' : 'bg-slate-50 border-transparent text-slate-500'}`}>
+                  <span className="font-bold">{p.name}</span>
+                  {formData.placements.includes(p.id) ? <CheckCircle2 size={18} /> : <Circle size={18} />}
+                </div>
+              ))}
+            </div>
+          </div>
+          <button disabled={loading} className="w-full bg-emerald-600 text-white py-5 rounded-[2rem] font-black text-lg shadow-xl hover:bg-emerald-500 active:scale-95 transition-all">
+            {loading ? 'جاري الحفظ...' : 'نشر الإعلان الآن'}
+          </button>
+        </form>
+      </div>
     </div>
   );
 };
@@ -442,18 +653,23 @@ const TabButton = ({ active, children, onClick }: any) => (
 
 // --- Sub-Views ---
 
-const LandingView = ({ onStart, onRegister }: any) => (
-  <div className="relative min-h-[85vh] flex items-center justify-center text-center px-6 overflow-hidden">
-    <div className="absolute inset-0 bg-slate-900 bg-[url('https://images.unsplash.com/photo-1590674899484-13da0d1b58f5?q=80&w=2000')] bg-cover bg-center opacity-40"></div>
-    <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/40 to-transparent"></div>
-    <div className="relative z-10 max-w-4xl animate-in">
-      <div className="inline-block bg-emerald-500/20 text-emerald-400 px-6 py-2 rounded-full border border-emerald-500/30 text-xs font-black uppercase tracking-widest mb-8">أكبر تجمع للحرفيين في الجزائر</div>
-      <h1 className="text-4xl md:text-8xl font-black text-white mb-8 leading-tight tracking-tighter">ريح بالك، <br className="sm:hidden"/><span className="text-emerald-400 italic">سَلّكني</span> يسلكها!</h1>
-      <p className="text-base md:text-2xl text-slate-300 mb-12 font-medium max-w-2xl mx-auto px-4">اطلب أي خدمة منزلية أو مهنية بلمسة زر. أفضل الحرفيين المهرة في الجزائر جاهزون لخدمتك.</p>
-      <div className="flex flex-col sm:flex-row gap-6 justify-center">
-        <button onClick={onStart} className="bg-emerald-600 text-white px-12 py-5 rounded-[2.5rem] font-black text-xl shadow-2xl shadow-emerald-900/40 hover:bg-emerald-500 hover:scale-105 transition-all">ابحث عن حرفي 🔍</button>
-        <button onClick={onRegister} className="bg-white/10 backdrop-blur-md text-white px-12 py-5 rounded-[2.5rem] font-black text-xl border border-white/20 hover:bg-white/20 transition-all active:scale-95">سجل كحرفي ⚒️</button>
+const LandingView = ({ onStart, onRegister, safe }: any) => (
+  <div className="animate-in">
+    <div className="relative min-h-[85vh] flex items-center justify-center text-center px-6 overflow-hidden">
+      <div className="absolute inset-0 bg-slate-900 bg-[url('https://images.unsplash.com/photo-1590674899484-13da0d1b58f5?q=80&w=2000')] bg-cover bg-center opacity-40"></div>
+      <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/40 to-transparent"></div>
+      <div className="relative z-10 max-w-4xl">
+        <div className="inline-block bg-emerald-500/20 text-emerald-400 px-6 py-2 rounded-full border border-emerald-500/30 text-xs font-black uppercase tracking-widest mb-8">أكبر تجمع للحرفيين في الجزائر</div>
+        <h1 className="text-4xl md:text-8xl font-black text-white mb-8 leading-tight tracking-tighter">ريح بالك، <br className="sm:hidden"/><span className="text-emerald-400 italic">سَلّكني</span> يسلكها!</h1>
+        <p className="text-base md:text-2xl text-slate-300 mb-12 font-medium max-w-2xl mx-auto px-4">اطلب أي خدمة منزلية أو مهنية بلمسة زر. أفضل الحرفيين المهرة في الجزائر جاهزون لخدمتك.</p>
+        <div className="flex flex-col sm:flex-row gap-6 justify-center">
+          <button onClick={onStart} className="bg-emerald-600 text-white px-12 py-5 rounded-[2.5rem] font-black text-xl shadow-2xl shadow-emerald-900/40 hover:bg-emerald-500 hover:scale-105 transition-all">ابحث عن حرفي 🔍</button>
+          <button onClick={onRegister} className="bg-white/10 backdrop-blur-md text-white px-12 py-5 rounded-[2.5rem] font-black text-xl border border-white/20 hover:bg-white/20 transition-all active:scale-95">سجل كحرفي ⚒️</button>
+        </div>
       </div>
+    </div>
+    <div className="max-w-7xl mx-auto px-6">
+      <AdPlacement position="landing_top" safe={safe} />
     </div>
   </div>
 );
@@ -478,26 +694,33 @@ const SearchWorkersView = ({ filters, onFilterChange, onProfile, safe }: any) =>
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-16 animate-in">
-      <div className="bg-white p-8 rounded-[3rem] shadow-xl border border-slate-100 mb-12 flex flex-col md:flex-row gap-6">
-        <input placeholder="ابحث عن حرفي أو خدمة..." className="flex-1 p-5 bg-slate-50 rounded-[2rem] font-bold border-none" value={filters.query} onChange={e => onFilterChange({...filters, query: e.target.value})} />
-        <select className="p-5 bg-slate-50 rounded-[2rem] font-black text-sm" value={filters.wilaya} onChange={e => onFilterChange({...filters, wilaya: e.target.value})}>
-          <option value="">كل الولايات</option>
-          {WILAYAS.map(w => <option key={w} value={w}>{w}</option>)}
-        </select>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-        {loading ? <div className="col-span-full py-40 flex justify-center"><div className="loading-spinner"></div></div> : workers.map(w => (
-          <div key={w.id} onClick={() => onProfile(w)} className="bg-white p-8 rounded-[3rem] shadow-lg border border-slate-100 hover:-translate-y-2 transition-all cursor-pointer">
-            <div className="flex gap-4 items-center mb-6">
-              <div className="relative">
-                <img src={w.avatar || `https://ui-avatars.com/api/?name=${w.firstName}`} className="w-16 h-16 rounded-3xl object-cover shadow-sm" />
-                {w.verificationStatus === 'verified' && <div className="absolute -top-1 -right-1 bg-emerald-500 text-white p-1 rounded-full border-2 border-white shadow-sm"><CheckCircle2 size={12}/></div>}
-              </div>
-              <div><h3 className="text-xl font-black">{safe(w.firstName)} {safe(w.lastName)}</h3><p className="text-xs font-bold text-slate-400">{safe(w.location.wilaya)}</p></div>
-            </div>
-            <p className="text-slate-500 line-clamp-2 text-sm">{safe(w.bio) || 'لا توجد نبذة.'}</p>
+      <div className="flex flex-col lg:flex-row gap-10">
+        <div className="flex-1">
+          <div className="bg-white p-8 rounded-[3rem] shadow-xl border border-slate-100 mb-12 flex flex-col md:flex-row gap-6">
+            <input placeholder="ابحث عن حرفي أو خدمة..." className="flex-1 p-5 bg-slate-50 rounded-[2rem] font-bold border-none" value={filters.query} onChange={e => onFilterChange({...filters, query: e.target.value})} />
+            <select className="p-5 bg-slate-50 rounded-[2rem] font-black text-sm" value={filters.wilaya} onChange={e => onFilterChange({...filters, wilaya: e.target.value})}>
+              <option value="">كل الولايات</option>
+              {WILAYAS.map(w => <option key={w} value={w}>{w}</option>)}
+            </select>
           </div>
-        ))}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {loading ? <div className="col-span-full py-40 flex justify-center"><div className="loading-spinner"></div></div> : workers.map(w => (
+              <div key={w.id} onClick={() => onProfile(w)} className="bg-white p-8 rounded-[3rem] shadow-lg border border-slate-100 hover:-translate-y-2 transition-all cursor-pointer">
+                <div className="flex gap-4 items-center mb-6">
+                  <div className="relative">
+                    <img src={w.avatar || `https://ui-avatars.com/api/?name=${w.firstName}`} className="w-16 h-16 rounded-3xl object-cover shadow-sm" />
+                    {w.verificationStatus === 'verified' && <div className="absolute -top-1 -right-1 bg-emerald-500 text-white p-1 rounded-full border-2 border-white shadow-sm"><CheckCircle2 size={12}/></div>}
+                  </div>
+                  <div><h3 className="text-xl font-black">{safe(w.firstName)} {safe(w.lastName)}</h3><p className="text-xs font-bold text-slate-400">{safe(w.location.wilaya)}</p></div>
+                </div>
+                <p className="text-slate-500 line-clamp-2 text-sm">{safe(w.bio) || 'لا توجد نبذة.'}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="w-full lg:w-80">
+          <AdPlacement position="search_sidebar" safe={safe} />
+        </div>
       </div>
     </div>
   );
@@ -526,8 +749,10 @@ const TasksMarketView = ({ currentUser, safe, onContact, setView }: any) => {
         </div>
         <button onClick={() => currentUser ? setView('support') : setView('login')} className="bg-emerald-600 text-white p-4 rounded-2xl shadow-xl active:scale-95 transition-all hover:bg-emerald-500"><Plus size={32}/></button>
       </div>
+      
+      <AdPlacement position="market_banner" safe={safe} />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-10">
         {loading ? <div className="py-40 flex justify-center"><div className="loading-spinner"></div></div> : tasks.map(task => (
           <div key={task.id} className="bg-white p-8 rounded-[2.5rem] shadow-lg border border-slate-100 hover:shadow-xl transition-all">
             <div className="flex justify-between items-start mb-6">
@@ -647,6 +872,7 @@ const ProfileView = ({ user, currentUser, isOwn, onEdit, onLogout, onBack, onCha
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-6">{(user.portfolio || []).length > 0 ? user.portfolio.map((img: string, idx: number) => <div key={idx} className="aspect-square rounded-[2rem] overflow-hidden border-4 border-white shadow-xl hover:scale-105 transition-all"><img src={img} className="w-full h-full object-cover" /></div>) : <div className="col-span-full py-20 text-center text-slate-300 font-black">لا توجد أعمال منشورة</div>}</div>
                   </section>
                 )}
+                <AdPlacement position="profile_bottom" safe={safe} />
               </div>
             </div>
           </div>
