@@ -93,6 +93,8 @@ export interface Advertisement {
 export interface AppState {
   currentUser: User | null;
   selectedWorker?: User | null;
+  activeChat?: Chat | null;
   workers: User[];
-  view: 'landing' | 'register' | 'login' | 'dashboard' | 'search' | 'profile' | 'edit-profile' | 'support' | 'admin-panel' | 'chats' | 'worker-details';
+  notifications: Notification[];
+  view: 'landing' | 'register' | 'login' | 'dashboard' | 'search' | 'profile' | 'edit-profile' | 'support' | 'admin-panel' | 'chats' | 'worker-details' | 'notifications';
 }
