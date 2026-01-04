@@ -30,8 +30,11 @@ import {
   Filter,
   LogOut,
   MessageSquare,
-  // Fix: Add missing Phone icon import
-  Phone
+  Phone,
+  Info,
+  Edit,
+  Save,
+  Check
 } from 'lucide-react';
 
 // --- Global Styles ---
@@ -50,9 +53,29 @@ function GlobalStyles() {
       .loading-spinner { border: 3px solid rgba(16, 185, 129, 0.1); border-left-color: #10b981; border-radius: 50%; width: 40px; height: 40px; animation: spin 0.8s linear infinite; }
       @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
       .worker-card:hover { transform: translateY(-5px); box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1); }
+      .task-card:hover { transform: translateY(-5px); border-color: #10b981; }
+      .category-chip.active { background-color: #10b981; color: white; border-color: #10b981; }
     `}</style>
   );
 }
+
+// --- Utilities ---
+
+const ensureArray = (val: any): string[] => {
+  if (!val) return [];
+  if (Array.isArray(val)) return val;
+  if (typeof val === 'string') {
+    if (val.trim().startsWith('[') && val.trim().endsWith(']')) {
+      try {
+        const parsed = JSON.parse(val);
+        if (Array.isArray(parsed)) return parsed;
+      } catch (e) {}
+    }
+    if (val.includes(',')) return val.split(',').map(s => s.trim());
+    return [val.trim()];
+  }
+  return [];
+};
 
 // --- Shared Components ---
 
@@ -100,7 +123,242 @@ function TabItem({ icon: Icon, label, active, onClick }: { icon: any; label: str
 
 // --- Specific Views ---
 
-function SearchWorkersView() {
+function EditProfileView({ user, onSaved, onCancel }: { user: User; onSaved: (u: User) => void; onCancel: () => void }) {
+  const [formData, setFormData] = useState({
+    firstName: user.firstName,
+    lastName: user.lastName,
+    bio: user.bio || '',
+    wilaya: user.location.wilaya,
+    categories: ensureArray(user.categories),
+    skills: ensureArray(user.skills),
+    skillInput: ''
+  });
+  const [saving, setSaving] = useState(false);
+
+  const toggleCategory = (catName: string) => {
+    setFormData(prev => ({
+      ...prev,
+      categories: prev.categories.includes(catName) 
+        ? prev.categories.filter(c => c !== catName) 
+        : [...prev.categories, catName]
+    }));
+  };
+
+  const addSkill = () => {
+    if (formData.skillInput.trim() && !formData.skills.includes(formData.skillInput.trim())) {
+      setFormData(prev => ({
+        ...prev,
+        skills: [...prev.skills, formData.skillInput.trim()],
+        skillInput: ''
+      }));
+    }
+  };
+
+  const removeSkill = (skill: string) => {
+    setFormData(prev => ({
+      ...prev,
+      skills: prev.skills.filter(s => s !== skill)
+    }));
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const updatedData = {
+        first_name: formData.firstName,
+        last_name: formData.lastName,
+        bio: formData.bio,
+        wilaya: formData.wilaya,
+        categories: formData.categories,
+        skills: formData.skills
+      };
+
+      const { error } = await supabase
+        .from('users')
+        .update(updatedData)
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      const updatedUser: User = {
+        ...user,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        bio: formData.bio,
+        location: { ...user.location, wilaya: formData.wilaya },
+        categories: formData.categories,
+        skills: formData.skills
+      };
+      
+      onSaved(updatedUser);
+    } catch (err: any) {
+      alert("خطأ أثناء الحفظ: " + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="max-w-3xl mx-auto py-12 px-6 animate-fade-in text-right">
+      <div className="flex items-center justify-between mb-10">
+        <SectionHeading title="تحديث الملف الشخصي" subtitle="اجعل ملفك الشخصي يبدو احترافياً لجذب المزيد من الزبائن." />
+        <button onClick={onCancel} className="p-3 text-slate-400 hover:bg-slate-100 rounded-full transition-all"><X size={24}/></button>
+      </div>
+
+      <div className="bg-white rounded-[3rem] shadow-xl border border-slate-100 p-8 md:p-12 space-y-10">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <label className="text-xs font-black text-slate-400 mr-2">الاسم الشخصي</label>
+            <input 
+              className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold text-sm focus:ring-2 ring-emerald-500/20" 
+              value={formData.firstName} 
+              onChange={e => setFormData({...formData, firstName: e.target.value})} 
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-black text-slate-400 mr-2">اللقب</label>
+            <input 
+              className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold text-sm focus:ring-2 ring-emerald-500/20" 
+              value={formData.lastName} 
+              onChange={e => setFormData({...formData, lastName: e.target.value})} 
+            />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-xs font-black text-slate-400 mr-2">نبذة عنك (Bio)</label>
+          <textarea 
+            rows={4}
+            className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold text-sm focus:ring-2 ring-emerald-500/20" 
+            placeholder="مثلاً: حرفي متخصص في الكهرباء والترصيص الصحي بخبرة 10 سنوات..."
+            value={formData.bio} 
+            onChange={e => setFormData({...formData, bio: e.target.value})} 
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-xs font-black text-slate-400 mr-2">الولاية</label>
+          <select 
+            className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold text-sm outline-none" 
+            value={formData.wilaya} 
+            onChange={e => setFormData({...formData, wilaya: e.target.value})}
+          >
+            {WILAYAS.map(w => <option key={w} value={w}>{w}</option>)}
+          </select>
+        </div>
+
+        <div className="space-y-4">
+          <label className="text-xs font-black text-slate-400 mr-2">التخصصات والخدمات</label>
+          <div className="flex flex-wrap gap-2">
+            {SERVICE_CATEGORIES.map(cat => (
+              <button 
+                key={cat.id}
+                onClick={() => toggleCategory(cat.name)}
+                className={`category-chip border border-slate-200 px-4 py-2 rounded-xl text-xs font-bold transition-all ${formData.categories.includes(cat.name) ? 'active' : 'bg-white text-slate-500 hover:bg-slate-50'}`}
+              >
+                {formData.categories.includes(cat.name) && <Check size={14} className="inline ml-1"/>}
+                {cat.name}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <label className="text-xs font-black text-slate-400 mr-2">المهارات الإضافية</label>
+          <div className="flex gap-2">
+            <input 
+              className="flex-grow p-4 bg-slate-50 rounded-2xl border-none font-bold text-sm focus:ring-2 ring-emerald-500/20" 
+              placeholder="مثلاً: إتقان اللغة الفرنسية، رخصة سياقة..."
+              value={formData.skillInput}
+              onChange={e => setFormData({...formData, skillInput: e.target.value})}
+              onKeyPress={e => e.key === 'Enter' && addSkill()}
+            />
+            <button onClick={addSkill} className="bg-slate-900 text-white px-6 rounded-2xl font-black text-sm">إضافة</button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {formData.skills.map(skill => (
+              <span key={skill} className="bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2">
+                {skill}
+                <X size={14} className="cursor-pointer text-slate-400 hover:text-red-500" onClick={() => removeSkill(skill)}/>
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div className="pt-8 border-t border-slate-50 flex flex-col sm:flex-row gap-4">
+          <button 
+            disabled={saving}
+            onClick={handleSave}
+            className="flex-grow bg-emerald-600 text-white py-5 rounded-[2rem] font-black text-xl shadow-xl shadow-emerald-200 hover:bg-emerald-500 transition-all active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50"
+          >
+            {saving ? <div className="loading-spinner w-6 h-6 border-white"></div> : <Save size={24}/>}
+            {saving ? 'جاري الحفظ...' : 'حفظ التغييرات الآن'}
+          </button>
+          <button onClick={onCancel} className="px-10 bg-slate-100 text-slate-500 py-5 rounded-[2rem] font-black text-lg hover:bg-slate-200 transition-all">إلغاء</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TaskDetailsModal({ task, onClose }: { task: Task; onClose: () => void }) {
+  return (
+    <div 
+      className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-fade-in text-right"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl p-8 md:p-12 relative max-h-[90vh] overflow-y-auto custom-scrollbar border border-slate-100">
+        <button onClick={onClose} className="absolute top-8 left-8 p-3 text-slate-400 hover:bg-slate-50 hover:text-red-500 rounded-2xl transition-all"><X size={28}/></button>
+        
+        <div className="flex flex-wrap items-center gap-3 mb-8 mt-4 md:mt-0">
+           <span className="bg-emerald-100 text-emerald-700 px-5 py-2 rounded-xl text-[10px] font-black tracking-wide border border-emerald-200 uppercase">{task.category}</span>
+           <span className="bg-slate-100 text-slate-600 px-5 py-2 rounded-xl text-[10px] font-black border border-slate-200">
+             الحالة: {task.status === 'open' ? 'مفتوحة للاستقبال' : task.status}
+           </span>
+        </div>
+
+        <h2 className="text-3xl md:text-5xl font-black text-slate-900 mb-8 leading-tight">{task.title}</h2>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+          <div className="bg-emerald-50/50 p-7 rounded-[2.5rem] border border-emerald-100">
+            <p className="text-[10px] font-black text-emerald-600 mb-2 tracking-widest uppercase">الميزانية التقديرية</p>
+            <p className="text-3xl font-black text-emerald-700 flex items-center gap-2">{task.budget.toLocaleString()} <span className="text-xs font-bold text-emerald-500">دج</span></p>
+          </div>
+          <div className="bg-slate-50/50 p-7 rounded-[2.5rem] border border-slate-100">
+            <p className="text-[10px] font-black text-slate-400 mb-2 tracking-widest uppercase">الموقع الجغرافي</p>
+            <p className="text-2xl font-black text-slate-700 flex items-center gap-2"><MapPin size={24} className="text-emerald-500"/> {task.wilaya}</p>
+          </div>
+        </div>
+
+        <div className="space-y-6 mb-12">
+          <div className="flex items-center justify-between border-b border-slate-50 pb-4">
+            <h4 className="text-xl font-black text-slate-900 flex items-center gap-3">وصف العمل <Info size={20} className="text-emerald-500"/></h4>
+            <div className="flex items-center gap-2 text-slate-400 text-xs font-bold">
+               <Clock size={14}/> {new Date(task.created_at).toLocaleDateString('ar-DZ')}
+            </div>
+          </div>
+          <p className="text-slate-600 font-medium leading-[1.8] text-lg whitespace-pre-wrap bg-slate-50/30 p-6 rounded-3xl border border-dashed border-slate-100">
+            {task.description}
+          </p>
+        </div>
+
+        <div className="bg-emerald-600/5 p-8 rounded-[2.5rem] border border-emerald-100 mb-10">
+          <h5 className="font-black text-slate-900 mb-2">هل أنت حرفي مهتم؟</h5>
+          <p className="text-sm text-slate-500 font-medium">يمكنك التواصل مباشرة مع صاحب المهمة أو تقديم عرض سعر مفصل.</p>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-5">
+          <button className="flex-grow bg-emerald-600 text-white py-6 rounded-[2rem] font-black text-xl shadow-2xl shadow-emerald-200 hover:bg-emerald-500 transition-all active:scale-95 flex items-center justify-center gap-3">
+             <MessageSquare size={24}/> تواصل الآن وقم بتقديم عرضك
+          </button>
+          <button onClick={onClose} className="px-10 bg-slate-100 text-slate-500 py-6 rounded-[2rem] font-black text-lg hover:bg-slate-200 transition-all">إغلاق</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SearchWorkersView({ onNavigate }: { onNavigate: (view: AppState['view']) => void }) {
   const [filters, setFilters] = useState({ query: '', wilaya: '', category: '' });
   const [workers, setWorkers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
@@ -124,8 +382,8 @@ function SearchWorkersView() {
             lastName: u.last_name || '', 
             location: { wilaya: u.wilaya || '', daira: '' }, 
             verificationStatus: u.verification_status || 'none',
-            categories: u.categories || [], // Fix: fallback for null map
-            skills: u.skills || [] // Fix: fallback for null map
+            categories: ensureArray(u.categories),
+            skills: ensureArray(u.skills)
           })));
         }
       } catch (err) {
@@ -178,7 +436,7 @@ function SearchWorkersView() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {workers.map(w => (
-                <div key={w.id} className="worker-card bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 transition-all group flex flex-col">
+                <div key={w.id} className="worker-card bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 transition-all group flex flex-col cursor-pointer" onClick={() => onNavigate('profile')}>
                   <div className="flex items-center gap-4 mb-4">
                     <div className="relative">
                       <img src={w.avatar || `https://ui-avatars.com/api/?name=${w.firstName}`} className="w-20 h-20 rounded-2xl object-cover border-4 border-slate-50 shadow-md" />
@@ -197,8 +455,8 @@ function SearchWorkersView() {
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-1.5 mb-4">
-                    {(w.categories || []).map(c => (
-                      <span key={c} className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-lg text-[10px] font-black">{c}</span>
+                    {ensureArray(w.categories).map((c, idx) => (
+                      <span key={`${w.id}-cat-${idx}`} className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-lg text-[10px] font-black">{c}</span>
                     ))}
                   </div>
                   <p className="text-slate-500 text-sm font-medium line-clamp-2 mb-6 flex-grow">{w.bio || 'حرفي محترف يسعى لتقديم أفضل جودة عمل لإرضاء الزبائن.'}</p>
@@ -229,6 +487,7 @@ function TasksMarketView() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   const fetchTasks = async () => {
     setLoading(true);
@@ -259,19 +518,27 @@ function TasksMarketView() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {tasks.map(task => (
-            <div key={task.id} className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100 hover:shadow-xl transition-all group flex flex-col">
+            <div 
+              key={task.id} 
+              className="task-card bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100 transition-all group flex flex-col cursor-pointer hover:shadow-2xl hover:border-emerald-200 active:scale-[0.98]"
+              onClick={() => setSelectedTask(task)}
+            >
               <div className="flex justify-between items-start mb-6">
                 <span className="bg-emerald-50 text-emerald-700 px-4 py-1.5 rounded-xl text-[10px] font-black border border-emerald-100">{task.category}</span>
-                <span className="text-emerald-600 font-black text-xl flex items-center gap-1.5 bg-emerald-50/50 px-3 py-1 rounded-lg"><Banknote size={18}/> {task.budget} <span className="text-xs">دج</span></span>
+                <span className="text-emerald-600 font-black text-xl flex items-center gap-1.5 bg-emerald-50/50 px-3 py-1 rounded-lg"><Banknote size={18}/> {task.budget.toLocaleString()} <span className="text-xs">دج</span></span>
               </div>
               <h3 className="text-xl font-black text-slate-900 mb-4 group-hover:text-emerald-600 transition-colors leading-relaxed">{task.title}</h3>
               <p className="text-slate-500 text-sm font-medium mb-8 line-clamp-3 leading-relaxed flex-grow">{task.description}</p>
               <div className="flex flex-col gap-4 pt-6 border-t border-slate-50 mt-auto">
                 <div className="flex justify-between items-center text-[11px] font-black text-slate-400">
                   <span className="flex items-center gap-1.5"><MapPin size={16} className="text-emerald-500" /> {task.wilaya}</span>
-                  <span className="flex items-center gap-1.5"><Clock size={16} className="text-emerald-500" /> منذ قليل</span>
+                  <span className="flex items-center gap-1.5"><Clock size={16} className="text-emerald-500" /> {new Date(task.created_at).toLocaleDateString('ar-DZ')}</span>
                 </div>
-                <button className="w-full bg-slate-900 text-white py-3.5 rounded-2xl font-black text-xs hover:bg-emerald-600 transition-all shadow-md">تقديم عرض سعر</button>
+                <button 
+                  className="w-full bg-slate-900 text-white py-3.5 rounded-2xl font-black text-xs group-hover:bg-emerald-600 transition-all shadow-md flex items-center justify-center gap-2"
+                >
+                  <SearchIcon size={14}/> عرض كامل التفاصيل
+                </button>
               </div>
             </div>
           ))}
@@ -284,7 +551,9 @@ function TasksMarketView() {
           )}
         </div>
       )}
+      
       {showAddModal && <AddTaskModal onClose={() => setShowAddModal(false)} onSaved={() => { setShowAddModal(false); fetchTasks(); }} />}
+      {selectedTask && <TaskDetailsModal task={selectedTask} onClose={() => setSelectedTask(null)} />}
     </div>
   );
 }
@@ -415,10 +684,19 @@ export default function App() {
   });
 
   const setView = (view: AppState['view']) => { setState(prev => ({ ...prev, view })); window.scrollTo(0, 0); };
+  
   const updateCurrentUser = (u: User | null) => { 
     setState(prev => ({ ...prev, currentUser: u })); 
-    if (u) localStorage.setItem('user', JSON.stringify(u)); 
-    else localStorage.removeItem('user'); 
+    if (u) {
+      localStorage.setItem('user', JSON.stringify(u));
+    } else {
+      localStorage.removeItem('user'); 
+    }
+  };
+
+  const handleProfileUpdate = (updatedUser: User) => {
+    updateCurrentUser(updatedUser);
+    setView('profile');
   };
 
   return (
@@ -451,21 +729,58 @@ export default function App() {
 
       <main className="flex-grow">
         {state.view === 'landing' && <LandingView onStart={() => setView('search')} onRegister={() => setView('register')} />}
-        {state.view === 'search' && <SearchWorkersView />}
+        {state.view === 'search' && <SearchWorkersView onNavigate={setView} />}
         {state.view === 'support' && <TasksMarketView />}
-        {state.view === 'profile' && (
-          <div className="max-w-2xl mx-auto py-24 px-6 text-center animate-fade-in">
-             <div className="relative inline-block mb-8">
-               <img src={state.currentUser?.avatar || `https://ui-avatars.com/api/?name=${state.currentUser?.firstName}`} className="w-40 h-40 rounded-[3rem] border-4 border-emerald-500 mx-auto shadow-2xl" />
-               <div className="absolute -bottom-2 -right-2 bg-emerald-500 text-white p-2 rounded-2xl border-4 border-white"><Settings size={20}/></div>
-             </div>
-             <h2 className="text-4xl font-black mb-2">{state.currentUser?.firstName} {state.currentUser?.lastName}</h2>
-             <p className="text-slate-400 font-bold mb-12">عضو في منصة سلكني</p>
-             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md mx-auto">
-               <button className="bg-slate-900 text-white p-5 rounded-3xl font-black flex items-center justify-center gap-3 shadow-lg hover:bg-slate-800 transition-all"><Settings size={20}/> إعدادات الحساب</button>
-               <button onClick={() => updateCurrentUser(null)} className="bg-red-50 text-red-500 p-5 rounded-3xl font-black flex items-center justify-center gap-3 hover:bg-red-100 transition-all"><LogOut size={20}/> تسجيل الخروج</button>
+        {state.view === 'profile' && state.currentUser && (
+          <div className="max-w-4xl mx-auto py-24 px-6 animate-fade-in text-right">
+             <div className="bg-white rounded-[4rem] shadow-xl border border-slate-100 overflow-hidden">
+                <div className="h-40 bg-gradient-to-r from-emerald-600 to-teal-500"></div>
+                <div className="px-12 pb-12">
+                   <div className="relative -mt-20 mb-8">
+                     <img src={state.currentUser.avatar || `https://ui-avatars.com/api/?name=${state.currentUser.firstName}`} className="w-40 h-40 rounded-[3rem] border-8 border-white mx-auto shadow-2xl object-cover" />
+                     {state.currentUser.verificationStatus === 'verified' && (
+                       <div className="absolute bottom-4 right-1/2 translate-x-12 translate-y-2 bg-blue-500 text-white p-2 rounded-2xl border-4 border-white shadow-lg"><Check size={24}/></div>
+                     )}
+                   </div>
+                   <div className="text-center mb-12">
+                     <h2 className="text-4xl font-black mb-2">{state.currentUser.firstName} {state.currentUser.lastName}</h2>
+                     <p className="text-emerald-600 font-bold flex items-center justify-center gap-2"><MapPin size={18}/> {state.currentUser.location.wilaya}</p>
+                   </div>
+
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                      <div className="space-y-6">
+                         <h4 className="text-xl font-black text-slate-900 border-b border-slate-50 pb-2">نبذة شخصية</h4>
+                         <p className="text-slate-600 font-medium leading-relaxed">{state.currentUser.bio || 'لا توجد سيرة ذاتية مكتوبة بعد.'}</p>
+                         
+                         <h4 className="text-xl font-black text-slate-900 border-b border-slate-50 pb-2 pt-4">التخصصات</h4>
+                         <div className="flex flex-wrap gap-2">
+                           {ensureArray(state.currentUser.categories).map(c => <span key={c} className="bg-emerald-50 text-emerald-600 px-4 py-1.5 rounded-xl font-black text-xs">{c}</span>)}
+                           {ensureArray(state.currentUser.categories).length === 0 && <span className="text-slate-400 font-bold">لم يتم اختيار تخصصات.</span>}
+                         </div>
+                      </div>
+                      <div className="space-y-6">
+                         <h4 className="text-xl font-black text-slate-900 border-b border-slate-50 pb-2">المهارات</h4>
+                         <div className="flex flex-wrap gap-2">
+                           {ensureArray(state.currentUser.skills).map(s => <span key={s} className="bg-slate-50 text-slate-600 px-4 py-1.5 rounded-xl font-black text-xs">{s}</span>)}
+                           {ensureArray(state.currentUser.skills).length === 0 && <span className="text-slate-400 font-bold">لم يتم إضافة مهارات.</span>}
+                         </div>
+
+                         <div className="pt-10 flex flex-col gap-4">
+                            <button onClick={() => setView('edit-profile')} className="bg-slate-900 text-white p-5 rounded-3xl font-black flex items-center justify-center gap-3 shadow-lg hover:bg-emerald-600 transition-all active:scale-95"><Edit size={20}/> تعديل بياناتي</button>
+                            <button onClick={() => updateCurrentUser(null)} className="bg-red-50 text-red-500 p-5 rounded-3xl font-black flex items-center justify-center gap-3 hover:bg-red-100 transition-all active:scale-95"><LogOut size={20}/> تسجيل الخروج</button>
+                         </div>
+                      </div>
+                   </div>
+                </div>
              </div>
           </div>
+        )}
+        {state.view === 'edit-profile' && state.currentUser && (
+          <EditProfileView 
+            user={state.currentUser} 
+            onSaved={handleProfileUpdate}
+            onCancel={() => setView('profile')}
+          />
         )}
         {['login', 'register'].includes(state.view) && (
           <div className="py-40 text-center animate-fade-in">
@@ -512,7 +827,7 @@ export default function App() {
         <TabItem icon={Home} label="الرئيسية" active={state.view === 'landing'} onClick={() => setView('landing')} />
         <TabItem icon={SearchIcon} label="البحث" active={state.view === 'search'} onClick={() => setView('search')} />
         <TabItem icon={ClipboardList} label="المهام" active={state.view === 'support'} onClick={() => setView('support')} />
-        <TabItem icon={UserIcon} label="حسابي" active={state.view === 'profile'} onClick={() => setView(state.currentUser ? 'profile' : 'login')} />
+        <TabItem icon={UserIcon} label="حسابي" active={state.view === 'profile' || state.view === 'edit-profile'} onClick={() => setView(state.currentUser ? 'profile' : 'login')} />
       </div>
     </div>
   );
