@@ -38,468 +38,257 @@ import {
   Send,
   MoreVertical,
   PlusCircle,
-  AlertCircle
+  AlertCircle,
+  Briefcase
 } from 'lucide-react';
 
-// --- Global Styles ---
+// --- المكونات العامة والأنماط ---
 
 function GlobalStyles() {
   return (
     <style>{`
       @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;900&display=swap');
       .arabic-text { font-family: 'Tajawal', sans-serif; }
-      @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-      .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
-      .custom-scrollbar::-webkit-scrollbar { width: 5px; }
-      .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+      @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+      .animate-fade-in { animation: fadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+      .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+      .custom-scrollbar::-webkit-scrollbar-track { background: #f8fafc; }
       .custom-scrollbar::-webkit-scrollbar-thumb { background: #10b981; border-radius: 10px; }
-      .loading-spinner { border: 3px solid rgba(16, 185, 129, 0.1); border-left-color: #10b981; border-radius: 50%; width: 40px; height: 40px; animation: spin 0.8s linear infinite; }
-      @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-      .worker-card:hover { transform: translateY(-5px); box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1); }
-      .chat-bubble-me { background: #10b981; color: white; border-radius: 1.5rem 1.5rem 0.2rem 1.5rem; }
-      .chat-bubble-other { background: #f1f5f9; color: #1e293b; border-radius: 1.5rem 1.5rem 1.5rem 0.2rem; }
-      .glass-card { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2); }
-      .task-status-badge { padding: 4px 12px; border-radius: 8px; font-weight: 900; font-size: 10px; text-transform: uppercase; }
-      .status-open { background: #ecfdf5; color: #10b981; border: 1px solid #d1fae5; }
+      .craft-card { 
+        background: white; 
+        border-radius: 3.5rem; 
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.04);
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .craft-card:hover { 
+        transform: translateY(-8px); 
+        box-shadow: 0 30px 60px -15px rgba(16, 185, 129, 0.12);
+        border-color: rgba(16, 185, 129, 0.3);
+      }
+      .btn-primary {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+        box-shadow: 0 15px 30px -10px rgba(16, 185, 129, 0.4);
+      }
+      .chat-bubble-user {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+        border-radius: 2rem 2rem 0.5rem 2rem;
+      }
+      .chat-bubble-other {
+        background: #f1f5f9;
+        color: #1e293b;
+        border-radius: 2rem 2rem 2rem 0.5rem;
+      }
     `}</style>
   );
 }
 
-// --- Utilities ---
+// --- أدوات مساعدة ---
 
 const ensureArray = (val: any): string[] => {
   if (!val) return [];
   if (Array.isArray(val)) return val;
   if (typeof val === 'string') {
-    if (val.trim().startsWith('[') && val.trim().endsWith(']')) {
-      try {
-        const parsed = JSON.parse(val);
-        if (Array.isArray(parsed)) return parsed;
-      } catch (e) {}
+    try {
+      const parsed = JSON.parse(val);
+      return Array.isArray(parsed) ? parsed : [val];
+    } catch {
+      return val.split(',').map(s => s.trim()).filter(Boolean);
     }
-    return val.split(',').map(s => s.trim()).filter(Boolean);
   }
   return [];
 };
 
-const fileToBase64 = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = error => reject(error);
-  });
-};
-
-// --- Shared Components ---
+// --- المكونات المشتركة ---
 
 function Logo({ onClick, size = 'sm' }: { onClick?: () => void; size?: 'sm' | 'md' | 'lg' }) {
-  const logoClasses = size === 'lg' ? 'w-20 h-20 rounded-[2.5rem] text-4xl' : size === 'md' ? 'w-12 h-12 rounded-2xl text-2xl' : 'w-10 h-10 rounded-xl text-lg';
-  const textClasses = size === 'lg' ? 'text-4xl' : size === 'md' ? 'text-2xl' : 'text-lg';
+  const s = size === 'lg' ? 'w-24 h-24 text-4xl' : size === 'md' ? 'w-14 h-14 text-2xl' : 'w-10 h-10 text-lg';
   return (
-    <div onClick={onClick} className="flex items-center gap-3 cursor-pointer group active:scale-95 transition-all">
-      <div className={`${logoClasses} bg-emerald-600 flex items-center justify-center text-white font-black shadow-lg shadow-emerald-200 transition-all group-hover:rotate-6`}>S</div>
-      <div className="flex flex-col items-start leading-none">
-        <span className={`${textClasses} font-black text-slate-900 tracking-tighter`}>Salakni</span>
-        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">DZ Platform</span>
+    <div onClick={onClick} className="flex items-center gap-4 cursor-pointer group active:scale-95 transition-all">
+      <div className={`${s} bg-emerald-600 flex items-center justify-center text-white font-black rounded-[1.8rem] shadow-xl shadow-emerald-200 group-hover:rotate-6 transition-transform`}>S</div>
+      <div className="flex flex-col">
+        <span className={`${size === 'lg' ? 'text-5xl' : 'text-2xl'} font-black text-slate-900 tracking-tighter`}>Salakni</span>
+        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.2em]">الجزائر المهارة</span>
       </div>
     </div>
   );
 }
 
-function SectionHeading({ title, subtitle, centered = false }: { title: string; subtitle?: string; centered?: boolean }) {
+function PageHeader({ title, subtitle, action }: { title: string; subtitle?: string; action?: React.ReactNode }) {
   return (
-    <div className={`mb-10 ${centered ? 'text-center' : 'text-right'}`}>
-      <h2 className="text-3xl md:text-5xl font-black text-slate-900 mb-4">{title}</h2>
-      {subtitle && <p className="text-slate-500 font-bold text-lg md:text-xl">{subtitle}</p>}
-      <div className={`h-2 w-20 bg-emerald-500 rounded-full mt-4 ${centered ? 'mx-auto' : ''}`}></div>
+    <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-16 animate-fade-in">
+      <div className="max-w-2xl">
+        <h1 className="text-4xl md:text-6xl font-black text-slate-900 mb-4 leading-tight">{title}</h1>
+        {subtitle && <p className="text-xl text-slate-500 font-medium leading-relaxed">{subtitle}</p>}
+        <div className="h-2 w-24 bg-emerald-500 rounded-full mt-6"></div>
+      </div>
+      {action && <div className="w-full md:w-auto">{action}</div>}
     </div>
   );
 }
 
-function NavButton({ children, active, onClick, badge }: { children?: React.ReactNode; active: boolean; onClick: () => void; badge?: number }) {
+// Fixed missing NavButton component
+function NavButton({ children, active, onClick, badge }: { children: React.ReactNode; active?: boolean; onClick: () => void; badge?: number }) {
   return (
-    <button onClick={onClick} className={`font-black text-sm transition-all relative py-2 ${active ? 'text-emerald-600' : 'text-slate-500 hover:text-emerald-500'}`}>
+    <button
+      onClick={onClick}
+      className={`relative font-black text-lg transition-all ${active ? 'text-emerald-600' : 'text-slate-500 hover:text-emerald-500'}`}
+    >
       {children}
       {badge ? (
-        <span className="absolute -top-1 -right-2 bg-red-500 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center font-black animate-pulse">{badge}</span>
+        <span className="absolute -top-2 -right-4 bg-red-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full border-2 border-white shadow-sm font-bold">
+          {badge}
+        </span>
       ) : null}
-      {active && <span className="absolute bottom-0 left-0 right-0 h-1 bg-emerald-600 rounded-full animate-fade-in"></span>}
+      {active && <div className="absolute -bottom-2 left-0 right-0 h-1 bg-emerald-500 rounded-full"></div>}
     </button>
   );
 }
 
-function TabItem({ icon: Icon, label, active, onClick, badge }: { icon: any; label: string; active: boolean; onClick: () => void; badge?: number }) {
+// Fixed missing TabItem component
+function TabItem({ icon: Icon, label, active, onClick, badge }: { icon: any; label: string; active?: boolean; onClick: () => void; badge?: number }) {
   return (
-    <button onClick={onClick} className={`flex flex-col items-center gap-1 transition-all relative ${active ? 'text-emerald-600 scale-110' : 'text-slate-400'}`}>
-      <Icon size={24} />
+    <button onClick={onClick} className="flex flex-col items-center gap-1 relative group flex-1">
+      <div className={`p-2 rounded-2xl transition-all ${active ? 'bg-emerald-50 text-emerald-600 scale-110' : 'text-slate-400 group-hover:text-emerald-500'}`}>
+        <Icon size={24} />
+      </div>
+      <span className={`text-[10px] font-black transition-all ${active ? 'text-emerald-600' : 'text-slate-400'}`}>{label}</span>
       {badge ? (
-        <span className="absolute top-0 right-1/4 bg-red-500 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center font-black">{badge}</span>
+        <span className="absolute top-1 right-1/2 translate-x-3 bg-red-500 text-white text-[8px] w-4 h-4 flex items-center justify-center rounded-full border border-white font-bold">
+          {badge}
+        </span>
       ) : null}
-      <span className="text-[10px] font-black">{label}</span>
     </button>
   );
 }
 
-// --- Tasks Market Components ---
+// --- الأقسام الرئيسية ---
 
-/**
- * FIXED: Added 'key' to TaskCard props type to resolve TypeScript error in map function.
- */
-function TaskCard({ task, onClick, onChat }: { task: Task; onClick: () => void; onChat: (id: string, initialMsg?: string) => void; key?: React.Key }) {
-  return (
-    <div 
-      className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100 flex flex-col cursor-pointer hover:border-emerald-200 hover:shadow-xl transition-all group animate-fade-in"
-      onClick={onClick}
-    >
-      <div className="flex justify-between items-start mb-6">
-        <div className="flex flex-col gap-2">
-           <span className="bg-emerald-50 text-emerald-600 px-4 py-1.5 rounded-xl font-black text-[10px] border border-emerald-100 uppercase tracking-widest">{task.category}</span>
-           <div className="flex items-center gap-2 text-slate-400 text-[10px] font-black">
-              <Clock size={12}/> {new Date(task.created_at).toLocaleDateString('ar-DZ')}
-           </div>
-        </div>
-        <div className="bg-emerald-600/5 px-4 py-2 rounded-2xl border border-emerald-100">
-           <span className="text-emerald-700 font-black text-xl flex items-center gap-1.5">
-              {task.budget.toLocaleString()} <span className="text-xs font-bold">دج</span>
-           </span>
-        </div>
-      </div>
-      
-      <h3 className="text-xl font-black text-slate-900 mb-4 group-hover:text-emerald-600 transition-colors leading-relaxed line-clamp-2">{task.title}</h3>
-      <p className="text-slate-500 font-medium line-clamp-3 mb-8 text-sm leading-relaxed flex-grow">{task.description}</p>
-      
-      <div className="mt-auto pt-6 border-t border-slate-50 flex justify-between items-center">
-         <div className="flex items-center gap-2 text-slate-600 font-bold text-xs">
-            <div className="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 overflow-hidden border border-slate-200">
-               {task.seeker_avatar ? <img src={task.seeker_avatar} className="w-full h-full object-cover" alt="Avatar"/> : <UserIcon size={14}/>}
-            </div>
-            <div className="flex flex-col">
-               <span className="text-[10px] text-slate-400 font-black uppercase tracking-tighter">بواسطة</span>
-               <span>{task.seeker_name || 'صاحب الطلب'}</span>
-            </div>
-         </div>
-         <div className="flex items-center gap-1.5 text-slate-400 font-bold text-xs">
-            <MapPin size={14} className="text-emerald-500"/> {task.wilaya}
-         </div>
-      </div>
-      <div className="mt-4 flex gap-2">
-         <button 
-           onClick={(e) => { e.stopPropagation(); onClick(); }} 
-           className="flex-grow bg-slate-900 text-white py-3 rounded-2xl font-black text-xs hover:bg-emerald-600 transition-all flex items-center justify-center gap-2 shadow-md active:scale-95"
-         >
-           عرض التفاصيل
-         </button>
-      </div>
-    </div>
-  );
-}
-
-function AddTaskModal({ onClose, onAdded }: { onClose: () => void; onAdded: () => void }) {
-  const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    budget: '',
-    category: SERVICE_CATEGORIES[0].name,
-    wilaya: WILAYAS[0]
-  });
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.title || !formData.description || !formData.budget) {
-      alert("يرجى ملء جميع الحقول المطلوبة");
-      return;
-    }
-    setLoading(true);
-    try {
-      const { error } = await supabase.from('tasks').insert([{
-        title: formData.title,
-        description: formData.description,
-        budget: parseInt(formData.budget),
-        category: formData.category,
-        wilaya: formData.wilaya,
-        status: 'open'
-      }]);
-      if (error) throw error;
-      onAdded();
-    } catch (err: any) {
-      alert("خطأ: " + err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-md animate-fade-in text-right">
-      <div className="bg-white w-full max-w-xl rounded-[3rem] shadow-2xl p-8 relative max-h-[90vh] overflow-y-auto custom-scrollbar">
-        <button onClick={onClose} className="absolute top-6 left-6 p-2 text-slate-400 hover:bg-slate-50 rounded-xl transition-all"><X size={24}/></button>
-        <div className="flex items-center gap-3 mb-8">
-           <div className="w-12 h-12 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600"><PlusCircle size={28}/></div>
-           <div className="flex flex-col">
-              <h3 className="text-2xl font-black text-slate-900">طلب مهمة جديدة</h3>
-              <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">انشر طلبك وسيصل للحرفيين فوراً</p>
-           </div>
-        </div>
-        
-        <form onSubmit={handleSubmit} className="space-y-6">
-           <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 mr-2 uppercase">عنوان الطلب</label>
-              <input required placeholder="مثلاً: صباغة شقة 4 غرف بباب الزوار" className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold text-sm focus:ring-2 ring-emerald-500/20" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
-           </div>
-           
-           <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 mr-2 uppercase">تفاصيل المهمة</label>
-              <textarea required rows={4} placeholder="اشرح ما تحتاجه بالتفصيل لجذب العروض المناسبة..." className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold text-sm focus:ring-2 ring-emerald-500/20" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
-           </div>
-           
-           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-xs font-black text-slate-400 mr-2 uppercase">الميزانية التقديرية (دج)</label>
-                <input required type="number" placeholder="مثلاً: 5000" className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold text-sm focus:ring-2 ring-emerald-500/20" value={formData.budget} onChange={e => setFormData({...formData, budget: e.target.value})} />
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs font-black text-slate-400 mr-2 uppercase">الولاية</label>
-                <select className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold text-sm outline-none" value={formData.wilaya} onChange={e => setFormData({...formData, wilaya: e.target.value})}>
-                  {WILAYAS.map(w => <option key={w} value={w}>{w}</option>)}
-                </select>
-              </div>
-           </div>
-           
-           <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 mr-2 uppercase">التخصص المطلوب</label>
-              <select className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold text-sm outline-none" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
-                {SERVICE_CATEGORIES.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-              </select>
-           </div>
-
-           <button disabled={loading} className="w-full bg-emerald-600 text-white py-5 rounded-[2.5rem] font-black text-xl shadow-xl shadow-emerald-200 hover:bg-emerald-500 active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50">
-              {loading ? <div className="loading-spinner w-6 h-6 border-white"></div> : <Zap size={24}/>}
-              {loading ? 'جاري النشر...' : 'انشر المهمة الآن 🚀'}
-           </button>
-        </form>
-      </div>
-    </div>
-  );
-}
-
+// 1. سوق المهام (Tasks Market)
 function TasksMarketView({ onStartChat }: { onStartChat: (id: string, initialMsg?: string) => void }) {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [showAddModal, setShowAddModal] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [filters, setFilters] = useState({ wilaya: '', category: '', query: '' });
-  
-  // New state for handling initial offer message
   const [offerMode, setOfferMode] = useState(false);
   const [offerMessage, setOfferMessage] = useState('');
-  const [sendingOffer, setSendingOffer] = useState(false);
-
-  const fetchTasks = async () => {
-    setLoading(true);
-    try {
-      let q = supabase.from('tasks').select('*').order('created_at', { ascending: false });
-      if (filters.wilaya) q = q.eq('wilaya', filters.wilaya);
-      if (filters.category) q = q.eq('category', filters.category);
-      if (filters.query) q = q.or(`title.ilike.%${filters.query}%,description.ilike.%${filters.query}%`);
-      
-      const { data, error } = await q;
-      if (data) setTasks(data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [sending, setSending] = useState(false);
 
   useEffect(() => {
-    fetchTasks();
-  }, [filters]);
+    supabase.from('tasks').select('*').order('created_at', { ascending: false }).then(({ data }) => {
+      if (data) setTasks(data);
+      setLoading(false);
+    });
+  }, []);
 
-  const handleSendOffer = async () => {
+  const handleSendOffer = () => {
     if (!offerMessage.trim()) return;
-    setSendingOffer(true);
-    // Simulate API call and then trigger chat navigation
+    setSending(true);
     setTimeout(() => {
-      onStartChat(selectedTask!.seeker_id, offerMessage);
-      setSendingOffer(false);
+      onStartChat(selectedTask!.seeker_id, `بخصوص طلبك: "${selectedTask?.title}"\n\n${offerMessage}`);
+      setSending(false);
       setSelectedTask(null);
-      setOfferMode(false);
-      setOfferMessage('');
-    }, 1000);
+    }, 1200);
   };
 
   return (
-    <div className="max-w-7xl mx-auto py-12 px-6 animate-fade-in text-right">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-16 gap-8">
-         <SectionHeading title="سوق المهام المفتوحة" subtitle="تصفح أحدث طلبات الزبائن، قدم عروضك، وابدأ العمل فوراً." />
-         <button 
-           onClick={() => setShowAddModal(true)} 
-           className="bg-emerald-600 text-white px-10 py-5 rounded-[2rem] font-black text-xl flex items-center gap-3 shadow-2xl shadow-emerald-200 hover:bg-emerald-500 active:scale-95 transition-all w-full md:w-auto justify-center"
-         >
-           <Plus size={24}/> اطلب خدمة جديدة
-         </button>
+    <div className="max-w-7xl mx-auto py-16 px-6 text-right min-h-screen">
+      <PageHeader 
+        title="سوق المهام" 
+        subtitle="فرص عمل حقيقية بانتظارك. تصفح الطلبات، قدم عرضك المناسب وابدأ العمل فوراً."
+        action={
+          <button className="btn-primary w-full px-10 py-5 rounded-[2rem] font-black text-xl flex items-center justify-center gap-3 active:scale-95 transition-all">
+            <Plus size={24}/> انشر طلباً جديداً
+          </button>
+        }
+      />
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+        {loading ? (
+          [1, 2, 3].map(i => <div key={i} className="h-80 craft-card bg-slate-100 animate-pulse"></div>)
+        ) : (
+          tasks.map(task => (
+            <div key={task.id} className="craft-card p-10 flex flex-col animate-fade-in">
+              <div className="flex justify-between items-start mb-6">
+                <span className="bg-emerald-50 text-emerald-700 px-4 py-1.5 rounded-xl font-black text-[10px] border border-emerald-100 uppercase">{task.category}</span>
+                <div className="bg-slate-900 text-white px-4 py-2 rounded-2xl font-black text-lg">
+                  {task.budget} <span className="text-[10px]">دج</span>
+                </div>
+              </div>
+              <h3 className="text-2xl font-black text-slate-900 mb-4 line-clamp-2">{task.title}</h3>
+              <p className="text-slate-500 font-medium line-clamp-3 mb-8 flex-grow leading-relaxed">{task.description}</p>
+              <div className="border-t border-slate-50 pt-6 flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-slate-200 rounded-xl"></div>
+                  <div className="flex flex-col">
+                    <span className="text-xs font-black">{task.seeker_name || 'زبون سلكني'}</span>
+                    <span className="text-[10px] text-slate-400 font-bold">{new Date(task.created_at).toLocaleDateString('ar-DZ')}</span>
+                  </div>
+                </div>
+                <span className="flex items-center gap-1.5 text-slate-500 font-bold text-sm"><MapPin size={16} className="text-emerald-500"/> {task.wilaya}</span>
+              </div>
+              <button 
+                onClick={() => setSelectedTask(task)}
+                className="mt-8 bg-slate-50 text-slate-900 py-4 rounded-2xl font-black hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
+              >
+                تواصل وقدم عرضك
+              </button>
+            </div>
+          ))
+        )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-10">
-         <aside className="lg:col-span-1">
-            <div className="bg-white p-8 rounded-[3rem] shadow-xl border border-slate-100 sticky top-28 space-y-8">
-               <h4 className="font-black text-slate-900 text-xl flex items-center gap-2 border-b border-slate-50 pb-4"><Filter size={20} className="text-emerald-500"/> فرز المهام</h4>
-               <div className="space-y-6">
-                  <div className="space-y-2">
-                    <label className="text-xs font-black text-slate-400 mr-2 uppercase tracking-tighter">بحث نصي</label>
-                    <div className="relative">
-                       <input 
-                         placeholder="عن ماذا تبحث؟" 
-                         className="w-full p-4 pr-12 bg-slate-50 rounded-2xl border-none font-bold text-sm focus:ring-2 ring-emerald-500/20"
-                         value={filters.query}
-                         onChange={e => setFilters({...filters, query: e.target.value})}
-                       />
-                       <SearchIcon className="absolute top-1/2 right-4 -translate-y-1/2 text-slate-300" size={20}/>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-black text-slate-400 mr-2 uppercase tracking-tighter">الولاية</label>
-                    <select className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold text-sm outline-none" value={filters.wilaya} onChange={e => setFilters({...filters, wilaya: e.target.value})}>
-                      <option value="">كل الولايات</option>
-                      {WILAYAS.map(w => <option key={w} value={w}>{w}</option>)}
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-black text-slate-400 mr-2 uppercase tracking-tighter">التخصص</label>
-                    <select className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold text-sm outline-none" value={filters.category} onChange={e => setFilters({...filters, category: e.target.value})}>
-                      <option value="">كل التخصصات</option>
-                      {SERVICE_CATEGORIES.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                    </select>
-                  </div>
-                  <button onClick={() => setFilters({wilaya:'', category:'', query:''})} className="w-full py-4 text-emerald-600 font-black text-xs hover:bg-emerald-50 rounded-2xl transition-all border border-transparent hover:border-emerald-100 uppercase tracking-widest">إعادة ضبط</button>
-               </div>
+      {/* مودال العرض */}
+      {selectedTask && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-md animate-fade-in">
+          <div className="bg-white w-full max-w-2xl rounded-[4rem] p-12 relative shadow-2xl overflow-y-auto max-h-[90vh] custom-scrollbar">
+            <button onClick={() => {setSelectedTask(null); setOfferMode(false);}} className="absolute top-10 left-10 p-3 hover:bg-slate-100 rounded-2xl transition-all"><X size={28}/></button>
+            
+            <h2 className="text-3xl md:text-5xl font-black text-slate-900 mb-8 leading-tight">{selectedTask.title}</h2>
+            <div className="flex flex-wrap gap-4 mb-10">
+               <span className="bg-slate-100 text-slate-700 px-5 py-2 rounded-2xl font-black text-sm">📍 {selectedTask.wilaya}</span>
+               <span className="bg-emerald-100 text-emerald-700 px-5 py-2 rounded-2xl font-black text-sm">💰 ميزانية: {selectedTask.budget} دج</span>
             </div>
-         </aside>
 
-         <div className="lg:col-span-3">
-            {loading ? (
-              <div className="py-20 flex flex-col items-center gap-4">
-                 <div className="loading-spinner"></div>
-                 <p className="text-slate-400 font-black text-xs uppercase tracking-widest">جاري جلب أحدث الطلبات...</p>
+            {!offerMode ? (
+              <div className="space-y-8 animate-fade-in">
+                <div className="bg-slate-50 p-8 rounded-[2.5rem] border border-slate-100">
+                  <h4 className="font-black text-xl mb-4 text-slate-800 flex items-center gap-2"><Briefcase size={20}/> تفاصيل الطلب</h4>
+                  <p className="text-lg text-slate-600 leading-relaxed whitespace-pre-wrap">{selectedTask.description}</p>
+                </div>
+                <button 
+                  onClick={() => setOfferMode(true)}
+                  className="w-full btn-primary py-6 rounded-[2.5rem] font-black text-2xl active:scale-95 transition-all flex items-center justify-center gap-3"
+                >
+                  <MessageSquare size={28}/> تقديم عرض عمل الآن
+                </button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {tasks.map(task => (
-                  <TaskCard 
-                    key={task.id} 
-                    task={task} 
-                    onClick={() => { setSelectedTask(task); setOfferMode(false); }} 
-                    onChat={onStartChat}
+              <div className="space-y-6 animate-fade-in">
+                <div className="bg-emerald-50 p-8 rounded-[3rem] border border-emerald-100">
+                  <h4 className="text-xl font-black text-emerald-900 mb-4 flex items-center gap-2"><Send size={20}/> اكتب عرضك المخصص للزبون</h4>
+                  <textarea 
+                    rows={5}
+                    className="w-full p-6 bg-white rounded-3xl border-none font-bold text-lg focus:ring-2 ring-emerald-500/20 shadow-sm"
+                    placeholder="مثلاً: أهلاً بك، أنا مهتم بالمهمة. أملك خبرة 10 سنوات في هذا المجال ويمكنني البدء غداً..."
+                    value={offerMessage}
+                    onChange={e => setOfferMessage(e.target.value)}
                   />
-                ))}
-                {tasks.length === 0 && (
-                  <div className="col-span-full py-40 text-center bg-white rounded-[4rem] border-2 border-dashed border-slate-100">
-                     <ClipboardList size={80} className="text-slate-100 mx-auto mb-6"/>
-                     <h3 className="text-3xl font-black text-slate-300">لا يوجد مهام مطابقة حالياً</h3>
-                     <p className="text-slate-400 font-bold mt-4 max-w-sm mx-auto">جرب تغيير فلاتر البحث أو كن أول من ينشر طلباً في هذه الفئة!</p>
+                  <div className="flex gap-4 mt-8">
+                    <button 
+                      disabled={sending || !offerMessage.trim()}
+                      onClick={handleSendOffer}
+                      className="flex-grow btn-primary py-5 rounded-[2rem] font-black text-xl flex items-center justify-center gap-3 disabled:opacity-50"
+                    >
+                      {sending ? <div className="loading-spinner w-6 h-6 border-white"></div> : <CheckCircle2 size={24}/>}
+                      {sending ? 'جاري الإرسال...' : 'إرسال العرض المباشر'}
+                    </button>
+                    <button onClick={() => setOfferMode(false)} className="px-8 bg-white border border-slate-200 rounded-[2rem] font-black text-slate-500 hover:bg-slate-50 transition-all">تراجع</button>
                   </div>
-                )}
+                </div>
               </div>
             )}
-         </div>
-      </div>
-
-      {showAddModal && <AddTaskModal onClose={() => setShowAddModal(false)} onAdded={() => { setShowAddModal(false); fetchTasks(); }} />}
-      
-      {/* Task Details Modal */}
-      {selectedTask && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-fade-in text-right">
-          <div className="bg-white w-full max-w-3xl rounded-[3.5rem] shadow-2xl p-10 relative max-h-[90vh] overflow-y-auto custom-scrollbar border border-slate-100">
-             <button onClick={() => { setSelectedTask(null); setOfferMode(false); }} className="absolute top-10 left-10 p-4 text-slate-400 hover:bg-slate-50 hover:text-red-500 rounded-2xl transition-all"><X size={28}/></button>
-             
-             <div className="flex flex-wrap items-center gap-3 mb-8">
-                <span className="bg-emerald-100 text-emerald-700 px-6 py-2 rounded-xl text-[10px] font-black border border-emerald-200 uppercase tracking-widest">{selectedTask.category}</span>
-                <span className="task-status-badge status-open">مفتوحة حالياً</span>
-             </div>
-
-             <h2 className="text-3xl md:text-5xl font-black text-slate-900 mb-8 leading-tight">{selectedTask.title}</h2>
-             
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
-                <div className="bg-emerald-50/50 p-8 rounded-[3rem] border border-emerald-100 shadow-sm">
-                   <p className="text-[10px] font-black text-emerald-600 mb-2 uppercase tracking-widest">الميزانية المقترحة</p>
-                   <p className="text-4xl font-black text-emerald-800 flex items-center gap-2">
-                      {selectedTask.budget.toLocaleString()} <span className="text-sm font-black">دج</span>
-                   </p>
-                </div>
-                <div className="bg-slate-50/50 p-8 rounded-[3rem] border border-slate-100 shadow-sm">
-                   <p className="text-[10px] font-black text-slate-400 mb-2 uppercase tracking-widest">الموقع الجغرافي</p>
-                   <p className="text-2xl font-black text-slate-700 flex items-center gap-3">
-                      <MapPin size={28} className="text-emerald-500"/> {selectedTask.wilaya}
-                   </p>
-                </div>
-             </div>
-
-             <div className="space-y-6 mb-12">
-                <h4 className="text-2xl font-black text-slate-900 flex items-center gap-3">وصف المهمة <Info size={24} className="text-emerald-500"/></h4>
-                <div className="bg-slate-50/50 p-8 rounded-[2.5rem] border border-slate-100 border-dashed">
-                   <p className="text-slate-600 font-medium text-xl leading-relaxed whitespace-pre-wrap">{selectedTask.description}</p>
-                </div>
-             </div>
-
-             {!offerMode ? (
-               <>
-                 <div className="bg-emerald-600/5 p-8 rounded-[3rem] border border-emerald-100 mb-12 flex flex-col md:flex-row items-center gap-6">
-                    <div className="w-16 h-16 bg-white rounded-2xl border border-emerald-100 flex items-center justify-center text-emerald-600 font-black shadow-sm overflow-hidden">
-                       {selectedTask.seeker_avatar ? <img src={selectedTask.seeker_avatar} className="w-full h-full object-cover" alt="Avatar"/> : <UserIcon size={32}/>}
-                    </div>
-                    <div className="flex-grow text-center md:text-right">
-                       <h5 className="font-black text-xl text-slate-900">{selectedTask.seeker_name || 'صاحب المهمة'}</h5>
-                       <p className="text-sm text-slate-400 font-bold">تواصل مع صاحب الطلب مباشرة لمناقشة التفاصيل والاتفاق.</p>
-                    </div>
-                 </div>
-
-                 <div className="flex flex-col sm:flex-row gap-5">
-                    <button 
-                      onClick={() => setOfferMode(true)} 
-                      className="flex-grow bg-emerald-600 text-white py-6 rounded-[2.5rem] font-black text-2xl shadow-2xl shadow-emerald-200 hover:bg-emerald-500 active:scale-95 transition-all flex items-center justify-center gap-4"
-                    >
-                       <MessageSquare size={32}/> تواصل و قدم عرضك
-                    </button>
-                    <button 
-                      className="bg-slate-900 text-white p-6 rounded-[2.5rem] shadow-xl hover:bg-slate-800 active:scale-95 transition-all"
-                      title="اتصال هاتفي"
-                    >
-                       <Phone size={28}/>
-                    </button>
-                 </div>
-               </>
-             ) : (
-               <div className="animate-fade-in space-y-6">
-                  <div className="bg-emerald-50 p-8 rounded-[3rem] border border-emerald-100">
-                     <h4 className="text-xl font-black text-emerald-900 mb-4 flex items-center gap-2"><Send size={20}/> اكتب عرضك أو رسالتك الأولى</h4>
-                     <textarea 
-                       rows={5} 
-                       className="w-full p-6 bg-white rounded-3xl border-none font-bold text-lg focus:ring-2 ring-emerald-500/20 shadow-sm"
-                       placeholder="مثلاً: السلام عليكم، أنا مهتم بهذه المهمة. سعري المبدئي هو ... وأستطيع إنجازها في غضون ..."
-                       value={offerMessage}
-                       onChange={e => setOfferMessage(e.target.value)}
-                     />
-                     <div className="flex flex-col sm:flex-row gap-4 mt-6">
-                        <button 
-                          disabled={sendingOffer || !offerMessage.trim()}
-                          onClick={handleSendOffer}
-                          className="flex-grow bg-emerald-600 text-white py-5 rounded-[2rem] font-black text-xl shadow-xl shadow-emerald-200 hover:bg-emerald-500 active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
-                        >
-                           {sendingOffer ? <div className="loading-spinner w-6 h-6 border-white"></div> : <CheckCircle2 size={24}/>}
-                           {sendingOffer ? 'جاري إرسال العرض...' : 'إرسال العرض والبدء بالدردشة'}
-                        </button>
-                        <button 
-                          onClick={() => setOfferMode(false)}
-                          className="bg-slate-100 text-slate-500 px-10 py-5 rounded-[2rem] font-black text-lg hover:bg-slate-200 transition-all"
-                        >
-                           تراجع
-                        </button>
-                     </div>
-                  </div>
-                  <p className="text-xs text-slate-400 font-bold text-center">سيتم إنشاء محادثة جديدة فور إرسال رسالتك.</p>
-               </div>
-             )}
           </div>
         </div>
       )}
@@ -507,126 +296,99 @@ function TasksMarketView({ onStartChat }: { onStartChat: (id: string, initialMsg
   );
 }
 
-// --- Chat View Implementation ---
-
+// 2. واجهة الدردشة (Communication Hub)
 function ChatView({ currentUser, activeChat, onBack, initialMessage }: { currentUser: User; activeChat: Chat | null; onBack: () => void; initialMessage?: string }) {
-  const [chats, setChats] = useState<Chat[]>([]);
   const [selectedChat, setSelectedChat] = useState<Chat | null>(activeChat);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [newMessage, setNewMessage] = useState('');
+  const [input, setInput] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Mocking initial chats list
-    setChats([
-      { id: 'chat_1', participant_1: currentUser.id, participant_2: 'w_1', last_message: 'مرحباً، هل أنت متاح؟', updated_at: new Date().toISOString(), other_participant: { firstName: 'أحمد', lastName: 'الكهربائي', avatar: '' } as User },
-      { id: 'chat_2', participant_1: currentUser.id, participant_2: 'w_2', last_message: 'سأرسل لك الموقع الآن', updated_at: new Date().toISOString(), other_participant: { firstName: 'ياسين', lastName: 'مرصص', avatar: '' } as User },
-    ]);
-  }, [currentUser]);
-
-  useEffect(() => {
     if (selectedChat) {
-      const initialMsgs: Message[] = [
-        { id: '1', chat_id: selectedChat.id, sender_id: selectedChat.participant_2, content: 'السلام عليكم، كيف يمكنني مساعدتك؟', created_at: new Date(Date.now() - 1000000).toISOString(), is_read: true },
-        { id: '2', chat_id: selectedChat.id, sender_id: currentUser.id, content: 'وعليكم السلام، أحتاج لصيانة عطل كهربائي في منزلي', created_at: new Date(Date.now() - 500000).toISOString(), is_read: true }
+      const mockMsgs: Message[] = [
+        { id: '1', chat_id: selectedChat.id, sender_id: selectedChat.participant_2, content: 'السلام عليكم، هل أنت متاح لهذا العمل؟', created_at: new Date(Date.now() - 3600000).toISOString(), is_read: true }
       ];
-      
       if (initialMessage) {
-        initialMsgs.push({
-          id: 'offer_msg',
-          chat_id: selectedChat.id,
-          sender_id: currentUser.id,
-          content: initialMessage,
-          created_at: new Date().toISOString(),
-          is_read: false
-        });
+        mockMsgs.push({ id: 'init', chat_id: selectedChat.id, sender_id: currentUser.id, content: initialMessage, created_at: new Date().toISOString(), is_read: false });
       }
-      
-      setMessages(initialMsgs);
-      setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: 'smooth' }), 200);
+      setMessages(mockMsgs);
+      setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: 'smooth' }), 300);
     }
-  }, [selectedChat, currentUser, initialMessage]);
+  }, [selectedChat, initialMessage, currentUser.id]);
 
-  const sendMessage = () => {
-    if (!newMessage.trim() || !selectedChat) return;
-    const msg: Message = {
-      id: Date.now().toString(),
-      chat_id: selectedChat.id,
-      sender_id: currentUser.id,
-      content: newMessage,
-      created_at: new Date().toISOString(),
-      is_read: false
-    };
-    setMessages(prev => [...prev, msg]);
-    setNewMessage('');
+  const send = () => {
+    if (!input.trim() || !selectedChat) return;
+    const newMsg = { id: Date.now().toString(), chat_id: selectedChat.id, sender_id: currentUser.id, content: input, created_at: new Date().toISOString(), is_read: false };
+    setMessages([...messages, newMsg]);
+    setInput('');
     setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
   };
 
   return (
-    <div className="max-w-6xl mx-auto h-[calc(100vh-160px)] flex flex-col md:flex-row bg-white rounded-[3rem] shadow-2xl overflow-hidden border border-slate-100 animate-fade-in mt-6 mb-6">
+    <div className="max-w-6xl mx-auto h-[calc(100vh-160px)] flex bg-white rounded-[4rem] shadow-2xl border border-slate-100 my-10 overflow-hidden animate-fade-in">
+      {/* قائمة المحادثات */}
       <div className={`w-full md:w-1/3 border-l border-slate-50 flex flex-col ${selectedChat ? 'hidden md:flex' : 'flex'}`}>
-        <div className="p-8 border-b border-slate-50 flex items-center justify-between">
-           <h2 className="text-2xl font-black text-slate-900">المحادثات</h2>
-           <div className="w-8 h-8 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-600 font-black text-xs">2</div>
-        </div>
-        <div className="flex-grow overflow-y-auto custom-scrollbar p-4 space-y-2">
-          {chats.map(chat => (
-            <div 
-              key={chat.id} 
-              onClick={() => setSelectedChat(chat)}
-              className={`p-5 rounded-3xl cursor-pointer transition-all flex items-center gap-4 ${selectedChat?.id === chat.id ? 'bg-emerald-50 border-emerald-100' : 'hover:bg-slate-50 border-transparent'} border`}
-            >
-              <div className="w-14 h-14 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600 font-black text-xl">
-                {chat.other_participant?.avatar ? <img src={chat.other_participant.avatar} className="w-full h-full object-cover rounded-2xl" alt="Avatar"/> : chat.other_participant?.firstName[0]}
-              </div>
-              <div className="flex-grow text-right">
-                <h4 className="font-black text-slate-900">{chat.other_participant?.firstName} {chat.other_participant?.lastName}</h4>
-                <p className="text-xs text-slate-400 font-bold truncate">{chat.last_message}</p>
-              </div>
-            </div>
-          ))}
+        <div className="p-10 border-b border-slate-50"><h2 className="text-3xl font-black text-slate-900">المحادثات</h2></div>
+        <div className="flex-grow overflow-y-auto custom-scrollbar p-6 space-y-4">
+           {[1,2].map(i => (
+             <div key={i} onClick={() => setSelectedChat({id: 'c'+i, participant_1: currentUser.id, participant_2: 'p'+i, other_participant: {firstName: 'زبون', lastName: i} as any, updated_at: ''})} className={`p-6 rounded-[2.5rem] cursor-pointer border-2 transition-all flex items-center gap-4 ${selectedChat?.id === 'c'+i ? 'bg-emerald-50 border-emerald-100 shadow-lg shadow-emerald-50/50' : 'border-transparent hover:bg-slate-50'}`}>
+                <div className="w-16 h-16 bg-emerald-600 rounded-[1.2rem] flex items-center justify-center text-white font-black text-2xl">ز</div>
+                <div className="text-right">
+                  <h4 className="font-black text-slate-900 text-lg">زبون سلكني {i}</h4>
+                  <p className="text-xs text-slate-400 font-bold">آخر رسالة من ساعة...</p>
+                </div>
+             </div>
+           ))}
         </div>
       </div>
 
-      <div className={`flex-grow flex flex-col ${!selectedChat ? 'hidden md:flex bg-slate-50 items-center justify-center' : 'flex'}`}>
+      {/* نافذة الدردشة */}
+      <div className={`flex-grow flex flex-col ${!selectedChat ? 'hidden md:flex items-center justify-center bg-slate-50' : 'flex'}`}>
         {selectedChat ? (
           <>
-            <div className="p-6 border-b border-slate-50 flex items-center justify-between bg-white">
+            <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-white/80 backdrop-blur-md sticky top-0 z-10">
               <div className="flex items-center gap-4">
                 <button onClick={() => setSelectedChat(null)} className="md:hidden p-2 text-slate-400"><ArrowRight/></button>
-                <div className="w-12 h-12 bg-emerald-600 rounded-2xl flex items-center justify-center text-white font-black text-lg">
-                  {selectedChat.other_participant?.firstName[0]}
-                </div>
+                <div className="w-14 h-14 bg-emerald-600 rounded-[1.2rem] flex items-center justify-center text-white font-black text-xl">ز</div>
                 <div className="text-right">
-                  <h3 className="font-black text-slate-900 leading-none">{selectedChat.other_participant?.firstName} {selectedChat.other_participant?.lastName}</h3>
-                  <span className="text-[10px] text-emerald-500 font-black uppercase">متصل الآن</span>
+                  <h3 className="text-xl font-black text-slate-900 leading-none">زبون سلكني</h3>
+                  <span className="text-[10px] text-emerald-500 font-black uppercase tracking-widest mt-1 block">متصل الآن</span>
                 </div>
               </div>
-              <button className="p-3 text-slate-400 hover:bg-slate-50 rounded-2xl"><MoreVertical size={20}/></button>
+              <button className="p-4 text-slate-400 hover:bg-slate-50 rounded-2xl"><MoreVertical size={24}/></button>
             </div>
-            <div className="flex-grow overflow-y-auto custom-scrollbar p-8 space-y-6 bg-slate-50/30">
-              {messages.map((m, idx) => (
-                <div key={idx} className={`flex ${m.sender_id === currentUser.id ? 'justify-start' : 'justify-end'}`}>
-                  <div className={`max-w-[80%] p-4 px-6 shadow-sm font-medium ${m.sender_id === currentUser.id ? 'chat-bubble-me' : 'chat-bubble-other'}`}>
-                    <p>{m.content}</p>
-                    <span className="text-[9px] opacity-60 block mt-1 text-left">{new Date(m.created_at).toLocaleTimeString('ar-DZ', { hour: '2-digit', minute: '2-digit' })}</span>
-                  </div>
-                </div>
-              ))}
-              <div ref={scrollRef} />
+            
+            <div className="flex-grow overflow-y-auto custom-scrollbar p-10 space-y-8 bg-slate-50/20">
+               {messages.map(m => (
+                 <div key={m.id} className={`flex ${m.sender_id === currentUser.id ? 'justify-start' : 'justify-end'}`}>
+                    <div className={`max-w-[75%] p-6 shadow-sm font-medium text-lg ${m.sender_id === currentUser.id ? 'chat-bubble-user' : 'chat-bubble-other'}`}>
+                       {m.content}
+                       <span className="text-[10px] opacity-60 block mt-2 text-left">{new Date(m.created_at).toLocaleTimeString('ar-DZ')}</span>
+                    </div>
+                 </div>
+               ))}
+               <div ref={scrollRef} />
             </div>
-            <div className="p-6 bg-white border-t border-slate-50">
-              <div className="flex gap-3">
-                <input type="text" placeholder="اكتب رسالتك..." className="flex-grow p-4 px-6 bg-slate-50 rounded-2xl border-none font-bold focus:ring-2 ring-emerald-500/20" value={newMessage} onChange={e => setNewMessage(e.target.value)} onKeyPress={e => e.key === 'Enter' && sendMessage()} />
-                <button onClick={sendMessage} className="bg-emerald-600 text-white p-4 px-6 rounded-2xl shadow-lg hover:bg-emerald-500 transition-all"><Send size={24}/></button>
-              </div>
+
+            <div className="p-8 bg-white border-t border-slate-50">
+               <div className="flex gap-4">
+                  <input 
+                    type="text" 
+                    placeholder="اكتب ردك الاحترافي هنا..." 
+                    className="flex-grow p-5 bg-slate-50 rounded-[2rem] border-none font-bold text-lg focus:ring-2 ring-emerald-500/20"
+                    value={input}
+                    onChange={e => setInput(e.target.value)}
+                    onKeyPress={e => e.key === 'Enter' && send()}
+                  />
+                  <button onClick={send} className="bg-emerald-600 text-white p-5 rounded-[1.5rem] shadow-xl hover:bg-emerald-500 active:scale-95 transition-all"><Send size={32}/></button>
+               </div>
             </div>
           </>
         ) : (
-          <div className="text-center p-20 space-y-4">
-             <div className="w-24 h-24 bg-emerald-100 rounded-[2.5rem] flex items-center justify-center text-emerald-600 mx-auto mb-6"><MessageSquare size={48}/></div>
-             <h3 className="text-2xl font-black text-slate-900">ابدأ المحادثة</h3>
-             <p className="text-slate-400 font-bold max-w-xs mx-auto">تواصل مباشرة مع الحرفيين أو الزبائن لمناقشة التفاصيل.</p>
+          <div className="text-center p-20">
+             <div className="w-32 h-32 bg-emerald-100 rounded-[3rem] flex items-center justify-center text-emerald-600 mx-auto mb-8 animate-float"><MessageSquare size={64}/></div>
+             <h3 className="text-4xl font-black text-slate-900 mb-4">مركز المحادثات</h3>
+             <p className="text-slate-400 font-bold max-w-sm mx-auto text-xl">اختر محادثة لبدء النقاش مع الزبون وإتمام الاتفاق.</p>
           </div>
         )}
       </div>
@@ -634,48 +396,56 @@ function ChatView({ currentUser, activeChat, onBack, initialMessage }: { current
   );
 }
 
-// --- Edit Profile View ---
+// 3. دليل الحرفيين (Workers View)
+function SearchWorkersView({ onViewWorker }: { onViewWorker: (w: User) => void }) {
+  const [workers, setWorkers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
 
-function EditProfileView({ user, onSaved, onCancel }: { user: User; onSaved: (u: User) => void; onCancel: () => void }) {
-  const [formData, setFormData] = useState<User>({...user});
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSaved(formData);
-  };
+  useEffect(() => {
+    supabase.from('users').select('*').eq('role', 'WORKER').then(({ data }) => {
+      if (data) setWorkers(data.map(u => ({ ...u, firstName: u.first_name, lastName: u.last_name, location: { wilaya: u.wilaya }, categories: ensureArray(u.categories) } as User)));
+      setLoading(false);
+    });
+  }, []);
 
   return (
-    <div className="max-w-3xl mx-auto py-24 px-6 animate-fade-in text-right">
-       <div className="bg-white rounded-[4rem] shadow-2xl border border-slate-100 p-12">
-          <SectionHeading title="تعديل الملف الشخصي" subtitle="حدث معلوماتك لزيادة فرص وصول الزبائن إليك." />
-          <form onSubmit={handleSubmit} className="space-y-8">
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                   <label className="text-xs font-black text-slate-400 mr-2 uppercase">الاسم الأول</label>
-                   <input className="w-full p-5 bg-slate-50 rounded-[2rem] border-none font-bold text-lg focus:ring-2 ring-emerald-500/20" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} />
+    <div className="max-w-7xl mx-auto py-16 px-6 text-right min-h-screen">
+      <PageHeader title="دليل الحرفيين" subtitle="نخبة الحرفيين المهرة في الجزائر، موثقون ومستعدون لتلبية احتياجاتك." />
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+        {loading ? (
+          [1,2,3].map(i => <div key={i} className="h-80 craft-card bg-slate-100 animate-pulse"></div>)
+        ) : (
+          workers.map(w => (
+            <div key={w.id} className="craft-card p-10 group" onClick={() => onViewWorker(w)}>
+              <div className="flex gap-6 items-center mb-8 flex-row-reverse">
+                <div className="relative">
+                  <img src={w.avatar || `https://ui-avatars.com/api/?name=${w.firstName}`} className="w-24 h-24 rounded-[2rem] object-cover shadow-xl border-4 border-white"/>
+                  {w.verificationStatus === 'verified' && (
+                    <div className="absolute -bottom-2 -right-2 bg-blue-500 text-white p-1.5 rounded-xl border-4 border-white shadow-lg"><CheckCircle2 size={16}/></div>
+                  )}
                 </div>
-                <div className="space-y-2">
-                   <label className="text-xs font-black text-slate-400 mr-2 uppercase">اللقب</label>
-                   <input className="w-full p-5 bg-slate-50 rounded-[2rem] border-none font-bold text-lg focus:ring-2 ring-emerald-500/20" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} />
+                <div className="text-right flex-1">
+                  <h3 className="text-2xl font-black text-slate-900 group-hover:text-emerald-600 transition-colors">{w.firstName} {w.lastName}</h3>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {w.categories.slice(0, 2).map(c => <span key={c} className="text-emerald-600 font-black text-[10px] bg-emerald-50 px-3 py-1 rounded-lg border border-emerald-100 uppercase">{c}</span>)}
+                  </div>
                 </div>
-             </div>
-             <div className="space-y-2">
-                <label className="text-xs font-black text-slate-400 mr-2 uppercase">النبذة الشخصية</label>
-                <textarea rows={4} className="w-full p-8 bg-slate-50 rounded-[3rem] border-none font-bold text-lg focus:ring-2 ring-emerald-500/20" value={formData.bio || ''} onChange={e => setFormData({...formData, bio: e.target.value})} />
-             </div>
-             <div className="flex flex-col sm:flex-row gap-4 pt-8">
-                <button type="submit" className="flex-grow bg-emerald-600 text-white py-6 rounded-[2.5rem] font-black text-2xl shadow-2xl shadow-emerald-200 hover:bg-emerald-500 transition-all active:scale-95 flex items-center justify-center gap-3">
-                   <Save size={28}/> حفظ التغييرات
-                </button>
-                <button type="button" onClick={onCancel} className="bg-slate-100 text-slate-500 px-10 rounded-[2.5rem] font-black text-xl hover:bg-slate-200 transition-all">إلغاء</button>
-             </div>
-          </form>
-       </div>
+              </div>
+              <p className="text-slate-500 font-medium mb-10 line-clamp-2 leading-relaxed text-lg">{w.bio || 'حرفي سلكني مبدع متاح لخدمتكم بأفضل المعايير.'}</p>
+              <div className="flex justify-between items-center border-t border-slate-50 pt-8">
+                <span className="text-slate-400 font-black flex items-center gap-2"><MapPin size={18} className="text-emerald-500"/> {w.location.wilaya}</span>
+                <button className="bg-slate-900 text-white px-8 py-3 rounded-2xl font-black text-sm group-hover:bg-emerald-600 transition-all active:scale-95 shadow-lg">عرض الملف الشخصي</button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
     </div>
   );
 }
 
-// --- Main App Logic ---
+// --- التطبيق الرئيسي ---
 
 export default function App() {
   const [state, setState] = useState<AppState>(() => {
@@ -690,69 +460,50 @@ export default function App() {
     };
   });
   
-  const [initialMsg, setInitialMsg] = useState<string | undefined>();
+  const [offerText, setOfferText] = useState<string | undefined>();
 
-  const setView = (view: AppState['view']) => { 
-    setState(prev => ({ ...prev, view })); 
-    window.scrollTo(0, 0); 
-    if (view !== 'chats') setInitialMsg(undefined); // Clear initial message when leaving chats
-  };
-  
-  const updateCurrentUser = (u: User | null) => { 
-    setState(prev => ({ ...prev, currentUser: u })); 
-    if (u) localStorage.setItem('user', JSON.stringify(u));
-    else localStorage.removeItem('user'); 
-  };
-
-  const openWorkerDetails = (worker: User) => {
-    setState(prev => ({ ...prev, selectedWorker: worker, view: 'worker-details' }));
+  const setView = (v: AppState['view']) => {
+    setState(prev => ({ ...prev, view: v }));
     window.scrollTo(0, 0);
+    if (v !== 'chats') setOfferText(undefined);
   };
 
-  const startChat = (participantId: string, offerText?: string) => {
+  const startChat = (id: string, initialMsg?: string) => {
     if (!state.currentUser) { setView('login'); return; }
-    
-    const mockChat: Chat = {
-      id: `chat_${participantId}`,
-      participant_1: state.currentUser.id,
-      participant_2: participantId,
-      updated_at: new Date().toISOString(),
-      other_participant: { firstName: 'مستخدم', lastName: 'نشط', avatar: '' } as User
-    };
-    
-    if (offerText) setInitialMsg(offerText);
+    const mockChat: Chat = { id: 'c_'+id, participant_1: state.currentUser.id, participant_2: id, updated_at: new Date().toISOString() };
+    if (initialMsg) setOfferText(initialMsg);
     setState(prev => ({ ...prev, activeChat: mockChat, view: 'chats' }));
-    window.scrollTo(0, 0);
   };
 
   return (
     <div className="min-h-screen flex flex-col arabic-text bg-slate-50 text-slate-900 pb-24 md:pb-0 custom-scrollbar" dir="rtl">
       <GlobalStyles />
+      
       <nav className="sticky top-0 z-50 h-24 bg-white/80 backdrop-blur-xl border-b border-slate-100 flex items-center px-4 md:px-10 shadow-sm">
         <div className="max-w-7xl mx-auto w-full flex justify-between items-center">
           <Logo onClick={() => setView('landing')} size="md" />
-          <div className="hidden md:flex items-center gap-10">
+          <div className="hidden md:flex items-center gap-12">
             <NavButton active={state.view === 'landing'} onClick={() => setView('landing')}>الرئيسية</NavButton>
-            <NavButton active={state.view === 'search'} onClick={() => setView('search')}>الحرفيين</NavButton>
+            <NavButton active={state.view === 'search'} onClick={() => setView('search')}>دليل الحرفيين</NavButton>
             <NavButton active={state.view === 'support'} onClick={() => setView('support')}>سوق المهام</NavButton>
             {state.currentUser && (
               <>
                 <NavButton active={state.view === 'chats'} onClick={() => setView('chats')} badge={2}>الرسائل</NavButton>
-                <NavButton active={state.view === 'notifications'} onClick={() => setView('notifications')} badge={3}>التنبيهات</NavButton>
+                <NavButton active={state.view === 'notifications'} onClick={() => setView('notifications')}>التنبيهات</NavButton>
               </>
             )}
           </div>
           <div className="flex items-center gap-4">
             {state.currentUser ? (
-              <div onClick={() => setView('profile')} className="flex items-center gap-3 cursor-pointer p-1.5 pr-5 bg-white rounded-full border border-slate-200 hover:border-emerald-200 transition-all shadow-sm">
+              <div onClick={() => setView('profile')} className="flex items-center gap-3 cursor-pointer p-2 pr-6 bg-white rounded-full border border-slate-200 hover:border-emerald-200 transition-all shadow-sm">
                 <div className="flex flex-col items-start leading-tight">
-                  <span className="font-black text-sm text-slate-800">{state.currentUser.firstName}</span>
-                  <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">حسابي</span>
+                  <span className="font-black text-base text-slate-800">{state.currentUser.firstName}</span>
+                  <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">حسابي</span>
                 </div>
-                <img src={state.currentUser.avatar || `https://ui-avatars.com/api/?name=${state.currentUser.firstName}`} className="w-12 h-12 rounded-2xl object-cover border-2 border-white shadow-sm" alt="Profile" />
+                <img src={state.currentUser.avatar || `https://ui-avatars.com/api/?name=${state.currentUser.firstName}`} className="w-12 h-12 rounded-[1.2rem] object-cover border-2 border-white shadow-sm" alt="Profile" />
               </div>
             ) : (
-              <button onClick={() => setView('login')} className="bg-emerald-600 text-white px-10 py-3.5 rounded-2xl font-black text-sm shadow-xl shadow-emerald-100 active:scale-95 transition-all">دخول</button>
+              <button onClick={() => setView('login')} className="btn-primary px-10 py-4 rounded-2xl font-black text-base active:scale-95 transition-all">تسجيل الدخول</button>
             )}
           </div>
         </div>
@@ -760,202 +511,161 @@ export default function App() {
 
       <main className="flex-grow">
         {state.view === 'landing' && <LandingView onStart={() => setView('search')} onRegister={() => setView('register')} />}
-        {state.view === 'search' && <SearchWorkersView onViewWorker={openWorkerDetails} />}
-        {state.view === 'worker-details' && state.selectedWorker && <WorkerView worker={state.selectedWorker} onBack={() => setView('search')} onStartChat={() => startChat(state.selectedWorker!.id)} />}
-        {state.view === 'chats' && state.currentUser && <ChatView currentUser={state.currentUser} activeChat={state.activeChat || null} onBack={() => setView('landing')} initialMessage={initialMsg} />}
+        {state.view === 'search' && <SearchWorkersView onViewWorker={(w) => setState({...state, selectedWorker: w, view: 'worker-details'})} />}
         {state.view === 'support' && <TasksMarketView onStartChat={startChat} />}
-        {state.view === 'notifications' && (
-          <div className="max-w-3xl mx-auto py-20 px-6 animate-fade-in text-center">
-             <Bell size={64} className="text-emerald-200 mx-auto mb-6"/>
-             <h3 className="text-3xl font-black text-slate-900">لا يوجد تنبيهات جديدة</h3>
-             <p className="text-slate-400 font-bold mt-2">سوف تصلك الإشعارات فور وجود تحديثات على حسابك.</p>
-          </div>
+        {state.view === 'chats' && state.currentUser && <ChatView currentUser={state.currentUser} activeChat={state.activeChat || null} onBack={() => setView('landing')} initialMessage={offerText} />}
+        
+        {state.view === 'worker-details' && state.selectedWorker && (
+           <WorkerView worker={state.selectedWorker} onBack={() => setView('search')} onStartChat={() => startChat(state.selectedWorker!.id)} />
         )}
+
         {state.view === 'profile' && state.currentUser && (
-          <div className="max-w-4xl mx-auto py-24 px-6 animate-fade-in text-right">
-             <div className="bg-white rounded-[4rem] shadow-xl border border-slate-100 overflow-hidden">
-                <div className="h-48 bg-gradient-to-r from-emerald-600 to-teal-500"></div>
-                <div className="px-12 pb-12">
-                   <div className="relative -mt-24 mb-12">
-                     <img src={state.currentUser.avatar || `https://ui-avatars.com/api/?name=${state.currentUser.firstName}`} className="w-48 h-48 rounded-[3.5rem] border-8 border-white mx-auto shadow-2xl object-cover bg-white" alt="Profile" />
-                     {state.currentUser.verificationStatus === 'verified' && (
-                       <div className="absolute bottom-6 right-1/2 translate-x-16 translate-y-2 bg-blue-500 text-white p-2.5 rounded-2xl border-4 border-white shadow-lg"><CheckCircle2 size={24}/></div>
-                     )}
-                   </div>
-                   <div className="text-center mb-16">
-                     <h2 className="text-5xl font-black text-slate-900 mb-4">{state.currentUser.firstName} {state.currentUser.lastName}</h2>
-                     <div className="flex items-center justify-center gap-4 text-slate-500 font-bold">
-                        <span className="flex items-center gap-1.5"><MapPin size={20} className="text-emerald-500"/> {state.currentUser.location.wilaya}</span>
-                        <span className="w-1.5 h-1.5 bg-slate-200 rounded-full"></span>
-                        <span className="flex items-center gap-1.5 text-emerald-600 font-black"><Trophy size={20}/> حرفي معتمد</span>
-                     </div>
-                   </div>
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-16">
-                      <div className="space-y-10">
-                         <section>
-                            <h4 className="text-xl font-black text-slate-900 border-b border-slate-50 pb-4 mb-4">النبذة الشخصية</h4>
-                            <p className="text-slate-600 font-medium leading-relaxed text-lg">{state.currentUser.bio || 'لم يتم إضافة نبذة بعد.'}</p>
-                         </section>
-                         <section>
-                            <h4 className="text-xl font-black text-slate-900 border-b border-slate-50 pb-4 mb-4">التخصصات والخدمات</h4>
-                            <div className="flex flex-wrap gap-2.5">
-                               {ensureArray(state.currentUser.categories).map(c => <span key={c} className="bg-emerald-50 text-emerald-700 px-4 py-2 rounded-xl font-black text-xs border border-emerald-100">{c}</span>)}
-                            </div>
-                         </section>
-                      </div>
-                      <div className="space-y-10">
-                         <section>
-                            <h4 className="text-xl font-black text-slate-900 border-b border-slate-50 pb-4 mb-4">المهارات والتقنيات</h4>
-                            <div className="flex flex-wrap gap-2.5">
-                               {ensureArray(state.currentUser.skills).map(s => <span key={s} className="bg-slate-50 text-slate-600 px-4 py-2 rounded-xl font-black text-xs border border-slate-100">{s}</span>)}
-                            </div>
-                         </section>
-                         <div className="pt-10 flex flex-col gap-4">
-                            <button onClick={() => setView('edit-profile')} className="bg-slate-900 text-white p-6 rounded-[2rem] font-black flex items-center justify-center gap-3 shadow-xl hover:bg-emerald-600 transition-all active:scale-95"><Edit size={24}/> تعديل ملفي الشخصي</button>
-                            <button onClick={() => updateCurrentUser(null)} className="bg-red-50 text-red-500 p-6 rounded-[2rem] font-black flex items-center justify-center gap-3 hover:bg-red-100 transition-all active:scale-95"><LogOut size={24}/> تسجيل الخروج</button>
-                         </div>
-                      </div>
-                   </div>
-                </div>
-             </div>
-          </div>
+           <div className="max-w-4xl mx-auto py-24 px-6 text-right animate-fade-in">
+              <div className="craft-card overflow-hidden">
+                 <div className="h-60 bg-gradient-to-r from-emerald-600 to-teal-500"></div>
+                 <div className="px-12 pb-12">
+                    <div className="relative -mt-32 mb-12 flex flex-col items-center">
+                       <img src={state.currentUser.avatar || `https://ui-avatars.com/api/?name=${state.currentUser.firstName}`} className="w-60 h-60 rounded-[4rem] border-8 border-white shadow-2xl object-cover bg-white" alt="Profile" />
+                       <h2 className="text-5xl font-black text-slate-900 mt-8">{state.currentUser.firstName} {state.currentUser.lastName}</h2>
+                       <div className="flex items-center gap-6 text-slate-500 font-bold mt-4 text-xl">
+                          <span className="flex items-center gap-2"><MapPin className="text-emerald-500"/> {state.currentUser.location.wilaya}</span>
+                          <span className="w-2 h-2 bg-slate-200 rounded-full"></span>
+                          <span className="flex items-center gap-2 text-emerald-600 font-black"><Trophy/> حرفي موثق</span>
+                       </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-12 pt-12 border-t border-slate-50">
+                       <div className="space-y-10">
+                          <section>
+                             <h4 className="text-2xl font-black text-slate-900 mb-6">النبذة المهنية</h4>
+                             <p className="text-xl text-slate-600 leading-relaxed">{state.currentUser.bio || 'لم يتم إضافة نبذة تعريفية بعد.'}</p>
+                          </section>
+                          <section>
+                             <h4 className="text-2xl font-black text-slate-900 mb-6">التخصصات</h4>
+                             <div className="flex flex-wrap gap-3">
+                                {ensureArray(state.currentUser.categories).map(c => <span key={c} className="bg-emerald-50 text-emerald-700 px-6 py-2 rounded-2xl font-black text-sm border border-emerald-100">{c}</span>)}
+                             </div>
+                          </section>
+                       </div>
+                       <div className="space-y-8 flex flex-col justify-end">
+                          <button onClick={() => setView('edit-profile')} className="btn-primary py-6 rounded-[2.5rem] font-black text-2xl flex items-center justify-center gap-4 active:scale-95 transition-all"><Edit size={32}/> تعديل الملف الشخصي</button>
+                          <button onClick={() => {localStorage.removeItem('user'); window.location.reload();}} className="py-6 bg-red-50 text-red-500 rounded-[2.5rem] font-black text-2xl flex items-center justify-center gap-4 hover:bg-red-100 transition-all active:scale-95"><LogOut size={32}/> تسجيل الخروج</button>
+                       </div>
+                    </div>
+                 </div>
+              </div>
+           </div>
         )}
-        {state.view === 'edit-profile' && state.currentUser && <EditProfileView user={state.currentUser} onSaved={(u) => { updateCurrentUser(u); setView('profile'); }} onCancel={() => setView('profile')} />}
-        {['login', 'register'].includes(state.view) && (
-          <div className="py-40 text-center animate-fade-in"><div className="loading-spinner mx-auto mb-6"></div><h3 className="text-3xl font-black">نظام الدخول قيد التحديث...</h3><button onClick={() => setView('landing')} className="mt-8 text-emerald-600 font-black">العودة للرئيسية</button></div>
+        
+        {['login', 'register', 'edit-profile', 'notifications'].includes(state.view) && (
+          <div className="py-60 text-center animate-fade-in">
+             <div className="loading-spinner mx-auto mb-8 w-16 h-16"></div>
+             <h3 className="text-4xl font-black text-slate-800 mb-4">قيد التحديث...</h3>
+             <p className="text-slate-400 font-bold text-xl">نقوم بتحسين هذا القسم لتوفير أفضل تجربة لك.</p>
+             <button onClick={() => setView('landing')} className="mt-12 bg-emerald-600 text-white px-12 py-5 rounded-[2rem] font-black text-xl shadow-xl active:scale-95 transition-all">العودة للرئيسية</button>
+          </div>
         )}
       </main>
 
-      <div className="fixed bottom-0 left-0 right-0 h-24 bg-white/95 backdrop-blur-2xl border-t border-slate-100 flex items-center justify-around md:hidden z-50 px-6 shadow-2xl">
+      {/* شريط الملاحة السفلي للجوال */}
+      <div className="fixed bottom-0 left-0 right-0 h-24 bg-white/90 backdrop-blur-2xl border-t border-slate-100 flex items-center justify-around md:hidden z-[60] px-6 shadow-2xl rounded-t-[3rem]">
         <TabItem icon={Home} label="الرئيسية" active={state.view === 'landing'} onClick={() => setView('landing')} />
-        <TabItem icon={SearchIcon} label="البحث" active={state.view === 'search'} onClick={() => setView('search')} />
+        <TabItem icon={SearchIcon} label="الحرفيين" active={state.view === 'search'} onClick={() => setView('search')} />
         <TabItem icon={ClipboardList} label="المهام" active={state.view === 'support'} onClick={() => setView('support')} />
         <TabItem icon={MessageSquare} label="الرسائل" active={state.view === 'chats'} onClick={() => setView('chats')} badge={2} />
-        <TabItem icon={UserIcon} label="حسابي" active={state.view === 'profile' || state.view === 'edit-profile'} onClick={() => setView(state.currentUser ? 'profile' : 'login')} />
+        <TabItem icon={UserIcon} label="حسابي" active={state.view === 'profile'} onClick={() => setView(state.currentUser ? 'profile' : 'login')} />
       </div>
     </div>
   );
 }
 
-// Sub-views refactoring for brevity
+// مكونات العرض الإضافية
+
 function LandingView({ onStart, onRegister }: { onStart: () => void; onRegister: () => void }) {
   return (
-    <div className="relative min-h-[90vh] flex items-center justify-center overflow-hidden py-20 px-6 animate-fade-in">
-      <div className="absolute inset-0 bg-slate-950 bg-[url('https://images.unsplash.com/photo-1621905252507-b354bcadcabc?q=80&w=2000')] bg-cover bg-center opacity-30"></div>
+    <div className="relative min-h-[95vh] flex items-center justify-center overflow-hidden py-20 px-6 animate-fade-in">
+      <div className="absolute inset-0 bg-slate-950 bg-[url('https://images.unsplash.com/photo-1621905252507-b354bcadcabc?q=80&w=2000')] bg-cover bg-center opacity-40"></div>
       <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/40 to-transparent"></div>
       <div className="relative z-10 max-w-5xl text-center text-white">
-        <h1 className="text-6xl md:text-8xl font-black mb-8 leading-tight tracking-tighter">ريح بالك، <span className="text-emerald-400 italic">سَلّكني</span> يسلكها!</h1>
-        <p className="text-xl md:text-3xl text-slate-300 mb-12 font-medium max-w-3xl mx-auto leading-relaxed">بوابتك الذكية للوصول إلى أفضل الحرفيين المهرة في الجزائر بكل ثقة.</p>
-        <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
-           <button onClick={onStart} className="bg-emerald-600 px-14 py-6 rounded-[2.5rem] font-black text-2xl shadow-2xl hover:bg-emerald-500 active:scale-95 transition-all w-full sm:w-auto">اطلب خدمة الآن 🔍</button>
-           <button onClick={onRegister} className="bg-white/10 backdrop-blur-md px-14 py-6 rounded-[2.5rem] font-black text-2xl border border-white/20 hover:bg-white/20 transition-all w-full sm:w-auto">انضم كحرفي 🛠️</button>
+        <div className="inline-block mb-12 animate-float"><Logo size="lg" /></div>
+        <h1 className="text-6xl md:text-9xl font-black mb-10 leading-tight tracking-tighter">سَلّكني <span className="text-emerald-400 italic">يسلكها!</span></h1>
+        <p className="text-2xl md:text-4xl text-slate-300 mb-16 font-medium max-w-3xl mx-auto leading-relaxed">بوابتك الذكية للوصول إلى أمهر الحرفيين في الجزائر بكل احترافية وأمان.</p>
+        <div className="flex flex-col sm:flex-row gap-8 justify-center items-center">
+           <button onClick={onStart} className="btn-primary px-16 py-8 rounded-[3rem] font-black text-3xl shadow-2xl active:scale-95 transition-all w-full sm:w-auto">اطلب خدمة الآن 🔍</button>
+           <button onClick={onRegister} className="bg-white/10 backdrop-blur-md px-16 py-8 rounded-[3rem] font-black text-3xl border border-white/20 hover:bg-white/20 transition-all w-full sm:w-auto active:scale-95">سجل كحرفي 🛠️</button>
+        </div>
+        <div className="mt-24 grid grid-cols-2 md:grid-cols-4 gap-12 opacity-80 font-black text-xl">
+           <div className="flex flex-col gap-2"><span>+50k</span><span className="text-emerald-400 text-sm uppercase">حرفي نشط</span></div>
+           <div className="flex flex-col gap-2"><span>+100k</span><span className="text-emerald-400 text-sm uppercase">مهمة مكتملة</span></div>
+           <div className="flex flex-col gap-2"><span>58</span><span className="text-emerald-400 text-sm uppercase">ولاية مغطاة</span></div>
+           <div className="flex flex-col gap-2"><span>4.9/5</span><span className="text-emerald-400 text-sm uppercase">تقييم الزبائن</span></div>
         </div>
       </div>
     </div>
   );
 }
 
-function SearchWorkersView({ onViewWorker }: { onViewWorker: (w: User) => void }) {
-  const [workers, setWorkers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    setLoading(true);
-    supabase.from('users').select('*').eq('role', 'WORKER').then(({ data }) => {
-      if (data) setWorkers(data.map(u => ({ ...u, firstName: u.first_name, lastName: u.last_name, location: { wilaya: u.wilaya }, categories: ensureArray(u.categories) } as User)));
-      setLoading(false);
-    });
-  }, []);
-
-  return (
-    <div className="max-w-7xl mx-auto py-12 px-6 animate-fade-in text-right">
-       <SectionHeading title="اكتشف الحرفيين المبدعين" subtitle="تواصل مع المبدعين الموثقين بالقرب منك في كافة الولايات." />
-       {loading ? (
-         <div className="py-20 flex justify-center"><div className="loading-spinner"></div></div>
-       ) : (
-         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-            {workers.map(w => (
-              <div key={w.id} className="bg-white p-10 rounded-[3.5rem] shadow-xl border border-slate-100 hover:-translate-y-2 transition-all cursor-pointer group" onClick={() => onViewWorker(w)}>
-                 <div className="flex gap-6 items-center mb-8 flex-row-reverse">
-                    <img src={w.avatar || `https://ui-avatars.com/api/?name=${w.firstName}`} className="w-20 h-20 rounded-[1.5rem] object-cover border-4 border-slate-50 shadow-md" alt="Avatar"/>
-                    <div className="text-right flex-1">
-                       <h3 className="text-2xl font-black text-slate-900 group-hover:text-emerald-600 transition-colors">{w.firstName} {w.lastName}</h3>
-                       <div className="flex flex-wrap gap-1 mt-1">
-                          {w.categories.slice(0, 2).map(c => <span key={c} className="text-emerald-600 font-black text-[10px] bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-100">{c}</span>)}
-                       </div>
-                    </div>
-                 </div>
-                 <p className="text-slate-500 font-medium mb-8 line-clamp-2 leading-relaxed">{w.bio || 'حرفي مبدع متاح لخدمتكم.'}</p>
-                 <div className="flex justify-between items-center border-t border-slate-50 pt-6">
-                    <span className="text-slate-400 font-bold flex items-center gap-1.5"><MapPin size={16} className="text-emerald-500"/> {w.location.wilaya}</span>
-                    <button className="bg-slate-900 text-white px-8 py-3 rounded-2xl font-black text-sm group-hover:bg-emerald-600 shadow-md transition-all">عرض الملف</button>
-                 </div>
-              </div>
-            ))}
-         </div>
-       )}
-    </div>
-  );
-}
-
 function WorkerView({ worker, onBack, onStartChat }: { worker: User; onBack: () => void; onStartChat: () => void }) {
   return (
-    <div className="max-w-5xl mx-auto py-12 px-6 animate-fade-in text-right">
-       <button onClick={onBack} className="flex items-center gap-2 text-slate-500 font-black mb-8 hover:text-emerald-600 transition-all"><ArrowRight size={20} className="rotate-180"/> العودة للبحث</button>
-       <div className="bg-white rounded-[4rem] shadow-2xl border border-slate-100 overflow-hidden">
-          <div className="h-48 bg-gradient-to-r from-emerald-600 to-teal-500"></div>
-          <div className="px-12 pb-12">
-             <div className="relative -mt-24 mb-12 flex flex-col md:flex-row items-center md:items-end gap-8">
-                <img src={worker.avatar || `https://ui-avatars.com/api/?name=${worker.firstName}`} className="w-48 h-48 rounded-[3.5rem] border-8 border-white shadow-2xl object-cover bg-slate-50" alt="Avatar" />
+    <div className="max-w-6xl mx-auto py-20 px-6 text-right animate-fade-in min-h-screen">
+       <button onClick={onBack} className="flex items-center gap-3 text-slate-500 font-black mb-12 hover:text-emerald-600 transition-all text-xl"><ArrowRight size={24} className="rotate-180"/> العودة للدليل</button>
+       <div className="craft-card overflow-hidden">
+          <div className="h-64 bg-gradient-to-r from-emerald-600 via-teal-500 to-emerald-800"></div>
+          <div className="px-12 pb-16">
+             <div className="relative -mt-32 mb-16 flex flex-col md:flex-row items-center md:items-end gap-12">
+                <img src={worker.avatar || `https://ui-avatars.com/api/?name=${worker.firstName}`} className="w-64 h-64 rounded-[4.5rem] border-8 border-white shadow-2xl object-cover bg-slate-50" alt="Avatar" />
                 <div className="text-center md:text-right flex-grow">
-                   <h2 className="text-5xl font-black text-slate-900 mb-4">{worker.firstName} {worker.lastName}</h2>
-                   <div className="flex flex-wrap items-center justify-center md:justify-start gap-6 text-emerald-600 font-black">
-                      <span className="flex items-center gap-2"><MapPin size={22}/> {worker.location.wilaya}</span>
-                      <span className="flex items-center gap-2 text-yellow-500"><Star size={22} fill="currentColor"/> 4.9 (24 تقييم)</span>
+                   <h2 className="text-5xl md:text-7xl font-black text-slate-900 mb-6">{worker.firstName} {worker.lastName}</h2>
+                   <div className="flex flex-wrap items-center justify-center md:justify-start gap-8 text-emerald-600 font-black text-2xl">
+                      <span className="flex items-center gap-2"><MapPin size={28}/> {worker.location.wilaya}</span>
+                      <span className="flex items-center gap-2 text-yellow-500"><Star size={28} fill="currentColor"/> 4.9 (42 تقييم)</span>
                    </div>
                 </div>
                 <div className="flex gap-4">
-                   <button onClick={onStartChat} className="bg-emerald-600 text-white p-5 rounded-[2rem] shadow-xl hover:bg-emerald-500 transition-all active:scale-95"><MessageSquare size={28}/></button>
-                   <button className="bg-slate-900 text-white p-5 rounded-[2rem] shadow-xl hover:bg-slate-800 transition-all active:scale-95"><Phone size={28}/></button>
+                   <button onClick={onStartChat} className="btn-primary p-6 rounded-[2.5rem] shadow-2xl active:scale-95 transition-all"><MessageSquare size={36}/></button>
+                   <button className="bg-slate-900 text-white p-6 rounded-[2.5rem] shadow-2xl active:scale-95 transition-all"><Phone size={36}/></button>
                 </div>
              </div>
-             <div className="grid grid-cols-1 md:grid-cols-3 gap-12 mt-16">
-                <div className="md:col-span-2 space-y-12">
+             <div className="grid grid-cols-1 lg:grid-cols-3 gap-16">
+                <div className="lg:col-span-2 space-y-16">
                    <section>
-                      <h4 className="text-2xl font-black text-slate-900 mb-6">حول الحرفي</h4>
-                      <div className="bg-slate-50 p-8 rounded-[3rem] border border-slate-100 shadow-sm"><p className="text-slate-600 font-medium text-xl leading-relaxed whitespace-pre-wrap">{worker.bio || 'مبدع سلكني يسعى لتقديم الأفضل.'}</p></div>
+                      <h4 className="text-3xl font-black text-slate-900 mb-8 border-b-4 border-emerald-500 w-fit pb-2">حول الحرفي</h4>
+                      <div className="bg-slate-50 p-10 rounded-[3.5rem] border border-slate-100"><p className="text-slate-600 font-medium text-2xl leading-relaxed whitespace-pre-wrap">{worker.bio || 'حرفي سلكني متميز يلتزم بأعلى معايير الجودة والاتقان في العمل.'}</p></div>
                    </section>
                    <section>
-                      <h4 className="text-2xl font-black text-slate-900 mb-6">أعمال سابقة</h4>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-6">
+                      <h4 className="text-3xl font-black text-slate-900 mb-8 border-b-4 border-emerald-500 w-fit pb-2">معرض الأعمال</h4>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-8">
                         {ensureArray(worker.portfolio).map((img, i) => (
-                          <div key={i} className="aspect-square rounded-[2.5rem] bg-slate-100 border border-slate-200 shadow-sm overflow-hidden group">
-                             <img src={img} className="w-full h-full object-cover transition-transform group-hover:scale-110" alt={`Work sample ${i}`}/>
+                          <div key={i} className="aspect-square rounded-[3rem] bg-slate-100 border border-slate-200 shadow-sm overflow-hidden group">
+                             <img src={img} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-125" alt={`Work sample ${i}`}/>
                           </div>
                         ))}
                         {ensureArray(worker.portfolio).length === 0 && (
-                          <div className="col-span-full py-10 text-center border-2 border-dashed border-slate-100 rounded-3xl">
-                             <ImageIcon size={48} className="text-slate-100 mx-auto mb-2"/>
-                             <p className="text-slate-400 font-bold">لا توجد صور في معرض الأعمال بعد.</p>
+                          <div className="col-span-full py-20 text-center border-4 border-dashed border-slate-100 rounded-[4rem]">
+                             <ImageIcon size={80} className="text-slate-100 mx-auto mb-4"/>
+                             <p className="text-slate-400 font-black text-xl">لا يوجد صور في معرض الأعمال حالياً.</p>
                           </div>
                         )}
                       </div>
                    </section>
                 </div>
-                <div className="space-y-8">
-                   <div className="bg-emerald-600 text-white p-10 rounded-[3.5rem] shadow-2xl relative overflow-hidden group">
-                      <div className="absolute -right-10 -bottom-10 opacity-10 rotate-12 group-hover:scale-110 transition-transform"><Trophy size={160}/></div>
-                      <h5 className="font-black text-2xl mb-6 relative z-10">إحصائيات العمل</h5>
-                      <div className="space-y-5 relative z-10">
-                         <div className="flex justify-between items-center bg-white/10 p-4 rounded-2xl"><span>مهام مكتملة</span><span className="font-black text-2xl">{worker.completedJobs || 0}</span></div>
-                         <div className="flex justify-between items-center bg-white/10 p-4 rounded-2xl"><span>سنوات الخبرة</span><span className="font-black text-2xl">+7</span></div>
+                <div className="space-y-10">
+                   <div className="bg-emerald-600 text-white p-12 rounded-[4rem] shadow-2xl relative overflow-hidden group">
+                      <div className="absolute -right-16 -bottom-16 opacity-10 rotate-12 group-hover:scale-125 transition-transform duration-700"><Trophy size={260}/></div>
+                      <h5 className="font-black text-3xl mb-10 relative z-10">البيانات المهنية</h5>
+                      <div className="space-y-6 relative z-10">
+                         <div className="flex justify-between items-center bg-white/10 p-6 rounded-[2rem] backdrop-blur-sm"><span>مهام مكتملة</span><span className="font-black text-3xl">{worker.completedJobs || 24}</span></div>
+                         <div className="flex justify-between items-center bg-white/10 p-6 rounded-[2rem] backdrop-blur-sm"><span>سنوات الخبرة</span><span className="font-black text-3xl">+8</span></div>
+                         <div className="flex justify-between items-center bg-white/10 p-6 rounded-[2rem] backdrop-blur-sm"><span>زمن الاستجابة</span><span className="font-black text-3xl">~10د</span></div>
                       </div>
                    </div>
-                   <button onClick={onStartChat} className="w-full bg-slate-900 text-white py-6 rounded-[2rem] font-black text-xl flex items-center justify-center gap-3 hover:bg-emerald-600 transition-all shadow-xl active:scale-95">ابدأ المحادثة الآن</button>
-                   <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm space-y-4">
-                      <h5 className="font-black text-slate-900">التحقق من الهوية</h5>
-                      <div className="flex items-center gap-3 text-emerald-600 font-black text-sm">
-                         <ShieldCheck size={20}/> حساب موثق رسمياً
+                   <button onClick={onStartChat} className="w-full btn-primary py-8 rounded-[3rem] font-black text-3xl flex items-center justify-center gap-4 shadow-2xl active:scale-95 transition-all">ابدأ المحادثة الآن</button>
+                   <div className="bg-white p-10 rounded-[3.5rem] border border-slate-100 shadow-sm space-y-6">
+                      <h5 className="font-black text-2xl text-slate-900 border-b pb-4">الأمان والموثوقية</h5>
+                      <div className="flex items-center gap-4 text-emerald-600 font-black text-lg">
+                         <ShieldCheck size={28}/> هاتف مؤكد وموثق
+                      </div>
+                      <div className="flex items-center gap-4 text-emerald-600 font-black text-lg">
+                         <Check size={28}/> الهوية الوطنية مؤكدة
                       </div>
                    </div>
                 </div>
