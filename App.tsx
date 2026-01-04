@@ -47,7 +47,8 @@ import {
   Eye,
   RefreshCw,
   Shield,
-  Search as SearchIcon
+  Search as SearchIcon,
+  Lock
 } from 'lucide-react';
 
 // --- Global Styles ---
@@ -208,10 +209,24 @@ export default function App() {
           />
         )}
         {state.view === 'admin-panel' && state.currentUser?.role === UserRole.ADMIN && <AdminPanelView safe={s} />}
-        {state.view === 'login' && <AuthForm type="login" onSuccess={(u: User) => { updateCurrentUser(u); setView('profile'); }} onSwitch={() => setView('register')} safe={s} isAdminLink={new URLSearchParams(window.location.search).get('view') === 'admin-panel'} />}
+        {state.view === 'login' && <AuthForm type="login" onSuccess={(u: User) => { updateCurrentUser(u); setView(u.role === UserRole.ADMIN ? 'admin-panel' : 'profile'); }} onSwitch={() => setView('register')} safe={s} isAdminLink={new URLSearchParams(window.location.search).get('view') === 'admin-panel'} />}
         {state.view === 'register' && <AuthForm type="register" onSuccess={(u: User) => { updateCurrentUser(u); setView('profile'); }} onSwitch={() => setView('login')} safe={s} />}
         {state.view === 'edit-profile' && state.currentUser && <EditProfileView user={state.currentUser} onSave={(u: User) => { updateCurrentUser(u); setView('profile'); }} onCancel={() => setView('profile')} />}
       </main>
+
+      {/* Footer with Admin Access */}
+      <footer className="bg-white border-t border-slate-100 py-10 px-6 mt-auto">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
+          <Logo size="sm" onClick={() => setView('landing')} />
+          <p className="text-slate-400 font-bold text-sm">جميع الحقوق محفوظة &copy; سلكني 2025</p>
+          <button 
+            onClick={() => setView('admin-panel')} 
+            className="flex items-center gap-2 text-slate-300 hover:text-emerald-600 transition-colors font-black text-xs uppercase tracking-widest"
+          >
+            <Lock size={14} /> لوحة الإدارة (للمشرفين)
+          </button>
+        </div>
+      </footer>
 
       <div className="fixed bottom-0 left-0 right-0 h-20 bg-white/90 backdrop-blur-xl border-t border-slate-100 flex items-center justify-around md:hidden z-50 px-2 rounded-t-[2rem] shadow-2xl">
         <TabItem icon={Home} label="الرئيسية" active={state.view === 'landing'} onClick={() => setView('landing')} />
@@ -316,7 +331,7 @@ const AdminPanelView = ({ safe }: any) => {
                         </div>
                       </td>
                       <td className="px-8 py-5 font-bold text-slate-600">
-                        {item.phone || (item.budget > 0 ? `${item.budget} دج` : 'سعر مفتوح')}
+                        {item.phone || (item.budget > 0 ? `${item.budget.toLocaleString()} دج` : 'سعر مفتوح')}
                       </td>
                       <td className="px-8 py-5">
                         <div className="flex flex-col gap-1">
@@ -461,7 +476,7 @@ const TasksMarketView = ({ currentUser, safe, onContact, setView }: any) => {
           <div key={task.id} className="bg-white p-8 rounded-[2.5rem] shadow-lg border border-slate-100 hover:shadow-xl transition-all">
             <div className="flex justify-between items-start mb-6">
               <span className="bg-emerald-50 text-emerald-700 px-4 py-2 rounded-xl text-[10px] font-black border border-emerald-100 uppercase tracking-widest">{safe(task.category)}</span>
-              <div className="text-emerald-600 font-black text-2xl tracking-tighter">{task.budget > 0 ? `${task.budget} دج` : 'سعر مفتوح'}</div>
+              <div className="text-emerald-600 font-black text-2xl tracking-tighter">{task.budget > 0 ? `${task.budget.toLocaleString()} دج` : 'سعر مفتوح'}</div>
             </div>
             <h3 className="text-2xl font-black text-slate-900 mb-4">{safe(task.title)}</h3>
             <p className="text-slate-500 mb-8 line-clamp-2 font-medium">{safe(task.description)}</p>
@@ -697,7 +712,6 @@ const TabItem = ({ icon: Icon, label, active, onClick }: any) => (
 );
 
 const AuthForm = ({ type, onSuccess, onSwitch, safe, isAdminLink }: any) => {
-  // Pre-fill admin credentials if it's an admin link request
   const [formData, setFormData] = useState({ 
     firstName: '', 
     lastName: '', 
@@ -727,12 +741,26 @@ const AuthForm = ({ type, onSuccess, onSwitch, safe, isAdminLink }: any) => {
 
   return (
     <div className="max-w-xl mx-auto py-20 px-6 animate-in text-center">
-      <h2 className="text-4xl font-black mb-10 tracking-tight text-slate-900">{type === 'login' ? (isAdminLink ? 'دخول المشرف' : 'مرحباً بعودتك') : 'حساب جديد'}</h2>
-      {isAdminLink && <div className="mb-6 p-4 bg-emerald-50 text-emerald-700 rounded-2xl border border-emerald-100 font-bold text-sm">تم استدعاء لوحة الإدارة، يرجى تسجيل الدخول.</div>}
+      <h2 className="text-4xl font-black mb-10 tracking-tight text-slate-900">
+        {type === 'login' ? (isAdminLink ? 'دخول لوحة الإدارة' : 'مرحباً بعودتك') : 'إنشاء حساب جديد'}
+      </h2>
+      
+      {isAdminLink && (
+        <div className="mb-6 p-5 bg-emerald-50 text-emerald-700 rounded-3xl border border-emerald-100 font-bold text-sm flex items-center gap-3">
+          <div className="bg-emerald-600 text-white p-2 rounded-xl"><Shield size={18}/></div>
+          تم تفعيل بيانات المشرف تلقائياً للوصول السريع.
+        </div>
+      )}
+
       <form onSubmit={submit} className="space-y-6 text-right bg-white p-10 rounded-[3rem] shadow-2xl border border-slate-100">
         {error && <div className="p-4 bg-red-50 text-red-500 rounded-2xl border border-red-100 font-bold text-sm flex items-center gap-2"><AlertCircle size={18}/> {error}</div>}
         
-        {type === 'register' && (<div className="grid grid-cols-2 gap-4"><input required placeholder="الاسم" className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} /><input required placeholder="اللقب" className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} /></div>)}
+        {type === 'register' && (
+          <div className="grid grid-cols-2 gap-4">
+            <input required placeholder="الاسم" className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} />
+            <input required placeholder="اللقب" className="w-full p-4 bg-slate-50 rounded-2xl border-none font-bold" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} />
+          </div>
+        )}
         
         <div className="space-y-2">
           <label className="block text-xs font-black text-slate-400 mr-4 uppercase tracking-widest">رقم الهاتف</label>
