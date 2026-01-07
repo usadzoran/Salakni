@@ -43,7 +43,9 @@ import {
   Clock,
   CheckCircle,
   Upload,
-  Eye
+  Eye,
+  Smartphone,
+  Key
 } from 'lucide-react';
 
 // --- مساعدات البيانات ---
@@ -120,6 +122,301 @@ function GlobalStyles() {
       }
       @keyframes spin { to { transform: rotate(360deg); } }
     `}</style>
+  );
+}
+
+// --- واجهة تسجيل الدخول ---
+function LoginView({ onLoginSuccess, onSwitchToRegister }: { onLoginSuccess: (u: User) => void, onSwitchToRegister: () => void }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    try {
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (authError) throw authError;
+
+      if (authData.user) {
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', authData.user.id)
+          .single();
+
+        if (userError) throw userError;
+        onLoginSuccess(mapUserData(userData));
+      }
+    } catch (err: any) {
+      setError(err.message === 'Invalid login credentials' ? 'البريد الإلكتروني أو كلمة المرور غير صحيحة' : err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="max-w-md mx-auto py-16 px-4 animate-fade-in text-right">
+      <div className="bg-white rounded-[2.5rem] shadow-2xl p-8 md:p-12 border border-slate-100">
+        <div className="text-center mb-10">
+          <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <LogIn size={32} />
+          </div>
+          <h2 className="text-3xl font-black text-slate-900 mb-2">تسجيل الدخول</h2>
+          <p className="text-slate-500 font-bold">أهلاً بك مجدداً في سلكني</p>
+        </div>
+
+        {error && (
+          <div className="bg-red-50 border border-red-100 text-red-600 p-4 rounded-xl mb-6 text-sm font-bold flex items-center gap-2">
+            <AlertCircle size={18} /> {error}
+          </div>
+        )}
+
+        <form onSubmit={handleLogin} className="space-y-6">
+          <div className="space-y-2">
+            <label className="text-xs font-black text-slate-400 mr-2 uppercase tracking-widest">البريد الإلكتروني</label>
+            <div className="relative">
+              <input 
+                type="email" 
+                required 
+                className="input-field" 
+                placeholder="name@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+              <Mail className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" size={20}/>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-black text-slate-400 mr-2 uppercase tracking-widest">كلمة المرور</label>
+            <div className="relative">
+              <input 
+                type="password" 
+                required 
+                className="input-field" 
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <Key className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" size={20}/>
+            </div>
+          </div>
+
+          <button 
+            type="submit" 
+            disabled={loading}
+            className="w-full btn-primary py-4 rounded-2xl font-black text-xl shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-70"
+          >
+            {loading ? <div className="loading-spinner border-white"></div> : 'دخول'}
+          </button>
+        </form>
+
+        <div className="mt-10 text-center border-t border-slate-50 pt-8">
+          <p className="text-slate-500 font-bold text-sm mb-4">ليس لديك حساب؟</p>
+          <button 
+            onClick={onSwitchToRegister}
+            className="text-emerald-600 font-black hover:underline"
+          >
+            إنشاء حساب جديد مجاناً
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- واجهة تسجيل حساب جديد ---
+function RegisterView({ onRegisterSuccess, onSwitchToLogin }: { onRegisterSuccess: (u: User) => void, onSwitchToLogin: () => void }) {
+  const [role, setRole] = useState<UserRole>('SEEKER');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    phone: '',
+    email: '',
+    password: '',
+    wilaya: WILAYAS[0],
+    daira: WILAYA_DATA[WILAYAS[0]][0],
+    category: SERVICE_CATEGORIES[0].name
+  });
+
+  const handleWilayaChange = (val: string) => {
+    setFormData({ ...formData, wilaya: val, daira: WILAYA_DATA[val][0] });
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    try {
+      // 1. إنشاء الحساب في Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+      });
+
+      if (authError) throw authError;
+
+      if (authData.user) {
+        // 2. إدخال بيانات المستخدم في جدول users
+        const { error: userError } = await supabase.from('users').insert([{
+          id: authData.user.id,
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          phone: formData.phone,
+          role: role,
+          wilaya: formData.wilaya,
+          daira: formData.daira,
+          categories: role === 'WORKER' ? [formData.category] : [],
+          rating: 0,
+          completed_jobs: 0
+        }]);
+
+        if (userError) throw userError;
+
+        // 3. جلب بيانات المستخدم المكتملة
+        const { data: userData, error: fetchError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', authData.user.id)
+          .single();
+
+        if (fetchError) throw fetchError;
+        onRegisterSuccess(mapUserData(userData));
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto py-12 px-4 animate-fade-in text-right pb-32">
+      <div className="bg-white rounded-[3rem] shadow-2xl p-8 md:p-12 border border-slate-100">
+        <div className="text-center mb-10">
+          <h2 className="text-3xl font-black text-slate-900 mb-2">انضم إلى سلكني</h2>
+          <p className="text-slate-500 font-bold">اختر نوع الحساب وابدأ تجربتك</p>
+        </div>
+
+        {/* اختيار الدور */}
+        <div className="flex p-1.5 bg-slate-100 rounded-2xl mb-10">
+          <button 
+            onClick={() => setRole('SEEKER')}
+            className={`flex-1 py-4 rounded-xl font-black text-sm flex items-center justify-center gap-2 transition-all ${role === 'SEEKER' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+          >
+            <UserIcon size={18}/> زبون (أبحث عن خدمة)
+          </button>
+          <button 
+            onClick={() => setRole('WORKER')}
+            className={`flex-1 py-4 rounded-xl font-black text-sm flex items-center justify-center gap-2 transition-all ${role === 'WORKER' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-700'}`}
+          >
+            <Briefcase size={18}/> حرفي (أقدم خدمات)
+          </button>
+        </div>
+
+        {error && (
+          <div className="bg-red-50 border border-red-100 text-red-600 p-4 rounded-xl mb-6 text-sm font-bold flex items-center gap-2">
+            <AlertCircle size={18} /> {error}
+          </div>
+        )}
+
+        <form onSubmit={handleRegister} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="text-xs font-black text-slate-400 mr-2 uppercase">الاسم</label>
+              <div className="relative">
+                <input required className="input-field" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} />
+                <UserIcon className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" size={18}/>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-black text-slate-400 mr-2 uppercase">اللقب</label>
+              <div className="relative">
+                <input required className="input-field" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} />
+                <UserIcon className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" size={18}/>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="text-xs font-black text-slate-400 mr-2 uppercase">رقم الهاتف</label>
+              <div className="relative">
+                <input required className="input-field" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
+                <Smartphone className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" size={18}/>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-black text-slate-400 mr-2 uppercase">البريد الإلكتروني</label>
+              <div className="relative">
+                <input type="email" required className="input-field" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+                <Mail className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" size={18}/>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-black text-slate-400 mr-2 uppercase tracking-widest">كلمة المرور</label>
+            <div className="relative">
+              <input type="password" required className="input-field" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
+              <Key className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" size={18}/>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="text-xs font-black text-slate-400 mr-2 uppercase">الولاية</label>
+              <select className="input-field appearance-none" value={formData.wilaya} onChange={e => handleWilayaChange(e.target.value)}>
+                {WILAYAS.map(w => <option key={w} value={w}>{w}</option>)}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-black text-slate-400 mr-2 uppercase">الدائرة/البلدية</label>
+              <select className="input-field appearance-none" value={formData.daira} onChange={e => setFormData({...formData, daira: e.target.value})}>
+                {(WILAYA_DATA[formData.wilaya] || []).map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {role === 'WORKER' && (
+            <div className="space-y-2 animate-fade-in">
+              <label className="text-xs font-black text-slate-400 mr-2 uppercase">التخصص الأساسي</label>
+              <select className="input-field appearance-none" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
+                {SERVICE_CATEGORIES.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+              </select>
+            </div>
+          )}
+
+          <button 
+            type="submit" 
+            disabled={loading}
+            className="w-full btn-primary py-5 rounded-2xl font-black text-xl shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all mt-8 disabled:opacity-70"
+          >
+            {loading ? <div className="loading-spinner border-white"></div> : 'إنشاء حسابي الآن'}
+          </button>
+        </form>
+
+        <div className="mt-10 text-center border-t border-slate-50 pt-8">
+          <p className="text-slate-500 font-bold text-sm mb-4">لديك حساب بالفعل؟</p>
+          <button 
+            onClick={onSwitchToLogin}
+            className="text-emerald-600 font-black hover:underline"
+          >
+            تسجيل الدخول
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -745,8 +1042,12 @@ export default function App() {
   const updateCurrentUser = (u: User | null) => {
     const mappedUser = u ? mapUserData(u) : null;
     setState(prev => ({ ...prev, currentUser: mappedUser }));
-    if (mappedUser) localStorage.setItem('user', JSON.stringify(mappedUser));
-    else { localStorage.removeItem('user'); supabase.auth.signOut(); }
+    if (mappedUser) {
+      localStorage.setItem('user', JSON.stringify(mappedUser));
+    } else {
+      localStorage.removeItem('user');
+      supabase.auth.signOut();
+    }
   };
 
   return (
@@ -801,6 +1102,10 @@ export default function App() {
           </div>
         )}
 
+        {state.view === 'login' && <LoginView onLoginSuccess={(u) => { updateCurrentUser(u); setView('landing'); }} onSwitchToRegister={() => setView('register')} />}
+        
+        {state.view === 'register' && <RegisterView onRegisterSuccess={(u) => { updateCurrentUser(u); setView('landing'); }} onSwitchToLogin={() => setView('login')} />}
+
         {state.view === 'search' && <SearchWorkersView onViewWorker={(w) => setState({...state, selectedWorker: w, view: 'worker-details'})} />}
         
         {state.view === 'support' && <TasksMarketView currentUser={state.currentUser} onStartChat={() => alert('المحادثات قريباً...')} />}
@@ -837,7 +1142,7 @@ export default function App() {
         <button onClick={() => setView('landing')} className={`flex flex-col items-center gap-1 ${state.view === 'landing' ? 'text-emerald-600' : 'text-slate-400'}`}><Home size={22}/><span className="text-[10px] font-black">الرئيسية</span></button>
         <button onClick={() => setView('search')} className={`flex flex-col items-center gap-1 ${state.view === 'search' ? 'text-emerald-600' : 'text-slate-400'}`}><SearchIcon size={22}/><span className="text-[10px] font-black">بحث</span></button>
         <button onClick={() => setView('support')} className={`flex flex-col items-center gap-1 ${state.view === 'support' ? 'text-emerald-600' : 'text-slate-400'}`}><ClipboardList size={22}/><span className="text-[10px] font-black">سوق</span></button>
-        <button onClick={() => setView(state.currentUser ? 'profile' : 'login')} className={`flex flex-col items-center gap-1 ${state.view === 'profile' || state.view === 'dashboard' ? 'text-emerald-600' : 'text-slate-400'}`}><UserIcon size={22}/><span className="text-[10px] font-black">حسابي</span></button>
+        <button onClick={() => setView(state.currentUser ? 'profile' : 'login')} className={`flex flex-col items-center gap-1 ${state.view === 'profile' || state.view === 'dashboard' || state.view === 'login' || state.view === 'register' ? 'text-emerald-600' : 'text-slate-400'}`}><UserIcon size={22}/><span className="text-[10px] font-black">حسابي</span></button>
       </div>
     </div>
   );
