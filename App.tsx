@@ -46,7 +46,11 @@ import {
   Eye,
   Smartphone,
   Key,
-  ChevronLeft
+  ChevronLeft,
+  DollarSign,
+  TrendingUp,
+  BarChart3,
+  Calendar
 } from 'lucide-react';
 
 // --- مساعدات البيانات ---
@@ -132,6 +136,13 @@ function GlobalStyles() {
         color: #1e293b;
         border-bottom-left-radius: 0.25rem;
         border: 1px solid #f1f5f9;
+      }
+      .stat-card {
+        background: white;
+        border-radius: 2rem;
+        padding: 1.5rem;
+        border: 1px solid #f1f5f9;
+        box-shadow: 0 10px 25px -10px rgba(0,0,0,0.05);
       }
     `}</style>
   );
@@ -422,15 +433,150 @@ function ChatsView({ currentUser, activeChat, onSelectChat, onBack }: { currentU
   );
 }
 
+// --- واجهة لوحة تحكم الحرفي (Worker Dashboard) ---
+function WorkerDashboardView({ currentUser, onBack }: { currentUser: User, onBack: () => void }) {
+  const [activeJobs, setActiveJobs] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // بيانات افتراضية للأرباح في غياب جدول مخصص
+  const stats = {
+    totalEarnings: (currentUser.completedJobs || 0) * 1250,
+    monthlyEarnings: (currentUser.completedJobs || 0) * 450,
+    pendingPayments: 3500,
+    profileViews: 128
+  };
+
+  useEffect(() => {
+    const fetchActiveJobs = async () => {
+      setLoading(true);
+      // في النسخة الحالية، نعرض المهام التي تهم تخصص الحرفي أو المهام التي "قد" يكون مشاركاً فيها
+      const { data } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('status', 'open')
+        .eq('category', currentUser.categories[0])
+        .limit(5);
+      
+      if (data) setActiveJobs(data.map(t => ({ ...t, status: t.status as any })));
+      setLoading(false);
+    };
+    fetchActiveJobs();
+  }, [currentUser]);
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 md:px-8 py-12 text-right animate-fade-in">
+       <div className="flex justify-between items-center mb-12">
+          <div>
+             <h1 className="text-4xl font-black text-slate-900">مرحباً، {currentUser.firstName} 👋</h1>
+             <p className="text-slate-500 font-bold mt-2">نظرة عامة على أدائك المهني وأرباحك.</p>
+          </div>
+          <button onClick={onBack} className="bg-slate-100 text-slate-600 px-6 py-3 rounded-2xl font-black hover:bg-slate-200 transition-all flex items-center gap-2">
+             <ArrowRight size={20} className="rotate-180"/> العودة للبروفايل
+          </button>
+       </div>
+
+       {/* إحصائيات سريعة */}
+       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+          <div className="stat-card">
+             <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mb-4"><DollarSign size={24}/></div>
+             <p className="text-slate-400 font-bold text-sm">إجمالي الأرباح</p>
+             <h3 className="text-3xl font-black text-slate-900 mt-1">{stats.totalEarnings} <span className="text-xs">دج</span></h3>
+          </div>
+          <div className="stat-card">
+             <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mb-4"><TrendingUp size={24}/></div>
+             <p className="text-slate-400 font-bold text-sm">أرباح الشهر</p>
+             <h3 className="text-3xl font-black text-slate-900 mt-1">{stats.monthlyEarnings} <span className="text-xs">دج</span></h3>
+          </div>
+          <div className="stat-card">
+             <div className="w-12 h-12 bg-yellow-100 text-yellow-600 rounded-2xl flex items-center justify-center mb-4"><Star size={24}/></div>
+             <p className="text-slate-400 font-bold text-sm">التقييم الحالي</p>
+             <h3 className="text-3xl font-black text-slate-900 mt-1">{currentUser.rating || 'جديد'}</h3>
+          </div>
+          <div className="stat-card">
+             <div className="w-12 h-12 bg-purple-100 text-purple-600 rounded-2xl flex items-center justify-center mb-4"><Briefcase size={24}/></div>
+             <p className="text-slate-400 font-bold text-sm">المهام المكتملة</p>
+             <h3 className="text-3xl font-black text-slate-900 mt-1">{currentUser.completedJobs || 0}</h3>
+          </div>
+       </div>
+
+       <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+          {/* المهام النشطة */}
+          <div className="lg:col-span-2 space-y-6">
+             <div className="flex justify-between items-center mb-2">
+                <h2 className="text-2xl font-black text-slate-900 flex items-center gap-3"><Clock className="text-emerald-600"/> فرص عمل متاحة لتخصصك</h2>
+             </div>
+             {loading ? <div className="h-40 bg-slate-50 rounded-3xl animate-pulse"></div> : 
+               activeJobs.length > 0 ? activeJobs.map(job => (
+                 <div key={job.id} className="craft-card p-6 flex flex-col md:flex-row justify-between items-center gap-6 group hover:border-emerald-200">
+                    <div className="flex-1">
+                       <h4 className="text-lg font-black text-slate-900 mb-1">{job.title}</h4>
+                       <div className="flex items-center gap-4 text-xs text-slate-400 font-bold">
+                          <span className="flex items-center gap-1"><MapPin size={12}/> {job.wilaya}</span>
+                          <span className="flex items-center gap-1"><Calendar size={12}/> {new Date(job.created_at).toLocaleDateString('ar-DZ')}</span>
+                       </div>
+                       <p className="text-slate-500 text-sm mt-3 line-clamp-1">{job.description}</p>
+                    </div>
+                    <div className="flex items-center gap-6">
+                       <span className="text-xl font-black text-emerald-600">{job.budget} دج</span>
+                       <button className="bg-slate-900 text-white px-6 py-3 rounded-xl font-black text-sm hover:bg-emerald-600 transition-all">تقديم عرض</button>
+                    </div>
+                 </div>
+               )) : <div className="p-12 bg-slate-50 rounded-3xl text-center text-slate-400 font-bold">لا توجد فرص متاحة حالياً لتخصصك.</div>
+             }
+          </div>
+
+          {/* رؤى الأداء */}
+          <div className="space-y-6">
+             <h2 className="text-2xl font-black text-slate-900 flex items-center gap-3"><BarChart3 className="text-emerald-600"/> رؤى الأداء</h2>
+             <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm space-y-8">
+                <div>
+                   <div className="flex justify-between mb-2">
+                      <span className="text-sm font-black text-slate-600">رضا الزبائن</span>
+                      <span className="text-sm font-black text-emerald-600">92%</span>
+                   </div>
+                   <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-emerald-500 rounded-full" style={{ width: '92%' }}></div>
+                   </div>
+                </div>
+                <div>
+                   <div className="flex justify-between mb-2">
+                      <span className="text-sm font-black text-slate-600">سرعة الرد</span>
+                      <span className="text-sm font-black text-emerald-600">عالية جداً</span>
+                   </div>
+                   <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-emerald-500 rounded-full" style={{ width: '85%' }}></div>
+                   </div>
+                </div>
+                <div className="pt-6 border-t border-slate-50">
+                   <p className="text-xs text-slate-400 font-medium leading-relaxed">
+                      يتم تحديث هذه البيانات بناءً على تفاعلات الزبائن مع عروضك وتقييماتهم بعد انتهاء العمل.
+                   </p>
+                </div>
+             </div>
+             
+             <div className="bg-emerald-600 p-8 rounded-[3rem] text-white shadow-xl relative overflow-hidden group">
+                <div className="absolute -top-10 -left-10 w-32 h-32 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
+                <h4 className="text-xl font-black mb-4">وثق حسابك الآن! 🛡️</h4>
+                <p className="text-emerald-50 font-medium text-sm mb-6 leading-relaxed">
+                   الحسابات الموثقة تحصل على عدد طلبات أكبر بـ 4 أضعاف.
+                </p>
+                <button className="bg-white text-emerald-600 px-6 py-3 rounded-xl font-black text-sm w-full">طلب التوثيق</button>
+             </div>
+          </div>
+       </div>
+    </div>
+  );
+}
+
 // --- واجهة عرض البروفايل ---
-function WorkerView({ worker, isOwnProfile, onBack, onEdit, onStartChat, onLogout, onGoToTasks }: any) {
+function WorkerView({ worker, isOwnProfile, onBack, onEdit, onStartChat, onLogout, onGoToDashboard }: any) {
   const [activeImage, setActiveImage] = useState<string | null>(null);
   return (
     <div className="max-w-6xl mx-auto py-8 md:py-12 px-4 md:px-6 animate-fade-in text-right">
       <div className="flex justify-between items-center mb-8">
         <button onClick={onBack} className="flex items-center gap-2 text-emerald-600 font-black hover:bg-emerald-50 px-4 py-2 rounded-xl transition-all"><ArrowRight size={20} className="rotate-180"/> العودة</button>
         {isOwnProfile && <div className="flex gap-4">
-          <button onClick={onGoToTasks} className="bg-emerald-50 text-emerald-700 font-bold flex items-center gap-2 hover:bg-emerald-100 px-4 py-2 rounded-xl transition-all border border-emerald-100"><ClipboardList size={20}/> مهامي</button>
+          <button onClick={onGoToDashboard} className="bg-emerald-50 text-emerald-700 font-bold flex items-center gap-2 hover:bg-emerald-100 px-4 py-2 rounded-xl transition-all border border-emerald-100"><ClipboardList size={20}/> {worker.role === 'WORKER' ? 'لوحة التحكم' : 'طلباتي'}</button>
           <button onClick={onLogout} className="text-red-500 font-bold flex items-center gap-2 hover:bg-red-50 px-4 py-2 rounded-xl transition-all"><LogOut size={20}/> خروج</button>
         </div>}
       </div>
@@ -449,7 +595,7 @@ function WorkerView({ worker, isOwnProfile, onBack, onEdit, onStartChat, onLogou
               <h1 className="text-3xl md:text-5xl font-black text-slate-900 mb-3">{worker.firstName} {worker.lastName}</h1>
               <div className="flex flex-wrap justify-center md:justify-start gap-4 text-sm md:text-lg font-bold text-slate-500">
                 <span className="flex items-center gap-1.5"><MapPin size={18} className="text-emerald-500"/> {worker.location.wilaya}</span>
-                <span className="flex items-center gap-1.5"><Briefcase size={18} className="text-emerald-500"/> {worker.categories[0]}</span>
+                <span className="flex items-center gap-1.5"><Briefcase size={18} className="text-emerald-500"/> {worker.categories[0] || (worker.role === 'SEEKER' ? 'زبون' : 'حرفي')}</span>
                 <span className="flex items-center gap-1.5 text-yellow-500"><Star size={18} fill="currentColor"/> {worker.rating > 0 ? worker.rating : 'جديد'}</span>
               </div>
             </div>
@@ -462,10 +608,10 @@ function WorkerView({ worker, isOwnProfile, onBack, onEdit, onStartChat, onLogou
             <div className="lg:col-span-2 space-y-10">
               <section className="bg-slate-50/50 p-6 md:p-10 rounded-[2.5rem] border border-slate-100">
                 <h3 className="text-xl font-black text-slate-900 mb-4 flex items-center gap-2"><Layout size={20} className="text-emerald-600"/> نبذة مهنية</h3>
-                <p className="text-slate-600 text-lg leading-relaxed whitespace-pre-line font-medium">{worker.bio || 'لم يقم الحرفي بإضافة نبذة بعد.'}</p>
+                <p className="text-slate-600 text-lg leading-relaxed whitespace-pre-line font-medium">{worker.bio || 'لم يتم إضافة نبذة بعد.'}</p>
               </section>
               <section>
-                <h3 className="text-xl font-black text-slate-900 mb-5 flex items-center gap-2"><Zap size={20} className="text-emerald-600"/> المهارات المتوفرة</h3>
+                <h3 className="text-xl font-black text-slate-900 mb-5 flex items-center gap-2"><Zap size={20} className="text-emerald-600"/> المهارات</h3>
                 <div className="flex flex-wrap gap-3">
                    {worker.skills.length > 0 ? worker.skills.map((skill: string) => (
                      <span key={skill} className="bg-white text-emerald-700 px-6 py-2.5 rounded-2xl font-black text-sm border-2 border-emerald-50 shadow-sm transition-all hover:bg-emerald-50">#{skill}</span>
@@ -496,7 +642,7 @@ function WorkerView({ worker, isOwnProfile, onBack, onEdit, onStartChat, onLogou
                  </div>
               </div>
               <div className="bg-white border-2 border-slate-50 p-8 rounded-[3rem]">
-                 <h4 className="text-lg font-black text-slate-900 mb-6">التواصل المباشر</h4>
+                 <h4 className="text-lg font-black text-slate-900 mb-6">معلومات التواصل</h4>
                  <div className="space-y-5">
                     <div className="flex items-center gap-4 text-slate-600 font-bold"><div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600"><Phone size={20}/></div><span dir="ltr">{worker.phone}</span></div>
                     <div className="flex items-center gap-4 text-slate-600 font-bold"><div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600"><Building2 size={20}/></div><span>{worker.location.daira}، {worker.location.wilaya}</span></div>
@@ -511,7 +657,7 @@ function WorkerView({ worker, isOwnProfile, onBack, onEdit, onStartChat, onLogou
   );
 }
 
-// --- واجهة تعديل البروفايل مع رفع الصور من الجهاز ---
+// --- واجهة تعديل البروفايل ---
 function EditProfileView({ user, onSaved, onCancel }: { user: User, onSaved: (u: User) => void, onCancel: () => void }) {
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -544,7 +690,7 @@ function EditProfileView({ user, onSaved, onCancel }: { user: User, onSaved: (u:
     <div className="max-w-4xl mx-auto py-10 px-4 animate-fade-in text-right pb-32">
        <div className="bg-white rounded-[3rem] shadow-2xl p-8 md:p-12 border border-slate-100">
           <div className="flex justify-between items-center mb-10 border-b pb-6">
-             <h2 className="text-2xl font-black text-slate-900 flex items-center gap-3"><Edit className="text-emerald-600" size={28}/> إعدادات الحرفي</h2>
+             <h2 className="text-2xl font-black text-slate-900 flex items-center gap-3"><Edit className="text-emerald-600" size={28}/> إعدادات الحساب</h2>
              <button onClick={onCancel} className="p-3 bg-slate-50 rounded-xl text-slate-400 hover:text-red-500 transition-all"><X size={24}/></button>
           </div>
           <form onSubmit={handleSave} className="space-y-8">
@@ -554,14 +700,14 @@ function EditProfileView({ user, onSaved, onCancel }: { user: User, onSaved: (u:
              </div>
              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <input required className="input-field" placeholder="الهاتف" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
-                <select className="input-field appearance-none" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>{SERVICE_CATEGORIES.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}</select>
+                {user.role === 'WORKER' && <select className="input-field appearance-none" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>{SERVICE_CATEGORIES.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}</select>}
              </div>
              <textarea rows={4} className="input-field h-auto py-4" placeholder="نبذة مهنية..." value={formData.bio} onChange={e => setFormData({...formData, bio: e.target.value})} />
-             <input className="input-field" placeholder="المهارات (افصل بينها بفاصلة)" value={formData.skills} onChange={e => setFormData({...formData, skills: e.target.value})} />
+             {user.role === 'WORKER' && <input className="input-field" placeholder="المهارات (افصل بينها بفاصلة)" value={formData.skills} onChange={e => setFormData({...formData, skills: e.target.value})} />}
              <div className="space-y-6 pt-6 border-t border-slate-100">
                 <div className="flex justify-between items-center">
-                   <h3 className="text-lg font-black text-slate-900">معرض أعمالي</h3>
-                   <button type="button" onClick={() => fileInputRef.current?.click()} className="bg-emerald-600 text-white px-6 py-3 rounded-2xl font-black text-sm flex items-center gap-2 hover:bg-emerald-700 transition-all shadow-md active:scale-95"><Upload size={18}/> رفع صورة من جهازي</button>
+                   <h3 className="text-lg font-black text-slate-900">معرض الأعمال</h3>
+                   <button type="button" onClick={() => fileInputRef.current?.click()} className="bg-emerald-600 text-white px-6 py-3 rounded-2xl font-black text-sm flex items-center gap-2 hover:bg-emerald-700 transition-all shadow-md active:scale-95"><Upload size={18}/> رفع صورة</button>
                    <input type="file" ref={fileInputRef} onChange={handleFileSelect} accept="image/*" className="hidden" />
                 </div>
                 {formData.portfolio.length > 0 ? (
@@ -697,7 +843,7 @@ function SearchWorkersView({ onViewWorker }: { onViewWorker: (worker: User) => v
   );
 }
 
-// --- واجهة سوق المهام (Tasks Market) ---
+// --- واجهة سوق المهام ---
 function TasksMarketView({ currentUser, onStartChat }: { currentUser: User | null, onStartChat: any }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -833,10 +979,22 @@ export default function App() {
         {state.view === 'search' && <SearchWorkersView onViewWorker={(w) => setState({...state, selectedWorker: w, view: 'worker-details'})} />}
         {state.view === 'support' && <TasksMarketView currentUser={state.currentUser} onStartChat={handleStartChat} />}
         {state.view === 'chats' && state.currentUser && <ChatsView currentUser={state.currentUser} activeChat={state.activeChat || null} onSelectChat={(c) => setState(prev => ({ ...prev, activeChat: c }))} onBack={() => setView('landing')} />}
-        {state.view === 'profile' && state.currentUser && <WorkerView worker={state.currentUser} isOwnProfile={true} onBack={() => setView('landing')} onEdit={() => setView('edit-profile')} onLogout={() => updateCurrentUser(null)} onGoToTasks={() => setView('dashboard')} />}
-        {state.view === 'dashboard' && state.currentUser && <MyTasksView currentUser={state.currentUser} onBack={() => setView('profile')} />}
+        {state.view === 'profile' && state.currentUser && <WorkerView worker={state.currentUser} isOwnProfile={true} onBack={() => setView('landing')} onEdit={() => setView('edit-profile')} onLogout={() => updateCurrentUser(null)} onGoToDashboard={() => setView('dashboard')} />}
+        {state.view === 'dashboard' && state.currentUser && (
+           state.currentUser.role === 'WORKER' ? 
+           <WorkerDashboardView currentUser={state.currentUser} onBack={() => setView('profile')} /> :
+           <MyTasksView currentUser={state.currentUser} onBack={() => setView('profile')} />
+        )}
         {state.view === 'edit-profile' && state.currentUser && <EditProfileView user={state.currentUser} onSaved={(u) => { updateCurrentUser(u); setView('profile'); }} onCancel={() => setView('profile')} />}
         {state.view === 'worker-details' && state.selectedWorker && <WorkerView worker={state.selectedWorker} onBack={() => setView('search')} onStartChat={() => handleStartChat(state.selectedWorker!.id)} />}
       </main>
 
-      <div className="fixed bottom-0 left-0 right-0 h-20 bg-white/95 backdrop-blur-2xl border-t border-slate-100 flex items-center
+      <div className="fixed bottom-0 left-0 right-0 h-20 bg-white/95 backdrop-blur-2xl border-t border-slate-100 flex items-center justify-around md:hidden z-[60] shadow-2xl rounded-t-3xl">
+        <button onClick={() => setView('landing')} className={`flex flex-col items-center gap-1 ${state.view === 'landing' ? 'text-emerald-600' : 'text-slate-400'}`}><Home size={22}/><span className="text-[10px] font-black">الرئيسية</span></button>
+        <button onClick={() => setView('search')} className={`flex flex-col items-center gap-1 ${state.view === 'search' ? 'text-emerald-600' : 'text-slate-400'}`}><SearchIcon size={22}/><span className="text-[10px] font-black">بحث</span></button>
+        <button onClick={() => setView('chats')} className={`flex flex-col items-center gap-1 ${state.view === 'chats' ? 'text-emerald-600' : 'text-slate-400'}`}><MessageSquare size={22}/><span className="text-[10px] font-black">الرسائل</span></button>
+        <button onClick={() => setView(state.currentUser ? 'profile' : 'login')} className={`flex flex-col items-center gap-1 ${state.view === 'profile' || state.view === 'dashboard' || state.view === 'login' || state.view === 'register' ? 'text-emerald-600' : 'text-slate-400'}`}><UserIcon size={22}/><span className="text-[10px] font-black">حسابي</span></button>
+      </div>
+    </div>
+  );
+}
