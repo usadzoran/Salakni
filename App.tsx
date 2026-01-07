@@ -39,7 +39,9 @@ import {
   MoreVertical,
   PlusCircle,
   AlertCircle,
-  Briefcase
+  Briefcase,
+  Image as LucideImage,
+  PlusSquare
 } from 'lucide-react';
 
 // --- المكونات العامة والأنماط ---
@@ -101,6 +103,15 @@ const ensureArray = (val: any): string[] => {
   return [];
 };
 
+const fileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = error => reject(error);
+  });
+};
+
 // --- المكونات المشتركة ---
 
 function Logo({ onClick, size = 'sm' }: { onClick?: () => void; size?: 'sm' | 'md' | 'lg' }) {
@@ -129,8 +140,8 @@ function PageHeader({ title, subtitle, action }: { title: string; subtitle?: str
   );
 }
 
-// Fixed missing NavButton component
-function NavButton({ children, active, onClick, badge }: { children: React.ReactNode; active?: boolean; onClick: () => void; badge?: number }) {
+// Fix: Change children to optional to resolve TS error where children are not correctly detected in JSX
+function NavButton({ children, active, onClick, badge }: { children?: React.ReactNode; active?: boolean; onClick: () => void; badge?: number }) {
   return (
     <button
       onClick={onClick}
@@ -147,7 +158,6 @@ function NavButton({ children, active, onClick, badge }: { children: React.React
   );
 }
 
-// Fixed missing TabItem component
 function TabItem({ icon: Icon, label, active, onClick, badge }: { icon: any; label: string; active?: boolean; onClick: () => void; badge?: number }) {
   return (
     <button onClick={onClick} className="flex flex-col items-center gap-1 relative group flex-1">
@@ -164,9 +174,191 @@ function TabItem({ icon: Icon, label, active, onClick, badge }: { icon: any; lab
   );
 }
 
-// --- الأقسام الرئيسية ---
+// --- واجهة تعديل الملف الشخصي المحدثة ---
 
-// 1. سوق المهام (Tasks Market)
+function EditProfileView({ user, onSaved, onCancel }: { user: User; onSaved: (u: User) => void; onCancel: () => void }) {
+  const [formData, setFormData] = useState<User>({
+    ...user,
+    portfolio: ensureArray(user.portfolio),
+    categories: ensureArray(user.categories),
+    skills: ensureArray(user.skills)
+  });
+  const [newSkill, setNewSkill] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handlePortfolioUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    
+    // Fix: Add explicit type annotation for File to resolve unknown assignment error
+    const newImages = await Promise.all(
+      Array.from(files).map((file: File) => fileToBase64(file))
+    );
+    
+    setFormData(prev => ({
+      ...prev,
+      portfolio: [...prev.portfolio, ...newImages]
+    }));
+  };
+
+  const removePortfolioImage = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      portfolio: prev.portfolio.filter((_, i) => i !== index)
+    }));
+  };
+
+  const addSkill = () => {
+    if (!newSkill.trim()) return;
+    setFormData(prev => ({
+      ...prev,
+      skills: [...prev.skills, newSkill.trim()]
+    }));
+    setNewSkill('');
+  };
+
+  const removeSkill = (skill: string) => {
+    setFormData(prev => ({
+      ...prev,
+      skills: prev.skills.filter(s => s !== skill)
+    }));
+  };
+
+  const toggleCategory = (catName: string) => {
+    setFormData(prev => ({
+      ...prev,
+      categories: prev.categories.includes(catName) 
+        ? prev.categories.filter(c => c !== catName)
+        : [...prev.categories, catName]
+    }));
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto py-16 px-6 text-right animate-fade-in">
+       <div className="bg-white rounded-[4rem] shadow-2xl border border-slate-100 p-12 overflow-hidden">
+          <PageHeader title="تحديث الملف الشخصي" subtitle="اجعل بروفايلك أكثر جاذبية للزبائن من خلال إضافة أعمالك ومهاراتك." />
+          
+          <form onSubmit={(e) => {e.preventDefault(); onSaved(formData);}} className="space-y-12">
+             
+             {/* المعلومات الأساسية */}
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-2">
+                   <label className="text-sm font-black text-slate-400 mr-2 uppercase">الاسم الأول</label>
+                   <input className="w-full p-5 bg-slate-50 rounded-[2rem] border-none font-bold text-lg focus:ring-2 ring-emerald-500/20" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} />
+                </div>
+                <div className="space-y-2">
+                   <label className="text-sm font-black text-slate-400 mr-2 uppercase">اللقب</label>
+                   <input className="w-full p-5 bg-slate-50 rounded-[2rem] border-none font-bold text-lg focus:ring-2 ring-emerald-500/20" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} />
+                </div>
+                <div className="space-y-2">
+                   <label className="text-sm font-black text-slate-400 mr-2 uppercase">الولاية</label>
+                   <select className="w-full p-5 bg-slate-50 rounded-[2rem] border-none font-bold text-lg outline-none" value={formData.location.wilaya} onChange={e => setFormData({...formData, location: {...formData.location, wilaya: e.target.value}})}>
+                      {WILAYAS.map(w => <option key={w} value={w}>{w}</option>)}
+                   </select>
+                </div>
+             </div>
+
+             {/* التخصصات */}
+             <div className="space-y-4">
+                <label className="text-sm font-black text-slate-400 mr-2 uppercase">التخصصات والخدمات</label>
+                <div className="flex flex-wrap gap-3">
+                   {SERVICE_CATEGORIES.map(cat => (
+                     <button 
+                       key={cat.id}
+                       type="button"
+                       onClick={() => toggleCategory(cat.name)}
+                       className={`px-6 py-3 rounded-2xl font-bold text-sm border-2 transition-all ${formData.categories.includes(cat.name) ? 'bg-emerald-600 border-emerald-600 text-white shadow-lg' : 'bg-white border-slate-100 text-slate-500 hover:border-emerald-200'}`}
+                     >
+                       {cat.icon} {cat.name}
+                     </button>
+                   ))}
+                </div>
+             </div>
+
+             {/* النبذة */}
+             <div className="space-y-2">
+                <label className="text-sm font-black text-slate-400 mr-2 uppercase">النبذة المهنية</label>
+                <textarea rows={4} className="w-full p-8 bg-slate-50 rounded-[3rem] border-none font-bold text-lg focus:ring-2 ring-emerald-500/20" placeholder="تحدث عن خبرتك وما يميز عملك..." value={formData.bio || ''} onChange={e => setFormData({...formData, bio: e.target.value})} />
+             </div>
+
+             {/* المهارات */}
+             <div className="space-y-4">
+                <label className="text-sm font-black text-slate-400 mr-2 uppercase">المهارات والتقنيات (Tags)</label>
+                <div className="flex gap-3 mb-4">
+                   <input 
+                     type="text" 
+                     placeholder="مثلاً: تركيب خلاطات، تسليك أنابيب..." 
+                     className="flex-grow p-4 bg-slate-50 rounded-2xl border-none font-bold" 
+                     value={newSkill}
+                     onChange={e => setNewSkill(e.target.value)}
+                     onKeyPress={e => e.key === 'Enter' && (e.preventDefault(), addSkill())}
+                   />
+                   <button type="button" onClick={addSkill} className="bg-slate-900 text-white px-6 rounded-2xl font-black">إضافة</button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                   {formData.skills.map(skill => (
+                     <span key={skill} className="bg-emerald-50 text-emerald-700 px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 border border-emerald-100">
+                        {skill}
+                        <X size={14} className="cursor-pointer hover:text-red-500" onClick={() => removeSkill(skill)}/>
+                     </span>
+                   ))}
+                </div>
+             </div>
+
+             {/* معرض الأعمال (البوم الصور) */}
+             <div className="space-y-6">
+                <div className="flex justify-between items-center mr-2">
+                   <label className="text-sm font-black text-slate-400 uppercase">معرض أعمالك (Portfolio)</label>
+                   <button 
+                     type="button" 
+                     onClick={() => fileInputRef.current?.click()}
+                     className="text-emerald-600 font-black text-sm flex items-center gap-2 hover:bg-emerald-50 px-4 py-2 rounded-xl transition-all"
+                   >
+                      <PlusSquare size={20}/> إضافة صور جديدة
+                   </button>
+                </div>
+                <input type="file" ref={fileInputRef} className="hidden" multiple accept="image/*" onChange={handlePortfolioUpload} />
+                
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
+                   {formData.portfolio.map((img, idx) => (
+                     <div key={idx} className="relative aspect-square rounded-[2rem] overflow-hidden group border-2 border-slate-50 shadow-sm">
+                        <img src={img} className="w-full h-full object-cover" alt={`Work ${idx}`} />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                           <button 
+                             type="button" 
+                             onClick={() => removePortfolioImage(idx)}
+                             className="bg-white text-red-500 p-3 rounded-2xl shadow-xl hover:scale-110 transition-transform"
+                           >
+                              <Trash2 size={24}/>
+                           </button>
+                        </div>
+                     </div>
+                   ))}
+                   <button 
+                     type="button" 
+                     onClick={() => fileInputRef.current?.click()}
+                     className="aspect-square rounded-[2rem] border-4 border-dashed border-slate-100 flex flex-col items-center justify-center gap-3 text-slate-300 hover:border-emerald-200 hover:text-emerald-300 transition-all"
+                   >
+                      <LucideImage size={48}/>
+                      <span className="font-black text-xs">اضغط للرفع</span>
+                   </button>
+                </div>
+             </div>
+
+             <div className="flex flex-col sm:flex-row gap-6 pt-12 border-t border-slate-50">
+                <button type="submit" className="flex-grow btn-primary py-6 rounded-[2.5rem] font-black text-2xl shadow-2xl shadow-emerald-200 hover:bg-emerald-500 transition-all active:scale-95 flex items-center justify-center gap-3">
+                   <Save size={32}/> حفظ بروفايلي المحدث
+                </button>
+                <button type="button" onClick={onCancel} className="bg-slate-100 text-slate-500 px-12 rounded-[2.5rem] font-black text-xl hover:bg-slate-200 transition-all">إلغاء</button>
+             </div>
+          </form>
+       </div>
+    </div>
+  );
+}
+
+// --- بقية الأقسام (Tasks, Chat, Workers) ---
+
 function TasksMarketView({ onStartChat }: { onStartChat: (id: string, initialMsg?: string) => void }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -296,7 +488,6 @@ function TasksMarketView({ onStartChat }: { onStartChat: (id: string, initialMsg
   );
 }
 
-// 2. واجهة الدردشة (Communication Hub)
 function ChatView({ currentUser, activeChat, onBack, initialMessage }: { currentUser: User; activeChat: Chat | null; onBack: () => void; initialMessage?: string }) {
   const [selectedChat, setSelectedChat] = useState<Chat | null>(activeChat);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -326,7 +517,6 @@ function ChatView({ currentUser, activeChat, onBack, initialMessage }: { current
 
   return (
     <div className="max-w-6xl mx-auto h-[calc(100vh-160px)] flex bg-white rounded-[4rem] shadow-2xl border border-slate-100 my-10 overflow-hidden animate-fade-in">
-      {/* قائمة المحادثات */}
       <div className={`w-full md:w-1/3 border-l border-slate-50 flex flex-col ${selectedChat ? 'hidden md:flex' : 'flex'}`}>
         <div className="p-10 border-b border-slate-50"><h2 className="text-3xl font-black text-slate-900">المحادثات</h2></div>
         <div className="flex-grow overflow-y-auto custom-scrollbar p-6 space-y-4">
@@ -342,7 +532,6 @@ function ChatView({ currentUser, activeChat, onBack, initialMessage }: { current
         </div>
       </div>
 
-      {/* نافذة الدردشة */}
       <div className={`flex-grow flex flex-col ${!selectedChat ? 'hidden md:flex items-center justify-center bg-slate-50' : 'flex'}`}>
         {selectedChat ? (
           <>
@@ -363,7 +552,7 @@ function ChatView({ currentUser, activeChat, onBack, initialMessage }: { current
                  <div key={m.id} className={`flex ${m.sender_id === currentUser.id ? 'justify-start' : 'justify-end'}`}>
                     <div className={`max-w-[75%] p-6 shadow-sm font-medium text-lg ${m.sender_id === currentUser.id ? 'chat-bubble-user' : 'chat-bubble-other'}`}>
                        {m.content}
-                       <span className="text-[10px] opacity-60 block mt-2 text-left">{new Date(m.created_at).toLocaleTimeString('ar-DZ')}</span>
+                       <span className="text-[10px] opacity-60 block mt-2 text-left">{new Date(m.created_at).toLocaleTimeString('ار-DZ')}</span>
                     </div>
                  </div>
                ))}
@@ -396,7 +585,6 @@ function ChatView({ currentUser, activeChat, onBack, initialMessage }: { current
   );
 }
 
-// 3. دليل الحرفيين (Workers View)
 function SearchWorkersView({ onViewWorker }: { onViewWorker: (w: User) => void }) {
   const [workers, setWorkers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -468,6 +656,12 @@ export default function App() {
     if (v !== 'chats') setOfferText(undefined);
   };
 
+  const updateCurrentUser = (u: User | null) => {
+    setState(prev => ({ ...prev, currentUser: u }));
+    if (u) localStorage.setItem('user', JSON.stringify(u));
+    else localStorage.removeItem('user');
+  };
+
   const startChat = (id: string, initialMsg?: string) => {
     if (!state.currentUser) { setView('login'); return; }
     const mockChat: Chat = { id: 'c_'+id, participant_1: state.currentUser.id, participant_2: id, updated_at: new Date().toISOString() };
@@ -520,43 +714,23 @@ export default function App() {
         )}
 
         {state.view === 'profile' && state.currentUser && (
-           <div className="max-w-4xl mx-auto py-24 px-6 text-right animate-fade-in">
-              <div className="craft-card overflow-hidden">
-                 <div className="h-60 bg-gradient-to-r from-emerald-600 to-teal-500"></div>
-                 <div className="px-12 pb-12">
-                    <div className="relative -mt-32 mb-12 flex flex-col items-center">
-                       <img src={state.currentUser.avatar || `https://ui-avatars.com/api/?name=${state.currentUser.firstName}`} className="w-60 h-60 rounded-[4rem] border-8 border-white shadow-2xl object-cover bg-white" alt="Profile" />
-                       <h2 className="text-5xl font-black text-slate-900 mt-8">{state.currentUser.firstName} {state.currentUser.lastName}</h2>
-                       <div className="flex items-center gap-6 text-slate-500 font-bold mt-4 text-xl">
-                          <span className="flex items-center gap-2"><MapPin className="text-emerald-500"/> {state.currentUser.location.wilaya}</span>
-                          <span className="w-2 h-2 bg-slate-200 rounded-full"></span>
-                          <span className="flex items-center gap-2 text-emerald-600 font-black"><Trophy/> حرفي موثق</span>
-                       </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-12 pt-12 border-t border-slate-50">
-                       <div className="space-y-10">
-                          <section>
-                             <h4 className="text-2xl font-black text-slate-900 mb-6">النبذة المهنية</h4>
-                             <p className="text-xl text-slate-600 leading-relaxed">{state.currentUser.bio || 'لم يتم إضافة نبذة تعريفية بعد.'}</p>
-                          </section>
-                          <section>
-                             <h4 className="text-2xl font-black text-slate-900 mb-6">التخصصات</h4>
-                             <div className="flex flex-wrap gap-3">
-                                {ensureArray(state.currentUser.categories).map(c => <span key={c} className="bg-emerald-50 text-emerald-700 px-6 py-2 rounded-2xl font-black text-sm border border-emerald-100">{c}</span>)}
-                             </div>
-                          </section>
-                       </div>
-                       <div className="space-y-8 flex flex-col justify-end">
-                          <button onClick={() => setView('edit-profile')} className="btn-primary py-6 rounded-[2.5rem] font-black text-2xl flex items-center justify-center gap-4 active:scale-95 transition-all"><Edit size={32}/> تعديل الملف الشخصي</button>
-                          <button onClick={() => {localStorage.removeItem('user'); window.location.reload();}} className="py-6 bg-red-50 text-red-500 rounded-[2.5rem] font-black text-2xl flex items-center justify-center gap-4 hover:bg-red-100 transition-all active:scale-95"><LogOut size={32}/> تسجيل الخروج</button>
-                       </div>
-                    </div>
-                 </div>
-              </div>
-           </div>
+           <WorkerView 
+             worker={state.currentUser} 
+             isOwnProfile={true}
+             onBack={() => setView('landing')} 
+             onEdit={() => setView('edit-profile')}
+           />
         )}
         
-        {['login', 'register', 'edit-profile', 'notifications'].includes(state.view) && (
+        {state.view === 'edit-profile' && state.currentUser && (
+           <EditProfileView 
+             user={state.currentUser} 
+             onSaved={(u) => { updateCurrentUser(u); setView('profile'); }} 
+             onCancel={() => setView('profile')} 
+           />
+        )}
+        
+        {['login', 'register', 'notifications'].includes(state.view) && (
           <div className="py-60 text-center animate-fade-in">
              <div className="loading-spinner mx-auto mb-8 w-16 h-16"></div>
              <h3 className="text-4xl font-black text-slate-800 mb-4">قيد التحديث...</h3>
@@ -566,13 +740,12 @@ export default function App() {
         )}
       </main>
 
-      {/* شريط الملاحة السفلي للجوال */}
       <div className="fixed bottom-0 left-0 right-0 h-24 bg-white/90 backdrop-blur-2xl border-t border-slate-100 flex items-center justify-around md:hidden z-[60] px-6 shadow-2xl rounded-t-[3rem]">
         <TabItem icon={Home} label="الرئيسية" active={state.view === 'landing'} onClick={() => setView('landing')} />
         <TabItem icon={SearchIcon} label="الحرفيين" active={state.view === 'search'} onClick={() => setView('search')} />
         <TabItem icon={ClipboardList} label="المهام" active={state.view === 'support'} onClick={() => setView('support')} />
         <TabItem icon={MessageSquare} label="الرسائل" active={state.view === 'chats'} onClick={() => setView('chats')} badge={2} />
-        <TabItem icon={UserIcon} label="حسابي" active={state.view === 'profile'} onClick={() => setView(state.currentUser ? 'profile' : 'login')} />
+        <TabItem icon={UserIcon} label="حسابي" active={state.view === 'profile' || state.view === 'edit-profile'} onClick={() => setView(state.currentUser ? 'profile' : 'login')} />
       </div>
     </div>
   );
@@ -593,21 +766,15 @@ function LandingView({ onStart, onRegister }: { onStart: () => void; onRegister:
            <button onClick={onStart} className="btn-primary px-16 py-8 rounded-[3rem] font-black text-3xl shadow-2xl active:scale-95 transition-all w-full sm:w-auto">اطلب خدمة الآن 🔍</button>
            <button onClick={onRegister} className="bg-white/10 backdrop-blur-md px-16 py-8 rounded-[3rem] font-black text-3xl border border-white/20 hover:bg-white/20 transition-all w-full sm:w-auto active:scale-95">سجل كحرفي 🛠️</button>
         </div>
-        <div className="mt-24 grid grid-cols-2 md:grid-cols-4 gap-12 opacity-80 font-black text-xl">
-           <div className="flex flex-col gap-2"><span>+50k</span><span className="text-emerald-400 text-sm uppercase">حرفي نشط</span></div>
-           <div className="flex flex-col gap-2"><span>+100k</span><span className="text-emerald-400 text-sm uppercase">مهمة مكتملة</span></div>
-           <div className="flex flex-col gap-2"><span>58</span><span className="text-emerald-400 text-sm uppercase">ولاية مغطاة</span></div>
-           <div className="flex flex-col gap-2"><span>4.9/5</span><span className="text-emerald-400 text-sm uppercase">تقييم الزبائن</span></div>
-        </div>
       </div>
     </div>
   );
 }
 
-function WorkerView({ worker, onBack, onStartChat }: { worker: User; onBack: () => void; onStartChat: () => void }) {
+function WorkerView({ worker, onBack, onStartChat, isOwnProfile, onEdit }: { worker: User; onBack: () => void; onStartChat?: () => void; isOwnProfile?: boolean; onEdit?: () => void }) {
   return (
     <div className="max-w-6xl mx-auto py-20 px-6 text-right animate-fade-in min-h-screen">
-       <button onClick={onBack} className="flex items-center gap-3 text-slate-500 font-black mb-12 hover:text-emerald-600 transition-all text-xl"><ArrowRight size={24} className="rotate-180"/> العودة للدليل</button>
+       <button onClick={onBack} className="flex items-center gap-3 text-slate-500 font-black mb-12 hover:text-emerald-600 transition-all text-xl"><ArrowRight size={24} className="rotate-180"/> {isOwnProfile ? 'العودة للرئيسية' : 'العودة للدليل'}</button>
        <div className="craft-card overflow-hidden">
           <div className="h-64 bg-gradient-to-r from-emerald-600 via-teal-500 to-emerald-800"></div>
           <div className="px-12 pb-16">
@@ -620,10 +787,14 @@ function WorkerView({ worker, onBack, onStartChat }: { worker: User; onBack: () 
                       <span className="flex items-center gap-2 text-yellow-500"><Star size={28} fill="currentColor"/> 4.9 (42 تقييم)</span>
                    </div>
                 </div>
-                <div className="flex gap-4">
-                   <button onClick={onStartChat} className="btn-primary p-6 rounded-[2.5rem] shadow-2xl active:scale-95 transition-all"><MessageSquare size={36}/></button>
-                   <button className="bg-slate-900 text-white p-6 rounded-[2.5rem] shadow-2xl active:scale-95 transition-all"><Phone size={36}/></button>
-                </div>
+                {isOwnProfile ? (
+                   <button onClick={onEdit} className="btn-primary p-6 rounded-[2.5rem] shadow-2xl active:scale-95 transition-all flex items-center gap-4 text-2xl font-black"><Edit size={32}/> تعديل الملف الشخصي</button>
+                ) : (
+                   <div className="flex gap-4">
+                      <button onClick={onStartChat} className="btn-primary p-6 rounded-[2.5rem] shadow-2xl active:scale-95 transition-all"><MessageSquare size={36}/></button>
+                      <button className="bg-slate-900 text-white p-6 rounded-[2.5rem] shadow-2xl active:scale-95 transition-all"><Phone size={36}/></button>
+                   </div>
+                )}
              </div>
              <div className="grid grid-cols-1 lg:grid-cols-3 gap-16">
                 <div className="lg:col-span-2 space-y-16">
@@ -631,8 +802,21 @@ function WorkerView({ worker, onBack, onStartChat }: { worker: User; onBack: () 
                       <h4 className="text-3xl font-black text-slate-900 mb-8 border-b-4 border-emerald-500 w-fit pb-2">حول الحرفي</h4>
                       <div className="bg-slate-50 p-10 rounded-[3.5rem] border border-slate-100"><p className="text-slate-600 font-medium text-2xl leading-relaxed whitespace-pre-wrap">{worker.bio || 'حرفي سلكني متميز يلتزم بأعلى معايير الجودة والاتقان في العمل.'}</p></div>
                    </section>
+
                    <section>
-                      <h4 className="text-3xl font-black text-slate-900 mb-8 border-b-4 border-emerald-500 w-fit pb-2">معرض الأعمال</h4>
+                      <h4 className="text-3xl font-black text-slate-900 mb-8 border-b-4 border-emerald-500 w-fit pb-2">التخصصات والمهارات</h4>
+                      <div className="space-y-6">
+                         <div className="flex flex-wrap gap-3">
+                            {ensureArray(worker.categories).map(c => <span key={c} className="bg-emerald-600 text-white px-6 py-2 rounded-2xl font-black text-sm">{c}</span>)}
+                         </div>
+                         <div className="flex flex-wrap gap-2">
+                            {ensureArray(worker.skills).map(s => <span key={s} className="bg-slate-100 text-slate-600 px-4 py-2 rounded-xl font-bold text-sm border border-slate-200">#{s}</span>)}
+                         </div>
+                      </div>
+                   </section>
+
+                   <section>
+                      <h4 className="text-3xl font-black text-slate-900 mb-8 border-b-4 border-emerald-500 w-fit pb-2">معرض الأعمال (البوم الصور)</h4>
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-8">
                         {ensureArray(worker.portfolio).map((img, i) => (
                           <div key={i} className="aspect-square rounded-[3rem] bg-slate-100 border border-slate-200 shadow-sm overflow-hidden group">
@@ -658,7 +842,9 @@ function WorkerView({ worker, onBack, onStartChat }: { worker: User; onBack: () 
                          <div className="flex justify-between items-center bg-white/10 p-6 rounded-[2rem] backdrop-blur-sm"><span>زمن الاستجابة</span><span className="font-black text-3xl">~10د</span></div>
                       </div>
                    </div>
-                   <button onClick={onStartChat} className="w-full btn-primary py-8 rounded-[3rem] font-black text-3xl flex items-center justify-center gap-4 shadow-2xl active:scale-95 transition-all">ابدأ المحادثة الآن</button>
+                   {!isOwnProfile && onStartChat && (
+                      <button onClick={onStartChat} className="w-full btn-primary py-8 rounded-[3rem] font-black text-3xl flex items-center justify-center gap-4 shadow-2xl active:scale-95 transition-all">ابدأ المحادثة الآن</button>
+                   )}
                    <div className="bg-white p-10 rounded-[3.5rem] border border-slate-100 shadow-sm space-y-6">
                       <h5 className="font-black text-2xl text-slate-900 border-b pb-4">الأمان والموثوقية</h5>
                       <div className="flex items-center gap-4 text-emerald-600 font-black text-lg">
