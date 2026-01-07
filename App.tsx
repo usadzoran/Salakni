@@ -40,7 +40,9 @@ import {
   Building2,
   Map as MapIcon,
   Layout,
-  ExternalLink
+  Clock,
+  CheckCircle,
+  AlertTriangle
 } from 'lucide-react';
 
 // --- مساعدات البيانات ---
@@ -61,7 +63,6 @@ const mapUserData = (u: any): User => ({
     wilaya: u.wilaya || u.location?.wilaya || '', 
     daira: u.daira || u.location?.daira || '' 
   },
-  // التعامل مع كلا التنسيقين: category (مفرد) و categories (مصفوفة)
   categories: ensureArray(u.categories || u.category),
   skills: ensureArray(u.skills),
   portfolio: ensureArray(u.portfolio),
@@ -123,6 +124,8 @@ function GlobalStyles() {
 
 // --- واجهة عرض البروفايل ---
 function WorkerView({ worker, isOwnProfile, onBack, onEdit, onStartChat, onLogout }: any) {
+  const [activeImage, setActiveImage] = useState<string | null>(null);
+
   return (
     <div className="max-w-6xl mx-auto py-8 md:py-12 px-4 md:px-6 animate-fade-in text-right">
       <div className="flex justify-between items-center mb-8">
@@ -214,10 +217,10 @@ function WorkerView({ worker, isOwnProfile, onBack, onEdit, onStartChat, onLogou
                 <h3 className="text-xl font-black text-slate-900 mb-5 flex items-center gap-2">
                    <ImageIcon size={20} className="text-emerald-600"/> معرض الأعمال
                 </h3>
-                {worker.portfolio.length > 0 ? (
+                {worker.portfolio && worker.portfolio.length > 0 ? (
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                     {worker.portfolio.map((img: string, i: number) => (
-                      <div key={i} className="aspect-square bg-slate-100 rounded-3xl overflow-hidden border-2 border-white shadow-md">
+                      <div key={i} onClick={() => setActiveImage(img)} className="aspect-square bg-slate-100 rounded-3xl overflow-hidden border-2 border-white shadow-md cursor-zoom-in hover:scale-105 transition-all">
                         <img src={img} className="w-full h-full object-cover" alt="Portfolio" />
                       </div>
                     ))}
@@ -226,6 +229,7 @@ function WorkerView({ worker, isOwnProfile, onBack, onEdit, onStartChat, onLogou
                   <div className="py-16 bg-slate-50/50 rounded-[2rem] border-2 border-dashed border-slate-200 text-center">
                     <LucideImage size={40} className="mx-auto mb-3 text-slate-300"/>
                     <p className="text-slate-400 font-bold">لا توجد صور في المعرض حالياً</p>
+                    {isOwnProfile && <p className="text-xs text-emerald-500 font-black mt-2">أضف صور أعمالك من إعدادات البروفايل</p>}
                   </div>
                 )}
               </section>
@@ -264,13 +268,21 @@ function WorkerView({ worker, isOwnProfile, onBack, onEdit, onStartChat, onLogou
           </div>
         </div>
       </div>
+
+      {activeImage && (
+        <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={() => setActiveImage(null)}>
+          <button className="absolute top-8 left-8 text-white p-2 bg-white/10 rounded-full hover:bg-white/20 transition-all"><X size={32}/></button>
+          <img src={activeImage} className="max-w-full max-h-[90vh] rounded-2xl shadow-2xl object-contain" />
+        </div>
+      )}
     </div>
   );
 }
 
-// --- واجهة تعديل البروفايل ---
+// --- واجهة تعديل البروفايل مع معرض الأعمال ---
 function EditProfileView({ user, onSaved, onCancel }: { user: User, onSaved: (u: User) => void, onCancel: () => void }) {
   const [loading, setLoading] = useState(false);
+  const [portfolioInput, setPortfolioInput] = useState('');
   const [formData, setFormData] = useState({
     firstName: user.firstName,
     lastName: user.lastName,
@@ -279,11 +291,25 @@ function EditProfileView({ user, onSaved, onCancel }: { user: User, onSaved: (u:
     wilaya: user.location.wilaya,
     daira: user.location.daira,
     category: user.categories[0] || SERVICE_CATEGORIES[0].name,
-    skills: user.skills.join(', ')
+    skills: user.skills.join(', '),
+    portfolio: user.portfolio || []
   });
 
   const handleWilayaChange = (val: string) => {
     setFormData({ ...formData, wilaya: val, daira: WILAYA_DATA[val][0] || '' });
+  };
+
+  const addPortfolioItem = () => {
+    if (portfolioInput && portfolioInput.startsWith('http')) {
+      setFormData({ ...formData, portfolio: [...formData.portfolio, portfolioInput] });
+      setPortfolioInput('');
+    } else {
+      alert('الرجاء إدخال رابط صورة صحيح يبدأ بـ http');
+    }
+  };
+
+  const removePortfolioItem = (index: number) => {
+    setFormData({ ...formData, portfolio: formData.portfolio.filter((_, i) => i !== index) });
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -299,7 +325,8 @@ function EditProfileView({ user, onSaved, onCancel }: { user: User, onSaved: (u:
         wilaya: formData.wilaya,
         daira: formData.daira,
         categories: [formData.category],
-        skills: skillsArray
+        skills: skillsArray,
+        portfolio: formData.portfolio
       }).eq('id', user.id);
 
       if (error) throw error;
@@ -319,7 +346,7 @@ function EditProfileView({ user, onSaved, onCancel }: { user: User, onSaved: (u:
   };
 
   return (
-    <div className="max-w-4xl mx-auto py-10 px-4 animate-fade-in text-right">
+    <div className="max-w-4xl mx-auto py-10 px-4 animate-fade-in text-right pb-24">
        <div className="bg-white rounded-[3rem] shadow-2xl p-8 md:p-12 border border-slate-100">
           <div className="flex justify-between items-center mb-10 border-b pb-6">
              <h2 className="text-2xl md:text-3xl font-black text-slate-900 flex items-center gap-3">
@@ -328,7 +355,7 @@ function EditProfileView({ user, onSaved, onCancel }: { user: User, onSaved: (u:
              <button onClick={onCancel} className="p-3 bg-slate-50 rounded-xl text-slate-400 hover:text-red-500 transition-all"><X size={24}/></button>
           </div>
 
-          <form onSubmit={handleSave} className="space-y-8">
+          <form onSubmit={handleSave} className="space-y-10">
              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                    <label className="text-xs font-black text-slate-400 mr-2 uppercase tracking-widest">الاسم الأول</label>
@@ -405,7 +432,28 @@ function EditProfileView({ user, onSaved, onCancel }: { user: User, onSaved: (u:
                 </div>
              </div>
 
-             <div className="flex flex-col md:flex-row gap-4 pt-6">
+             <div className="space-y-4 border-t pt-8">
+                <h3 className="text-xl font-black text-slate-900 flex items-center gap-2"><ImageIcon size={20} className="text-emerald-600"/> معرض الأعمال (أضف صورك)</h3>
+                <div className="flex gap-4 items-center">
+                   <div className="relative flex-grow">
+                      <input className="input-field" placeholder="أدخل رابط صورة لعملك (URL)..." value={portfolioInput} onChange={e => setPortfolioInput(e.target.value)} />
+                      <ImageIcon className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" size={20}/>
+                   </div>
+                   <button type="button" onClick={addPortfolioItem} className="bg-slate-900 text-white p-4 rounded-xl hover:bg-emerald-600 transition-all"><Plus size={24}/></button>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-4">
+                   {formData.portfolio.map((img, i) => (
+                      <div key={i} className="relative aspect-square rounded-2xl overflow-hidden border border-slate-200 group">
+                         <img src={img} className="w-full h-full object-cover" />
+                         <button type="button" onClick={() => removePortfolioItem(i)} className="absolute top-1 left-1 bg-red-500 text-white p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all shadow-md">
+                            <Trash2 size={14}/>
+                         </button>
+                      </div>
+                   ))}
+                </div>
+             </div>
+
+             <div className="flex flex-col md:flex-row gap-4 pt-10">
                 <button disabled={loading} className="flex-grow btn-primary py-4 rounded-2xl font-black text-xl shadow-xl flex items-center justify-center gap-3 transition-all active:scale-95 disabled:opacity-70">
                    {loading ? <div className="loading-spinner border-white"></div> : <Save size={24}/>}
                    {loading ? 'جاري الحفظ...' : 'حفظ التغييرات'}
@@ -437,7 +485,6 @@ function SearchWorkersView({ onViewWorker }: { onViewWorker: (worker: User) => v
         baseQuery = baseQuery.eq('wilaya', filters.wilaya);
       }
       if (filters.category) {
-        // نستخدم الفلترة هنا بناءً على التخصص الأساسي المخزن في العمود category أو categories
         baseQuery = baseQuery.or(`categories.ilike.%${filters.category}%,category.ilike.%${filters.category}%`);
       }
       
@@ -583,6 +630,175 @@ function SearchWorkersView({ onViewWorker }: { onViewWorker: (worker: User) => v
   );
 }
 
+// --- واجهة المهام (سوق المهام) ---
+function TasksMarketView({ currentUser, onStartChat }: { currentUser: User | null, onStartChat: any }) {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showCreate, setShowCreate] = useState(false);
+  const [newTask, setNewTask] = useState({ title: '', description: '', category: SERVICE_CATEGORIES[0].name, budget: 0, wilaya: WILAYAS[0] });
+
+  useEffect(() => {
+    const fetchTasks = async () => {
+      setLoading(true);
+      const { data } = await supabase.from('tasks').select('*').eq('status', 'open').order('created_at', { ascending: false });
+      if (data) setTasks(data.map(t => ({ ...t, status: t.status as any })));
+      setLoading(false);
+    };
+    fetchTasks();
+  }, []);
+
+  const handleCreate = async () => {
+    if (!currentUser) { alert('يجب تسجيل الدخول أولاً'); return; }
+    const { error } = await supabase.from('tasks').insert([{
+      seeker_id: currentUser.id, seeker_name: `${currentUser.firstName} ${currentUser.lastName}`,
+      title: newTask.title, description: newTask.description, category: newTask.category,
+      budget: newTask.budget, wilaya: newTask.wilaya, status: 'open'
+    }]);
+    if (!error) { setShowCreate(false); window.location.reload(); }
+    else alert('خطأ في النشر');
+  };
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 md:px-6 py-12 text-right">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-12">
+        <div>
+           <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-2">سوق الطلبات المفتوحة 📋</h1>
+           <p className="text-slate-500 font-bold">تصفح طلبات الزبائن وتواصل معهم مباشرة لتقديم عروضك.</p>
+        </div>
+        <button onClick={() => setShowCreate(true)} className="btn-primary px-10 py-5 rounded-2xl font-black text-xl shadow-xl flex items-center gap-3">
+          <PlusSquare size={24}/> انشر طلبك الخاص
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        {loading ? [1,2,3].map(i => <div key={i} className="h-64 bg-slate-100 animate-pulse rounded-[2.5rem]"></div>) :
+          tasks.map(t => (
+            <div key={t.id} className="craft-card p-8 flex flex-col h-full hover:border-emerald-200 transition-all">
+               <div className="flex justify-between items-center mb-6">
+                  <span className="bg-emerald-50 text-emerald-700 px-4 py-1.5 rounded-xl font-black text-xs border border-emerald-100 uppercase">{t.category}</span>
+                  <div className="font-black text-xl text-slate-900">{t.budget} <span className="text-xs">دج</span></div>
+               </div>
+               <h3 className="text-2xl font-black text-slate-900 mb-4 line-clamp-1">{t.title}</h3>
+               <p className="text-slate-500 font-medium mb-8 flex-grow line-clamp-3 leading-relaxed text-sm">{t.description}</p>
+               <div className="border-t pt-6 flex justify-between items-center mt-auto">
+                  <div className="flex items-center gap-3">
+                     <div className="w-10 h-10 bg-slate-900 text-white rounded-xl flex items-center justify-center font-black">{t.seeker_name?.[0]}</div>
+                     <div className="text-right">
+                        <span className="text-xs font-black block">{t.seeker_name}</span>
+                        <span className="text-[10px] text-slate-400 font-bold">{t.wilaya} • {new Date(t.created_at).toLocaleDateString('ar-DZ')}</span>
+                     </div>
+                  </div>
+                  <button onClick={() => onStartChat(t.seeker_id)} className="bg-emerald-600 text-white px-5 py-2.5 rounded-xl font-black text-xs hover:bg-slate-900 transition-all">تقديم عرض</button>
+               </div>
+            </div>
+          ))
+        }
+        {!loading && tasks.length === 0 && <div className="col-span-full py-20 text-center"><ClipboardList size={48} className="mx-auto text-slate-200 mb-4"/><p className="text-slate-400 font-bold">لا توجد طلبات مفتوحة حالياً</p></div>}
+      </div>
+
+      {showCreate && (
+        <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
+           <div className="bg-white w-full max-w-xl rounded-[3rem] p-8 md:p-12 relative shadow-2xl overflow-y-auto max-h-[90vh]">
+              <button onClick={() => setShowCreate(false)} className="absolute top-6 left-6 p-2 text-slate-300 hover:text-red-500 transition-all"><X size={28}/></button>
+              <h2 className="text-3xl font-black mb-8 flex items-center gap-3"><PlusSquare className="text-emerald-600"/> نشر طلب جديد</h2>
+              <div className="space-y-6">
+                 <div className="space-y-2">
+                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest pr-2">ماذا تحتاج؟</label>
+                    <input className="input-field" placeholder="مثلاً: نحتاج رصاص لتركيب سخان غاز" value={newTask.title} onChange={e => setNewTask({...newTask, title: e.target.value})} />
+                 </div>
+                 <div className="space-y-2">
+                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest pr-2">وصف الخدمة المطلوبة</label>
+                    <textarea rows={4} className="input-field h-auto py-4" placeholder="اشرح تفاصيل المشكلة أو ما تريده بالضبط..." value={newTask.description} onChange={e => setNewTask({...newTask, description: e.target.value})} />
+                 </div>
+                 <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                       <label className="text-xs font-black text-slate-400 uppercase pr-2">الميزانية (دج)</label>
+                       <input type="number" className="input-field" value={newTask.budget} onChange={e => setNewTask({...newTask, budget: parseInt(e.target.value) || 0})} />
+                    </div>
+                    <div className="space-y-2">
+                       <label className="text-xs font-black text-slate-400 uppercase pr-2">الولاية</label>
+                       <select className="input-field appearance-none" value={newTask.wilaya} onChange={e => setNewTask({...newTask, wilaya: e.target.value})}>
+                          {WILAYAS.map(w => <option key={w} value={w}>{w}</option>)}
+                       </select>
+                    </div>
+                 </div>
+                 <div className="space-y-2">
+                    <label className="text-xs font-black text-slate-400 uppercase pr-2">التخصص</label>
+                    <select className="input-field appearance-none" value={newTask.category} onChange={e => setNewTask({...newTask, category: e.target.value})}>
+                       {SERVICE_CATEGORIES.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                    </select>
+                 </div>
+                 <button onClick={handleCreate} className="w-full btn-primary py-5 rounded-2xl font-black text-xl shadow-xl flex items-center justify-center gap-3 transition-all active:scale-95">
+                    <CheckCircle size={24}/> نشر الطلب للجميع
+                 </button>
+              </div>
+           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// --- واجهة مهامي الشخصية ---
+function MyTasksView({ currentUser }: { currentUser: User }) {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchMyTasks = async () => {
+      setLoading(true);
+      const { data } = await supabase.from('tasks').select('*').eq('seeker_id', currentUser.id).order('created_at', { ascending: false });
+      if (data) setTasks(data.map(t => ({ ...t, status: t.status as any })));
+      setLoading(false);
+    };
+    fetchMyTasks();
+  }, [currentUser]);
+
+  const deleteTask = async (id: string) => {
+    if (window.confirm('هل أنت متأكد من حذف هذا الطلب؟')) {
+      const { error } = await supabase.from('tasks').delete().eq('id', id);
+      if (!error) setTasks(tasks.filter(t => t.id !== id));
+    }
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto px-4 py-12 text-right min-h-screen">
+      <h1 className="text-3xl font-black mb-10 flex items-center gap-3"><ClipboardList className="text-emerald-600"/> طلباتي المنشورة</h1>
+      <div className="space-y-6">
+        {loading ? [1,2].map(i => <div key={i} className="h-40 bg-white rounded-[2rem] border animate-pulse"></div>) :
+          tasks.map(t => (
+            <div key={t.id} className="craft-card p-8 group relative">
+               <div className="flex justify-between items-start mb-4">
+                  <div>
+                     <h3 className="text-xl font-black text-slate-900 mb-1">{t.title}</h3>
+                     <span className="text-xs text-slate-400 font-bold">{new Date(t.created_at).toLocaleString('ar-DZ')}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                     <span className={`px-4 py-1.5 rounded-lg text-xs font-black ${t.status === 'open' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+                        {t.status === 'open' ? 'نشط' : 'ملغي'}
+                     </span>
+                     <button onClick={() => deleteTask(t.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-all"><Trash2 size={20}/></button>
+                  </div>
+               </div>
+               <p className="text-slate-500 text-sm font-medium mb-4 line-clamp-2">{t.description}</p>
+               <div className="flex justify-between items-center text-xs font-black">
+                  <span className="text-emerald-600">الميزانية: {t.budget} دج</span>
+                  <span className="text-slate-400">{t.category}</span>
+               </div>
+            </div>
+          ))
+        }
+        {!loading && tasks.length === 0 && (
+          <div className="text-center py-24 bg-white rounded-[3rem] border border-dashed">
+            <PlusSquare size={48} className="mx-auto text-slate-100 mb-4"/>
+            <p className="text-slate-400 font-bold mb-6">لم تقم بنشر أي طلب بعد.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // --- التطبيق الرئيسي ---
 export default function App() {
   const [state, setState] = useState<AppState>(() => {
@@ -624,9 +840,10 @@ export default function App() {
             <span className="text-xl md:text-2xl font-black text-slate-900 tracking-tighter">Salakni <span className="text-emerald-600">سلكني</span></span>
           </div>
           
-          <div className="hidden md:flex items-center gap-10">
+          <div className="hidden md:flex items-center gap-8">
             <button onClick={() => setView('landing')} className={`font-black text-lg ${state.view === 'landing' ? 'text-emerald-600' : 'text-slate-500 hover:text-emerald-600'}`}>الرئيسية</button>
             <button onClick={() => setView('search')} className={`font-black text-lg ${state.view === 'search' ? 'text-emerald-600' : 'text-slate-500 hover:text-emerald-600'}`}>الحرفيين</button>
+            <button onClick={() => setView('support')} className={`font-black text-lg ${state.view === 'support' ? 'text-emerald-600' : 'text-slate-500 hover:text-emerald-600'}`}>سوق المهام</button>
             {state.currentUser && <button onClick={() => setView('profile')} className={`font-black text-lg ${state.view === 'profile' ? 'text-emerald-600' : 'text-slate-500 hover:text-emerald-600'}`}>بروفايلي</button>}
           </div>
 
@@ -667,6 +884,8 @@ export default function App() {
 
         {state.view === 'search' && <SearchWorkersView onViewWorker={handleWorkerSelection} />}
         
+        {state.view === 'support' && <TasksMarketView currentUser={state.currentUser} onStartChat={(id: string) => { setState({...state, view: 'chats'}); }} />}
+        
         {state.view === 'profile' && state.currentUser && (
            <WorkerView 
             worker={state.currentUser} 
@@ -688,12 +907,15 @@ export default function App() {
             onStartChat={() => alert('ميزة المحادثات قادمة قريباً..')} 
           />
         )}
+
+        {state.view === 'dashboard' && state.currentUser && <MyTasksView currentUser={state.currentUser} />}
       </main>
 
       <div className="fixed bottom-0 left-0 right-0 h-20 bg-white/90 backdrop-blur-2xl border-t border-slate-100 flex items-center justify-around md:hidden z-[60] shadow-[0_-5px_15px_-3px_rgba(0,0,0,0.05)] rounded-t-[2.5rem]">
         <button onClick={() => setView('landing')} className={`flex flex-col items-center gap-1 ${state.view === 'landing' ? 'text-emerald-600' : 'text-slate-400'}`}><Home size={22}/><span className="text-[10px] font-black">الرئيسية</span></button>
-        <button onClick={() => setView('search')} className={`flex flex-col items-center gap-1 ${state.view === 'search' ? 'text-emerald-600' : 'text-slate-400'}`}><SearchIcon size={22}/><span className="text-[10px] font-black">البحث</span></button>
-        <button onClick={() => setView(state.currentUser ? 'profile' : 'login')} className={`flex flex-col items-center gap-1 ${state.view === 'profile' ? 'text-emerald-600' : 'text-slate-400'}`}><UserIcon size={22}/><span className="text-[10px] font-black">حسابي</span></button>
+        <button onClick={() => setView('search')} className={`flex flex-col items-center gap-1 ${state.view === 'search' ? 'text-emerald-600' : 'text-slate-400'}`}><SearchIcon size={22}/><span className="text-[10px] font-black">الحرفيين</span></button>
+        <button onClick={() => setView('support')} className={`flex flex-col items-center gap-1 ${state.view === 'support' ? 'text-emerald-600' : 'text-slate-400'}`}><ClipboardList size={22}/><span className="text-[10px] font-black">المهام</span></button>
+        <button onClick={() => setView(state.currentUser ? 'profile' : 'login')} className={`flex flex-col items-center gap-1 ${state.view === 'profile' || state.view === 'edit-profile' ? 'text-emerald-600' : 'text-slate-400'}`}><UserIcon size={22}/><span className="text-[10px] font-black">حسابي</span></button>
       </div>
     </div>
   );
