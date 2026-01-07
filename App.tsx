@@ -42,7 +42,8 @@ import {
   Layout,
   Clock,
   CheckCircle,
-  AlertTriangle
+  Upload,
+  Eye
 } from 'lucide-react';
 
 // --- مساعدات البيانات ---
@@ -85,7 +86,7 @@ function GlobalStyles() {
       .custom-scrollbar::-webkit-scrollbar-thumb { background: #10b981; border-radius: 10px; }
       .craft-card { 
         background: white; 
-        border-radius: 2.5rem; 
+        border-radius: 2rem; 
         border: 1px solid rgba(226, 232, 240, 0.8);
         box-shadow: 0 4px 20px -5px rgba(0, 0, 0, 0.05);
         transition: all 0.3s ease;
@@ -123,7 +124,7 @@ function GlobalStyles() {
 }
 
 // --- واجهة عرض البروفايل ---
-function WorkerView({ worker, isOwnProfile, onBack, onEdit, onStartChat, onLogout }: any) {
+function WorkerView({ worker, isOwnProfile, onBack, onEdit, onStartChat, onLogout, onGoToTasks }: any) {
   const [activeImage, setActiveImage] = useState<string | null>(null);
 
   return (
@@ -133,9 +134,14 @@ function WorkerView({ worker, isOwnProfile, onBack, onEdit, onStartChat, onLogou
           <ArrowRight size={20} className="rotate-180"/> العودة
         </button>
         {isOwnProfile && (
-           <button onClick={onLogout} className="text-red-500 font-bold flex items-center gap-2 hover:bg-red-50 px-4 py-2 rounded-xl transition-all">
-             <LogOut size={20}/> تسجيل الخروج
-           </button>
+           <div className="flex gap-4">
+              <button onClick={onGoToTasks} className="bg-emerald-50 text-emerald-700 font-bold flex items-center gap-2 hover:bg-emerald-100 px-4 py-2 rounded-xl transition-all border border-emerald-100">
+                <ClipboardList size={20}/> مهامي
+              </button>
+              <button onClick={onLogout} className="text-red-500 font-bold flex items-center gap-2 hover:bg-red-50 px-4 py-2 rounded-xl transition-all">
+                <LogOut size={20}/> خروج
+              </button>
+           </div>
         )}
       </div>
 
@@ -214,14 +220,19 @@ function WorkerView({ worker, isOwnProfile, onBack, onEdit, onStartChat, onLogou
               </section>
 
               <section>
-                <h3 className="text-xl font-black text-slate-900 mb-5 flex items-center gap-2">
-                   <ImageIcon size={20} className="text-emerald-600"/> معرض الأعمال
-                </h3>
+                <div className="flex justify-between items-center mb-5">
+                   <h3 className="text-xl font-black text-slate-900 flex items-center gap-2">
+                      <ImageIcon size={20} className="text-emerald-600"/> معرض الأعمال
+                   </h3>
+                </div>
                 {worker.portfolio && worker.portfolio.length > 0 ? (
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                     {worker.portfolio.map((img: string, i: number) => (
-                      <div key={i} onClick={() => setActiveImage(img)} className="aspect-square bg-slate-100 rounded-3xl overflow-hidden border-2 border-white shadow-md cursor-zoom-in hover:scale-105 transition-all">
-                        <img src={img} className="w-full h-full object-cover" alt="Portfolio" />
+                      <div key={i} onClick={() => setActiveImage(img)} className="aspect-square bg-slate-100 rounded-2xl overflow-hidden border-2 border-white shadow-md cursor-zoom-in group relative">
+                        <img src={img} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="Portfolio" />
+                        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                           <Eye className="text-white" size={24}/>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -229,7 +240,6 @@ function WorkerView({ worker, isOwnProfile, onBack, onEdit, onStartChat, onLogou
                   <div className="py-16 bg-slate-50/50 rounded-[2rem] border-2 border-dashed border-slate-200 text-center">
                     <LucideImage size={40} className="mx-auto mb-3 text-slate-300"/>
                     <p className="text-slate-400 font-bold">لا توجد صور في المعرض حالياً</p>
-                    {isOwnProfile && <p className="text-xs text-emerald-500 font-black mt-2">أضف صور أعمالك من إعدادات البروفايل</p>}
                   </div>
                 )}
               </section>
@@ -279,10 +289,10 @@ function WorkerView({ worker, isOwnProfile, onBack, onEdit, onStartChat, onLogou
   );
 }
 
-// --- واجهة تعديل البروفايل مع معرض الأعمال ---
+// --- واجهة تعديل البروفايل مع رفع الصور من الجهاز ---
 function EditProfileView({ user, onSaved, onCancel }: { user: User, onSaved: (u: User) => void, onCancel: () => void }) {
   const [loading, setLoading] = useState(false);
-  const [portfolioInput, setPortfolioInput] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     firstName: user.firstName,
     lastName: user.lastName,
@@ -295,17 +305,24 @@ function EditProfileView({ user, onSaved, onCancel }: { user: User, onSaved: (u:
     portfolio: user.portfolio || []
   });
 
-  const handleWilayaChange = (val: string) => {
-    setFormData({ ...formData, wilaya: val, daira: WILAYA_DATA[val][0] || '' });
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) { // 2MB limit
+        alert('حجم الصورة كبير جداً، يرجى اختيار صورة أقل من 2 ميجابايت');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        setFormData(prev => ({ ...prev, portfolio: [...prev.portfolio, base64String] }));
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
-  const addPortfolioItem = () => {
-    if (portfolioInput && portfolioInput.startsWith('http')) {
-      setFormData({ ...formData, portfolio: [...formData.portfolio, portfolioInput] });
-      setPortfolioInput('');
-    } else {
-      alert('الرجاء إدخال رابط صورة صحيح يبدأ بـ http');
-    }
+  const handleWilayaChange = (val: string) => {
+    setFormData({ ...formData, wilaya: val, daira: WILAYA_DATA[val][0] || '' });
   };
 
   const removePortfolioItem = (index: number) => {
@@ -346,11 +363,11 @@ function EditProfileView({ user, onSaved, onCancel }: { user: User, onSaved: (u:
   };
 
   return (
-    <div className="max-w-4xl mx-auto py-10 px-4 animate-fade-in text-right pb-24">
+    <div className="max-w-4xl mx-auto py-10 px-4 animate-fade-in text-right pb-32">
        <div className="bg-white rounded-[3rem] shadow-2xl p-8 md:p-12 border border-slate-100">
           <div className="flex justify-between items-center mb-10 border-b pb-6">
              <h2 className="text-2xl md:text-3xl font-black text-slate-900 flex items-center gap-3">
-                <Edit className="text-emerald-600" size={28}/> تعديل بروفايل الحرفي
+                <Edit className="text-emerald-600" size={28}/> إعدادات الحرفي
              </h2>
              <button onClick={onCancel} className="p-3 bg-slate-50 rounded-xl text-slate-400 hover:text-red-500 transition-all"><X size={24}/></button>
           </div>
@@ -358,103 +375,82 @@ function EditProfileView({ user, onSaved, onCancel }: { user: User, onSaved: (u:
           <form onSubmit={handleSave} className="space-y-10">
              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                   <label className="text-xs font-black text-slate-400 mr-2 uppercase tracking-widest">الاسم الأول</label>
-                   <div className="relative">
-                     <input required className="input-field" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} />
-                     <UserIcon className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" size={20}/>
-                   </div>
+                   <label className="text-xs font-black text-slate-400 mr-2">الاسم</label>
+                   <input required className="input-field" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} />
                 </div>
                 <div className="space-y-2">
-                   <label className="text-xs font-black text-slate-400 mr-2 uppercase tracking-widest">اللقب (العائلة)</label>
-                   <div className="relative">
-                     <input required className="input-field" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} />
-                     <UserIcon className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" size={20}/>
-                   </div>
+                   <label className="text-xs font-black text-slate-400 mr-2">اللقب</label>
+                   <input required className="input-field" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} />
                 </div>
              </div>
 
              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                   <label className="text-xs font-black text-slate-400 mr-2 uppercase tracking-widest">رقم هاتف العمل</label>
-                   <div className="relative">
-                     <input required className="input-field" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
-                     <Phone className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" size={20}/>
-                   </div>
+                   <label className="text-xs font-black text-slate-400 mr-2">الهاتف</label>
+                   <input required className="input-field" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
                 </div>
                 <div className="space-y-2">
-                   <label className="text-xs font-black text-slate-400 mr-2 uppercase tracking-widest">التخصص الأساسي</label>
-                   <div className="relative">
-                     <select className="input-field appearance-none" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
-                        {SERVICE_CATEGORIES.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                     </select>
-                     <Briefcase className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" size={20}/>
-                     <ChevronDown className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={18}/>
-                   </div>
-                </div>
-             </div>
-
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                   <label className="text-xs font-black text-slate-400 mr-2 uppercase tracking-widest">الولاية</label>
-                   <div className="relative">
-                     <select className="input-field appearance-none" value={formData.wilaya} onChange={e => handleWilayaChange(e.target.value)}>
-                        {WILAYAS.map(w => <option key={w} value={w}>{w}</option>)}
-                     </select>
-                     <MapIcon className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" size={20}/>
-                     <ChevronDown className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={18}/>
-                   </div>
-                </div>
-                <div className="space-y-2">
-                   <label className="text-xs font-black text-slate-400 mr-2 uppercase tracking-widest">البلدية / الدائرة</label>
-                   <div className="relative">
-                     <select className="input-field appearance-none" value={formData.daira} onChange={e => setFormData({...formData, daira: e.target.value})}>
-                        {(WILAYA_DATA[formData.wilaya] || []).map(d => <option key={d} value={d}>{d}</option>)}
-                     </select>
-                     <Building2 className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" size={20}/>
-                     <ChevronDown className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={18}/>
-                   </div>
+                   <label className="text-xs font-black text-slate-400 mr-2">التخصص</label>
+                   <select className="input-field appearance-none" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
+                      {SERVICE_CATEGORIES.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                   </select>
                 </div>
              </div>
 
              <div className="space-y-2">
-                <label className="text-xs font-black text-slate-400 mr-2 uppercase tracking-widest">نبذة تعريفية لجذب الزبائن</label>
-                <div className="relative">
-                  <textarea rows={5} className="input-field h-auto py-4" placeholder="مثلاً: خبير في صيانة السخانات المنزلية بخبرة تفوق 10 سنوات..." value={formData.bio} onChange={e => setFormData({...formData, bio: e.target.value})} />
-                  <Layout className="absolute right-4 top-5 text-slate-300" size={20}/>
-                </div>
+                <label className="text-xs font-black text-slate-400 mr-2">نبذة مهنية</label>
+                <textarea rows={4} className="input-field h-auto py-4" value={formData.bio} onChange={e => setFormData({...formData, bio: e.target.value})} />
              </div>
 
              <div className="space-y-2">
-                <label className="text-xs font-black text-slate-400 mr-2 uppercase tracking-widest">كلمات دلالية للمهارات (بينها فاصلة)</label>
-                <div className="relative">
-                  <input className="input-field" placeholder="ترصيص، تلحيم، ديكور، بناء.." value={formData.skills} onChange={e => setFormData({...formData, skills: e.target.value})} />
-                  <Zap className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" size={20}/>
-                </div>
+                <label className="text-xs font-black text-slate-400 mr-2">المهارات (افصل بينها بفاصلة)</label>
+                <input className="input-field" placeholder="مثال: ترصيص، تلحيم، صيانة.." value={formData.skills} onChange={e => setFormData({...formData, skills: e.target.value})} />
              </div>
 
-             <div className="space-y-4 border-t pt-8">
-                <h3 className="text-xl font-black text-slate-900 flex items-center gap-2"><ImageIcon size={20} className="text-emerald-600"/> معرض الأعمال (أضف صورك)</h3>
-                <div className="flex gap-4 items-center">
-                   <div className="relative flex-grow">
-                      <input className="input-field" placeholder="أدخل رابط صورة لعملك (URL)..." value={portfolioInput} onChange={e => setPortfolioInput(e.target.value)} />
-                      <ImageIcon className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" size={20}/>
-                   </div>
-                   <button type="button" onClick={addPortfolioItem} className="bg-slate-900 text-white p-4 rounded-xl hover:bg-emerald-600 transition-all"><Plus size={24}/></button>
+             {/* تطوير معرض الصور ليدعم الرفع من الجهاز */}
+             <div className="space-y-6 pt-6 border-t border-slate-100">
+                <div className="flex justify-between items-center">
+                   <h3 className="text-lg font-black text-slate-900 flex items-center gap-2"><ImageIcon size={20} className="text-emerald-600"/> معرض أعمالي</h3>
+                   <button 
+                    type="button" 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="bg-emerald-600 text-white px-6 py-2.5 rounded-xl font-black text-sm flex items-center gap-2 hover:bg-emerald-700 transition-all shadow-md active:scale-95"
+                   >
+                     <Upload size={18}/> رفع صورة من جهازي
+                   </button>
+                   <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    onChange={handleFileSelect} 
+                    accept="image/*" 
+                    className="hidden" 
+                   />
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-4">
-                   {formData.portfolio.map((img, i) => (
-                      <div key={i} className="relative aspect-square rounded-2xl overflow-hidden border border-slate-200 group">
-                         <img src={img} className="w-full h-full object-cover" />
-                         <button type="button" onClick={() => removePortfolioItem(i)} className="absolute top-1 left-1 bg-red-500 text-white p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all shadow-md">
-                            <Trash2 size={14}/>
-                         </button>
-                      </div>
-                   ))}
-                </div>
+
+                {formData.portfolio.length > 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-4">
+                    {formData.portfolio.map((img, i) => (
+                        <div key={i} className="relative aspect-square rounded-2xl overflow-hidden border border-slate-200 group">
+                          <img src={img} className="w-full h-full object-cover" />
+                          <button 
+                            type="button" 
+                            onClick={() => removePortfolioItem(i)} 
+                            className="absolute top-2 left-2 bg-red-500 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-all shadow-md hover:scale-110"
+                          >
+                            <Trash2 size={16}/>
+                          </button>
+                        </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="py-12 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 text-center text-slate-400">
+                    لم تقم برفع أي صور بعد لسابقة أعمالك.
+                  </div>
+                )}
              </div>
 
              <div className="flex flex-col md:flex-row gap-4 pt-10">
-                <button disabled={loading} className="flex-grow btn-primary py-4 rounded-2xl font-black text-xl shadow-xl flex items-center justify-center gap-3 transition-all active:scale-95 disabled:opacity-70">
+                <button disabled={loading} className="flex-grow btn-primary py-4 rounded-2xl font-black text-xl shadow-xl flex items-center justify-center gap-3 transition-all active:scale-95">
                    {loading ? <div className="loading-spinner border-white"></div> : <Save size={24}/>}
                    {loading ? 'جاري الحفظ...' : 'حفظ التغييرات'}
                 </button>
@@ -466,34 +462,114 @@ function EditProfileView({ user, onSaved, onCancel }: { user: User, onSaved: (u:
   );
 }
 
+// --- واجهة مهامي الشخصية (My Tasks) ---
+function MyTasksView({ currentUser, onBack }: { currentUser: User, onBack: () => void }) {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchMyTasks = async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('seeker_id', currentUser.id)
+        .order('created_at', { ascending: false });
+      
+      if (data) setTasks(data.map(t => ({ ...t, status: t.status as any })));
+      setLoading(false);
+    };
+    fetchMyTasks();
+  }, [currentUser]);
+
+  const toggleStatus = async (id: string, currentStatus: string) => {
+    const nextStatus = currentStatus === 'open' ? 'completed' : 'open';
+    const { error } = await supabase.from('tasks').update({ status: nextStatus }).eq('id', id);
+    if (!error) {
+      setTasks(tasks.map(t => t.id === id ? { ...t, status: nextStatus as any } : t));
+    }
+  };
+
+  const deleteTask = async (id: string) => {
+    if (window.confirm('هل أنت متأكد من حذف هذا الطلب نهائياً؟')) {
+      const { error } = await supabase.from('tasks').delete().eq('id', id);
+      if (!error) setTasks(tasks.filter(t => t.id !== id));
+    }
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto px-4 py-12 text-right min-h-screen animate-fade-in">
+      <div className="flex justify-between items-center mb-10">
+         <h1 className="text-3xl font-black flex items-center gap-3 text-slate-900"><ClipboardList className="text-emerald-600"/> إدارة مهامي</h1>
+         <button onClick={onBack} className="text-slate-500 font-bold hover:text-emerald-600">العودة للبروفايل</button>
+      </div>
+
+      <div className="space-y-6">
+        {loading ? (
+          [1,2].map(i => <div key={i} className="h-40 bg-white rounded-3xl animate-pulse border border-slate-100"></div>)
+        ) : tasks.length > 0 ? (
+          tasks.map(t => (
+            <div key={t.id} className="craft-card p-6 md:p-8 group relative overflow-hidden">
+               <div className={`absolute top-0 right-0 w-2 h-full ${t.status === 'open' ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>
+               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+                  <div>
+                     <h3 className="text-xl font-black text-slate-900 mb-1">{t.title}</h3>
+                     <div className="flex items-center gap-3 text-xs text-slate-400 font-bold">
+                        <span className="flex items-center gap-1"><Clock size={12}/> {new Date(t.created_at).toLocaleDateString('ar-DZ')}</span>
+                        <span className="flex items-center gap-1"><Briefcase size={12}/> {t.category}</span>
+                     </div>
+                  </div>
+                  <div className="flex items-center gap-3 self-end md:self-auto">
+                     <button 
+                      onClick={() => toggleStatus(t.id, t.status)}
+                      className={`px-5 py-2 rounded-xl text-sm font-black transition-all ${t.status === 'open' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-slate-100 text-slate-500'}`}
+                     >
+                        {t.status === 'open' ? 'تحديد كمكتمل' : 'إعادة فتح الطلب'}
+                     </button>
+                     <button onClick={() => deleteTask(t.id)} className="p-2.5 text-red-400 hover:bg-red-50 hover:text-red-600 rounded-xl transition-all">
+                        <Trash2 size={22}/>
+                     </button>
+                  </div>
+               </div>
+               <p className="text-slate-500 text-sm font-medium mb-6 leading-relaxed line-clamp-2">{t.description}</p>
+               <div className="flex justify-between items-center border-t border-slate-50 pt-4">
+                  <span className="text-emerald-600 font-black">الميزانية: {t.budget} دج</span>
+                  <div className="flex items-center gap-1.5">
+                    <div className={`w-2 h-2 rounded-full ${t.status === 'open' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`}></div>
+                    <span className={`text-xs font-black ${t.status === 'open' ? 'text-emerald-600' : 'text-slate-400'}`}>
+                       {t.status === 'open' ? 'الطلب نشط حالياً' : 'مهمة منتهية'}
+                    </span>
+                  </div>
+               </div>
+            </div>
+          ))
+        ) : (
+          <div className="text-center py-24 bg-white rounded-[3rem] border-2 border-dashed border-slate-100">
+            <PlusSquare size={48} className="mx-auto text-slate-200 mb-4"/>
+            <p className="text-slate-400 font-black text-xl mb-6">لا يوجد لديك أي مهام منشورة حالياً.</p>
+            <button className="btn-primary px-8 py-3 rounded-xl font-black">انشر طلبك الأول الآن</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // --- واجهة البحث عن الحرفيين ---
 function SearchWorkersView({ onViewWorker }: { onViewWorker: (worker: User) => void }) {
   const [loading, setLoading] = useState(false);
   const [workers, setWorkers] = useState<User[]>([]);
-  const [filters, setFilters] = useState({
-    query: '',
-    wilaya: '',
-    category: ''
-  });
+  const [filters, setFilters] = useState({ query: '', wilaya: '', category: '' });
 
   const fetchWorkers = async () => {
     setLoading(true);
     try {
       let baseQuery = supabase.from('users').select('*').eq('role', 'WORKER');
-      
-      if (filters.wilaya) {
-        baseQuery = baseQuery.eq('wilaya', filters.wilaya);
-      }
-      if (filters.category) {
-        baseQuery = baseQuery.or(`categories.ilike.%${filters.category}%,category.ilike.%${filters.category}%`);
-      }
-      
+      if (filters.wilaya) baseQuery = baseQuery.eq('wilaya', filters.wilaya);
+      if (filters.category) baseQuery = baseQuery.or(`categories.ilike.%${filters.category}%,category.ilike.%${filters.category}%`);
       const { data, error } = await baseQuery;
-      
       if (error) throw error;
-      
       let filtered = (data || []).map(mapUserData);
-      
       if (filters.query) {
         const q = filters.query.toLowerCase();
         filtered = filtered.filter(w => 
@@ -503,7 +579,6 @@ function SearchWorkersView({ onViewWorker }: { onViewWorker: (worker: User) => v
           w.skills.some(s => s.toLowerCase().includes(q))
         );
       }
-      
       setWorkers(filtered);
     } catch (err: any) {
       console.error(err);
@@ -512,125 +587,55 @@ function SearchWorkersView({ onViewWorker }: { onViewWorker: (worker: User) => v
     }
   };
 
-  useEffect(() => {
-    fetchWorkers();
-  }, []);
+  useEffect(() => { fetchWorkers(); }, []);
 
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-6 py-12 text-right">
-      <div className="bg-emerald-50 p-8 md:p-12 rounded-[3rem] mb-12 border border-emerald-100 shadow-sm animate-fade-in">
-        <h2 className="text-3xl md:text-4xl font-black mb-8 text-slate-900">ابحث عن الحرفي المثالي 🔍</h2>
+      <div className="bg-emerald-50 p-8 md:p-12 rounded-[2.5rem] mb-12 border border-emerald-100 shadow-sm animate-fade-in">
+        <h2 className="text-3xl font-black mb-8 text-slate-900">البحث المتقدم عن الحرفيين 🔍</h2>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6">
-          <div className="md:col-span-2 relative">
-            <input 
-              type="text" 
-              placeholder="عن ماذا تبحث؟ (مثلاً: ترصيص)" 
-              className="input-field" 
-              value={filters.query}
-              onChange={(e) => setFilters({ ...filters, query: e.target.value })}
-            />
-            <SearchIcon className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" size={20}/>
-          </div>
-          <div className="relative">
-            <select 
-              className="input-field appearance-none"
-              value={filters.wilaya}
-              onChange={(e) => setFilters({ ...filters, wilaya: e.target.value })}
-            >
-              <option value="">كل الولايات</option>
-              {WILAYAS.map(w => <option key={w} value={w}>{w}</option>)}
-            </select>
-            <MapIcon className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" size={20}/>
-            <ChevronDown className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={18}/>
-          </div>
-          <div className="relative">
-            <select 
-              className="input-field appearance-none"
-              value={filters.category}
-              onChange={(e) => setFilters({ ...filters, category: e.target.value })}
-            >
-              <option value="">كل التخصصات</option>
-              {SERVICE_CATEGORIES.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-            </select>
-            <Briefcase className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" size={20}/>
-            <ChevronDown className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={18}/>
-          </div>
+          <input className="input-field md:col-span-2" placeholder="ابحث بالاسم أو المهارة..." value={filters.query} onChange={e => setFilters({...filters, query: e.target.value})} />
+          <select className="input-field" value={filters.wilaya} onChange={e => setFilters({...filters, wilaya: e.target.value})}>
+            <option value="">كل الولايات</option>
+            {WILAYAS.map(w => <option key={w} value={w}>{w}</option>)}
+          </select>
+          <select className="input-field" value={filters.category} onChange={e => setFilters({...filters, category: e.target.value})}>
+            <option value="">كل التخصصات</option>
+            {SERVICE_CATEGORIES.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+          </select>
         </div>
-        <button 
-          onClick={fetchWorkers}
-          disabled={loading}
-          className="mt-8 btn-primary px-12 py-4 rounded-2xl font-black text-xl shadow-xl flex items-center gap-3 active:scale-95 transition-all"
-        >
-          {loading ? <div className="loading-spinner border-white"></div> : <SearchIcon size={24}/>}
+        <button onClick={fetchWorkers} disabled={loading} className="mt-8 btn-primary px-12 py-4 rounded-xl font-black shadow-xl active:scale-95 transition-all">
           {loading ? 'جاري البحث...' : 'ابدأ البحث'}
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-10">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         {loading ? (
-          <div className="col-span-full py-40 flex flex-col items-center gap-4">
-            <div className="loading-spinner w-12 h-12"></div>
-            <p className="text-slate-400 font-bold">جاري تحميل النتائج...</p>
-          </div>
-        ) : workers.length > 0 ? (
-          workers.map((worker) => (
-            <div 
-              key={worker.id} 
-              onClick={() => onViewWorker(worker)}
-              className="craft-card p-8 md:p-10 cursor-pointer group hover:-translate-y-2 hover:shadow-2xl transition-all relative overflow-hidden"
-            >
-              <div className="flex gap-6 items-center mb-8 flex-row-reverse">
-                <div className="relative">
-                  <img 
-                    src={worker.avatar || `https://ui-avatars.com/api/?name=${worker.firstName}&background=10b981&color=fff`} 
-                    className="w-20 h-20 rounded-3xl object-cover shadow-lg border-2 border-emerald-50"
-                  />
-                  {worker.verificationStatus === 'verified' && (
-                    <div className="absolute -bottom-2 -right-2 bg-blue-500 text-white p-1 rounded-lg border-2 border-white">
-                      <Check size={12}/>
-                    </div>
-                  )}
-                </div>
-                <div className="text-right flex-1">
-                  <h3 className="text-xl font-black text-slate-900 group-hover:text-emerald-600 transition-colors">{worker.firstName} {worker.lastName}</h3>
-                  <div className="flex items-center justify-end gap-1.5 mt-1">
-                    <span className="text-yellow-500 font-black text-sm">{worker.rating > 0 ? worker.rating : 'جديد'}</span>
-                    <Star size={14} fill="currentColor" className="text-yellow-500"/>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="flex flex-wrap gap-2 justify-end mb-6">
-                {worker.categories.slice(0, 2).map(cat => (
-                  <span key={cat} className="bg-emerald-50 text-emerald-700 px-3 py-1 rounded-lg text-xs font-black border border-emerald-100">{cat}</span>
-                ))}
-              </div>
-
-              <p className="text-slate-500 line-clamp-2 mb-8 font-medium text-sm h-10">{worker.bio || 'لا توجد نبذة تعريفية متاحة لهذا الحرفي حالياً.'}</p>
-              
-              <div className="flex justify-between items-center flex-row-reverse border-t pt-6 border-slate-50">
-                <span className="text-slate-400 font-bold text-sm flex items-center gap-1">
-                  <MapPin size={16} className="text-emerald-500"/> {worker.location.wilaya}
-                </span>
-                <button className="bg-slate-900 text-white px-6 py-2.5 rounded-xl font-black text-sm shadow-md hover:bg-emerald-600 transition-all flex items-center gap-2">
-                   عرض البروفايل <ArrowRight size={14} className="rotate-180"/>
-                </button>
+          [1,2,3].map(i => <div key={i} className="h-64 bg-slate-100 rounded-3xl animate-pulse"></div>)
+        ) : workers.map(worker => (
+          <div key={worker.id} onClick={() => onViewWorker(worker)} className="craft-card p-8 cursor-pointer group hover:-translate-y-2 transition-all">
+            <div className="flex gap-4 items-center mb-6 flex-row-reverse">
+              <img src={worker.avatar || `https://ui-avatars.com/api/?name=${worker.firstName}`} className="w-16 h-16 rounded-2xl object-cover shadow-md" />
+              <div className="text-right flex-1">
+                <h3 className="text-lg font-black text-slate-900">{worker.firstName} {worker.lastName}</h3>
+                <span className="text-xs font-black text-emerald-600 uppercase">{worker.categories[0]}</span>
               </div>
             </div>
-          ))
-        ) : (
-          <div className="col-span-full py-20 text-center bg-slate-50 rounded-[3rem] border-2 border-dashed border-slate-200">
-            <SearchIcon size={48} className="mx-auto mb-4 text-slate-300"/>
-            <p className="text-slate-400 font-black text-xl">لم نجد أي حرفيين يطابقون بحثك.</p>
-            <p className="text-slate-400 text-sm mt-2">حاول تغيير الكلمات الدلالية أو الولاية.</p>
+            <p className="text-slate-500 text-sm line-clamp-2 mb-6 font-medium">{worker.bio || 'لا توجد نبذة حالية.'}</p>
+            <div className="flex justify-between items-center border-t border-slate-50 pt-6">
+              <span className="text-slate-400 font-bold text-xs">📍 {worker.location.wilaya}</span>
+              <div className="flex items-center gap-1 text-yellow-500 font-black">
+                <Star size={14} fill="currentColor"/> {worker.rating > 0 ? worker.rating : 'جديد'}
+              </div>
+            </div>
           </div>
-        )}
+        ))}
       </div>
     </div>
   );
 }
 
-// --- واجهة المهام (سوق المهام) ---
+// --- واجهة سوق المهام (Tasks Market) ---
 function TasksMarketView({ currentUser, onStartChat }: { currentUser: User | null, onStartChat: any }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -648,153 +653,72 @@ function TasksMarketView({ currentUser, onStartChat }: { currentUser: User | nul
   }, []);
 
   const handleCreate = async () => {
-    if (!currentUser) { alert('يجب تسجيل الدخول أولاً'); return; }
+    if (!currentUser) { alert('يجب تسجيل الدخول لنشر طلب'); return; }
     const { error } = await supabase.from('tasks').insert([{
       seeker_id: currentUser.id, seeker_name: `${currentUser.firstName} ${currentUser.lastName}`,
       title: newTask.title, description: newTask.description, category: newTask.category,
       budget: newTask.budget, wilaya: newTask.wilaya, status: 'open'
     }]);
     if (!error) { setShowCreate(false); window.location.reload(); }
-    else alert('خطأ في النشر');
+    else alert('حدث خطأ أثناء النشر');
   };
 
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-6 py-12 text-right">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-12">
         <div>
-           <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-2">سوق الطلبات المفتوحة 📋</h1>
-           <p className="text-slate-500 font-bold">تصفح طلبات الزبائن وتواصل معهم مباشرة لتقديم عروضك.</p>
+           <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-2">سوق الطلبات 📋</h1>
+           <p className="text-slate-500 font-bold">تواصل مع الزبائن مباشرة وقدم عروضك المهنية.</p>
         </div>
-        <button onClick={() => setShowCreate(true)} className="btn-primary px-10 py-5 rounded-2xl font-black text-xl shadow-xl flex items-center gap-3">
+        <button onClick={() => setShowCreate(true)} className="btn-primary px-10 py-4 rounded-xl font-black text-lg shadow-xl flex items-center gap-3">
           <PlusSquare size={24}/> انشر طلبك الخاص
         </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {loading ? [1,2,3].map(i => <div key={i} className="h-64 bg-slate-100 animate-pulse rounded-[2.5rem]"></div>) :
+        {loading ? [1,2,3].map(i => <div key={i} className="h-64 bg-slate-100 rounded-3xl animate-pulse"></div>) :
           tasks.map(t => (
             <div key={t.id} className="craft-card p-8 flex flex-col h-full hover:border-emerald-200 transition-all">
                <div className="flex justify-between items-center mb-6">
-                  <span className="bg-emerald-50 text-emerald-700 px-4 py-1.5 rounded-xl font-black text-xs border border-emerald-100 uppercase">{t.category}</span>
+                  <span className="bg-emerald-50 text-emerald-700 px-4 py-1.5 rounded-xl font-black text-xs border border-emerald-100">{t.category}</span>
                   <div className="font-black text-xl text-slate-900">{t.budget} <span className="text-xs">دج</span></div>
                </div>
-               <h3 className="text-2xl font-black text-slate-900 mb-4 line-clamp-1">{t.title}</h3>
+               <h3 className="text-xl font-black text-slate-900 mb-4 line-clamp-1">{t.title}</h3>
                <p className="text-slate-500 font-medium mb-8 flex-grow line-clamp-3 leading-relaxed text-sm">{t.description}</p>
                <div className="border-t pt-6 flex justify-between items-center mt-auto">
-                  <div className="flex items-center gap-3">
-                     <div className="w-10 h-10 bg-slate-900 text-white rounded-xl flex items-center justify-center font-black">{t.seeker_name?.[0]}</div>
-                     <div className="text-right">
-                        <span className="text-xs font-black block">{t.seeker_name}</span>
-                        <span className="text-[10px] text-slate-400 font-bold">{t.wilaya} • {new Date(t.created_at).toLocaleDateString('ar-DZ')}</span>
-                     </div>
+                  <div className="text-right">
+                     <span className="text-xs font-black block text-slate-900">{t.seeker_name}</span>
+                     <span className="text-[10px] text-slate-400 font-bold">{t.wilaya} • {new Date(t.created_at).toLocaleDateString('ar-DZ')}</span>
                   </div>
-                  <button onClick={() => onStartChat(t.seeker_id)} className="bg-emerald-600 text-white px-5 py-2.5 rounded-xl font-black text-xs hover:bg-slate-900 transition-all">تقديم عرض</button>
+                  <button onClick={() => onStartChat(t.seeker_id)} className="bg-slate-900 text-white px-5 py-2.5 rounded-xl font-black text-xs hover:bg-emerald-600 transition-all">عرض خدماتي</button>
                </div>
             </div>
           ))
         }
-        {!loading && tasks.length === 0 && <div className="col-span-full py-20 text-center"><ClipboardList size={48} className="mx-auto text-slate-200 mb-4"/><p className="text-slate-400 font-bold">لا توجد طلبات مفتوحة حالياً</p></div>}
       </div>
 
       {showCreate && (
         <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
-           <div className="bg-white w-full max-w-xl rounded-[3rem] p-8 md:p-12 relative shadow-2xl overflow-y-auto max-h-[90vh]">
-              <button onClick={() => setShowCreate(false)} className="absolute top-6 left-6 p-2 text-slate-300 hover:text-red-500 transition-all"><X size={28}/></button>
-              <h2 className="text-3xl font-black mb-8 flex items-center gap-3"><PlusSquare className="text-emerald-600"/> نشر طلب جديد</h2>
+           <div className="bg-white w-full max-w-xl rounded-[2.5rem] p-8 md:p-12 relative shadow-2xl overflow-y-auto max-h-[90vh]">
+              <button onClick={() => setShowCreate(false)} className="absolute top-6 left-6 text-slate-300 hover:text-red-500 transition-all"><X size={28}/></button>
+              <h2 className="text-2xl font-black mb-8">نشر طلب جديد</h2>
               <div className="space-y-6">
-                 <div className="space-y-2">
-                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest pr-2">ماذا تحتاج؟</label>
-                    <input className="input-field" placeholder="مثلاً: نحتاج رصاص لتركيب سخان غاز" value={newTask.title} onChange={e => setNewTask({...newTask, title: e.target.value})} />
-                 </div>
-                 <div className="space-y-2">
-                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest pr-2">وصف الخدمة المطلوبة</label>
-                    <textarea rows={4} className="input-field h-auto py-4" placeholder="اشرح تفاصيل المشكلة أو ما تريده بالضبط..." value={newTask.description} onChange={e => setNewTask({...newTask, description: e.target.value})} />
-                 </div>
+                 <input className="input-field" placeholder="ما هي الخدمة التي تحتاجها؟" value={newTask.title} onChange={e => setNewTask({...newTask, title: e.target.value})} />
+                 <textarea rows={3} className="input-field h-auto py-4" placeholder="اكتب تفاصيل الطلب..." value={newTask.description} onChange={e => setNewTask({...newTask, description: e.target.value})} />
                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                       <label className="text-xs font-black text-slate-400 uppercase pr-2">الميزانية (دج)</label>
-                       <input type="number" className="input-field" value={newTask.budget} onChange={e => setNewTask({...newTask, budget: parseInt(e.target.value) || 0})} />
-                    </div>
-                    <div className="space-y-2">
-                       <label className="text-xs font-black text-slate-400 uppercase pr-2">الولاية</label>
-                       <select className="input-field appearance-none" value={newTask.wilaya} onChange={e => setNewTask({...newTask, wilaya: e.target.value})}>
-                          {WILAYAS.map(w => <option key={w} value={w}>{w}</option>)}
-                       </select>
-                    </div>
-                 </div>
-                 <div className="space-y-2">
-                    <label className="text-xs font-black text-slate-400 uppercase pr-2">التخصص</label>
-                    <select className="input-field appearance-none" value={newTask.category} onChange={e => setNewTask({...newTask, category: e.target.value})}>
-                       {SERVICE_CATEGORIES.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                    <input type="number" className="input-field" placeholder="الميزانية (دج)" value={newTask.budget} onChange={e => setNewTask({...newTask, budget: parseInt(e.target.value) || 0})} />
+                    <select className="input-field appearance-none" value={newTask.wilaya} onChange={e => setNewTask({...newTask, wilaya: e.target.value})}>
+                       {WILAYAS.map(w => <option key={w} value={w}>{w}</option>)}
                     </select>
                  </div>
-                 <button onClick={handleCreate} className="w-full btn-primary py-5 rounded-2xl font-black text-xl shadow-xl flex items-center justify-center gap-3 transition-all active:scale-95">
-                    <CheckCircle size={24}/> نشر الطلب للجميع
-                 </button>
+                 <select className="input-field appearance-none" value={newTask.category} onChange={e => setNewTask({...newTask, category: e.target.value})}>
+                    {SERVICE_CATEGORIES.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                 </select>
+                 <button onClick={handleCreate} className="w-full btn-primary py-5 rounded-xl font-black text-xl shadow-xl active:scale-95 transition-all">نشر الآن</button>
               </div>
            </div>
         </div>
       )}
-    </div>
-  );
-}
-
-// --- واجهة مهامي الشخصية ---
-function MyTasksView({ currentUser }: { currentUser: User }) {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchMyTasks = async () => {
-      setLoading(true);
-      const { data } = await supabase.from('tasks').select('*').eq('seeker_id', currentUser.id).order('created_at', { ascending: false });
-      if (data) setTasks(data.map(t => ({ ...t, status: t.status as any })));
-      setLoading(false);
-    };
-    fetchMyTasks();
-  }, [currentUser]);
-
-  const deleteTask = async (id: string) => {
-    if (window.confirm('هل أنت متأكد من حذف هذا الطلب؟')) {
-      const { error } = await supabase.from('tasks').delete().eq('id', id);
-      if (!error) setTasks(tasks.filter(t => t.id !== id));
-    }
-  };
-
-  return (
-    <div className="max-w-4xl mx-auto px-4 py-12 text-right min-h-screen">
-      <h1 className="text-3xl font-black mb-10 flex items-center gap-3"><ClipboardList className="text-emerald-600"/> طلباتي المنشورة</h1>
-      <div className="space-y-6">
-        {loading ? [1,2].map(i => <div key={i} className="h-40 bg-white rounded-[2rem] border animate-pulse"></div>) :
-          tasks.map(t => (
-            <div key={t.id} className="craft-card p-8 group relative">
-               <div className="flex justify-between items-start mb-4">
-                  <div>
-                     <h3 className="text-xl font-black text-slate-900 mb-1">{t.title}</h3>
-                     <span className="text-xs text-slate-400 font-bold">{new Date(t.created_at).toLocaleString('ar-DZ')}</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                     <span className={`px-4 py-1.5 rounded-lg text-xs font-black ${t.status === 'open' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
-                        {t.status === 'open' ? 'نشط' : 'ملغي'}
-                     </span>
-                     <button onClick={() => deleteTask(t.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-all"><Trash2 size={20}/></button>
-                  </div>
-               </div>
-               <p className="text-slate-500 text-sm font-medium mb-4 line-clamp-2">{t.description}</p>
-               <div className="flex justify-between items-center text-xs font-black">
-                  <span className="text-emerald-600">الميزانية: {t.budget} دج</span>
-                  <span className="text-slate-400">{t.category}</span>
-               </div>
-            </div>
-          ))
-        }
-        {!loading && tasks.length === 0 && (
-          <div className="text-center py-24 bg-white rounded-[3rem] border border-dashed">
-            <PlusSquare size={48} className="mx-auto text-slate-100 mb-4"/>
-            <p className="text-slate-400 font-bold mb-6">لم تقم بنشر أي طلب بعد.</p>
-          </div>
-        )}
-      </div>
     </div>
   );
 }
@@ -825,41 +749,36 @@ export default function App() {
     else { localStorage.removeItem('user'); supabase.auth.signOut(); }
   };
 
-  const handleWorkerSelection = (worker: User) => {
-    setState(prev => ({ ...prev, selectedWorker: mapUserData(worker), view: 'worker-details' }));
-  };
-
   return (
     <div className="min-h-screen flex flex-col arabic-text bg-[#fcfdfe] text-slate-900 pb-24 md:pb-0" dir="rtl">
       <GlobalStyles />
       
       <nav className="sticky top-0 z-50 h-20 md:h-24 bg-white/80 backdrop-blur-xl border-b border-slate-100 flex items-center px-4 md:px-10 shadow-sm">
         <div className="max-w-7xl mx-auto w-full flex justify-between items-center">
-          <div onClick={() => setView('landing')} className="flex items-center gap-2 md:gap-3 cursor-pointer group">
+          <div onClick={() => setView('landing')} className="flex items-center gap-3 cursor-pointer group">
             <div className="w-10 h-10 md:w-12 md:h-12 bg-emerald-600 flex items-center justify-center text-white font-black rounded-xl md:rounded-2xl group-hover:rotate-6 transition-transform">S</div>
             <span className="text-xl md:text-2xl font-black text-slate-900 tracking-tighter">Salakni <span className="text-emerald-600">سلكني</span></span>
           </div>
           
-          <div className="hidden md:flex items-center gap-8">
+          <div className="hidden md:flex items-center gap-10">
             <button onClick={() => setView('landing')} className={`font-black text-lg ${state.view === 'landing' ? 'text-emerald-600' : 'text-slate-500 hover:text-emerald-600'}`}>الرئيسية</button>
             <button onClick={() => setView('search')} className={`font-black text-lg ${state.view === 'search' ? 'text-emerald-600' : 'text-slate-500 hover:text-emerald-600'}`}>الحرفيين</button>
             <button onClick={() => setView('support')} className={`font-black text-lg ${state.view === 'support' ? 'text-emerald-600' : 'text-slate-500 hover:text-emerald-600'}`}>سوق المهام</button>
-            {state.currentUser && <button onClick={() => setView('profile')} className={`font-black text-lg ${state.view === 'profile' ? 'text-emerald-600' : 'text-slate-500 hover:text-emerald-600'}`}>بروفايلي</button>}
           </div>
 
           <div className="flex items-center gap-3">
             {state.currentUser ? (
-               <div onClick={() => setView('profile')} className="flex items-center gap-3 cursor-pointer p-1.5 pr-4 bg-white rounded-full border border-slate-200 shadow-sm transition-all hover:border-emerald-200">
+               <div onClick={() => setView('profile')} className="flex items-center gap-3 cursor-pointer p-1 pr-4 bg-white rounded-full border border-slate-200 hover:border-emerald-300 transition-all">
                   <div className="flex flex-col items-start leading-tight">
-                    <span className="font-black text-sm md:text-base">{state.currentUser.firstName}</span>
-                    <span className="text-[9px] text-emerald-600 font-black uppercase tracking-widest">حسابي</span>
+                    <span className="font-black text-sm">{state.currentUser.firstName}</span>
+                    <span className="text-[9px] text-emerald-600 font-black uppercase">حسابي</span>
                   </div>
-                  <img src={state.currentUser.avatar || `https://ui-avatars.com/api/?name=${state.currentUser.firstName}&background=10b981&color=fff`} className="w-9 h-9 md:w-11 md:h-11 rounded-xl object-cover border-2 border-white" />
+                  <img src={state.currentUser.avatar || `https://ui-avatars.com/api/?name=${state.currentUser.firstName}&background=10b981&color=fff`} className="w-10 h-10 rounded-xl object-cover" />
                </div>
             ) : (
               <div className="flex gap-2">
-                 <button onClick={() => setView('login')} className="text-slate-600 font-black px-4 text-sm md:text-base">دخول</button>
-                 <button onClick={() => setView('register')} className="btn-primary px-5 md:px-8 py-2.5 md:py-3.5 rounded-xl md:rounded-2xl font-black text-sm md:text-base">انضم</button>
+                 <button onClick={() => setView('login')} className="text-slate-600 font-black px-4">دخول</button>
+                 <button onClick={() => setView('register')} className="btn-primary px-6 py-2.5 rounded-xl font-black">انضم</button>
               </div>
             )}
           </div>
@@ -868,23 +787,23 @@ export default function App() {
 
       <main className="flex-grow">
         {state.view === 'landing' && (
-          <div className="relative min-h-[90vh] flex items-center justify-center overflow-hidden py-16 px-6">
+          <div className="relative min-h-[90vh] flex items-center justify-center py-16 px-6 overflow-hidden">
             <div className="absolute inset-0 bg-slate-950 bg-[url('https://images.unsplash.com/photo-1621905252507-b354bcadcabc?q=80&w=2000')] bg-cover bg-center opacity-30"></div>
             <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/40 to-transparent"></div>
             <div className="relative z-10 max-w-5xl text-center text-white">
-              <h1 className="text-5xl md:text-9xl font-black mb-8 tracking-tighter leading-tight animate-fade-in">سَلّكني <span className="text-emerald-400 italic">يسلكها!</span></h1>
-              <p className="text-xl md:text-3xl text-slate-300 mb-12 md:mb-16 font-medium max-w-3xl mx-auto leading-relaxed">المنصة الجزائرية رقم #1 لربط الحرفيين المهرة بالزبائن في جميع الولايات.</p>
-              <div className="flex flex-col sm:flex-row gap-6 md:gap-8 justify-center items-center">
-                 <button onClick={() => setView('search')} className="btn-primary px-12 md:px-16 py-6 md:py-8 rounded-[2rem] md:rounded-[3rem] font-black text-2xl md:text-3xl shadow-2xl active:scale-95 transition-all w-full sm:w-auto">اطلب خدمة 🔍</button>
-                 <button onClick={() => setView('register')} className="bg-white/10 backdrop-blur-md px-12 md:px-16 py-6 md:py-8 rounded-[2rem] md:rounded-[3rem] font-black text-2xl md:text-3xl border border-white/20 hover:bg-white/20 transition-all w-full sm:w-auto active:scale-95">سجل كحرفي 🛠️</button>
+              <h1 className="text-5xl md:text-8xl font-black mb-8 animate-fade-in">سَلّكني <span className="text-emerald-400 italic">يسلكها!</span></h1>
+              <p className="text-xl md:text-3xl text-slate-300 mb-12 font-medium max-w-2xl mx-auto leading-relaxed">المنصة الجزائرية رقم #1 لربط أمهر الحرفيين بالزبائن في جميع الولايات.</p>
+              <div className="flex flex-col sm:flex-row gap-6 justify-center">
+                 <button onClick={() => setView('search')} className="btn-primary px-12 py-6 rounded-2xl font-black text-2xl shadow-2xl active:scale-95 transition-all">اطلب خدمة 🔍</button>
+                 <button onClick={() => setView('register')} className="bg-white/10 backdrop-blur-md px-12 py-6 rounded-2xl font-black text-2xl border border-white/20 hover:bg-white/20 transition-all">سجل كحرفي 🛠️</button>
               </div>
             </div>
           </div>
         )}
 
-        {state.view === 'search' && <SearchWorkersView onViewWorker={handleWorkerSelection} />}
+        {state.view === 'search' && <SearchWorkersView onViewWorker={(w) => setState({...state, selectedWorker: w, view: 'worker-details'})} />}
         
-        {state.view === 'support' && <TasksMarketView currentUser={state.currentUser} onStartChat={(id: string) => { setState({...state, view: 'chats'}); }} />}
+        {state.view === 'support' && <TasksMarketView currentUser={state.currentUser} onStartChat={() => alert('المحادثات قريباً...')} />}
         
         {state.view === 'profile' && state.currentUser && (
            <WorkerView 
@@ -893,7 +812,12 @@ export default function App() {
             onBack={() => setView('landing')} 
             onEdit={() => setView('edit-profile')} 
             onLogout={() => updateCurrentUser(null)}
+            onGoToTasks={() => setView('dashboard')}
           />
+        )}
+        
+        {state.view === 'dashboard' && state.currentUser && (
+           <MyTasksView currentUser={state.currentUser} onBack={() => setView('profile')} />
         )}
         
         {state.view === 'edit-profile' && state.currentUser && (
@@ -904,18 +828,16 @@ export default function App() {
            <WorkerView 
             worker={state.selectedWorker} 
             onBack={() => setView('search')} 
-            onStartChat={() => alert('ميزة المحادثات قادمة قريباً..')} 
+            onStartChat={() => alert('المحادثات قريباً...')} 
           />
         )}
-
-        {state.view === 'dashboard' && state.currentUser && <MyTasksView currentUser={state.currentUser} />}
       </main>
 
-      <div className="fixed bottom-0 left-0 right-0 h-20 bg-white/90 backdrop-blur-2xl border-t border-slate-100 flex items-center justify-around md:hidden z-[60] shadow-[0_-5px_15px_-3px_rgba(0,0,0,0.05)] rounded-t-[2.5rem]">
+      <div className="fixed bottom-0 left-0 right-0 h-20 bg-white/90 backdrop-blur-2xl border-t border-slate-100 flex items-center justify-around md:hidden z-[60] shadow-2xl rounded-t-3xl">
         <button onClick={() => setView('landing')} className={`flex flex-col items-center gap-1 ${state.view === 'landing' ? 'text-emerald-600' : 'text-slate-400'}`}><Home size={22}/><span className="text-[10px] font-black">الرئيسية</span></button>
-        <button onClick={() => setView('search')} className={`flex flex-col items-center gap-1 ${state.view === 'search' ? 'text-emerald-600' : 'text-slate-400'}`}><SearchIcon size={22}/><span className="text-[10px] font-black">الحرفيين</span></button>
-        <button onClick={() => setView('support')} className={`flex flex-col items-center gap-1 ${state.view === 'support' ? 'text-emerald-600' : 'text-slate-400'}`}><ClipboardList size={22}/><span className="text-[10px] font-black">المهام</span></button>
-        <button onClick={() => setView(state.currentUser ? 'profile' : 'login')} className={`flex flex-col items-center gap-1 ${state.view === 'profile' || state.view === 'edit-profile' ? 'text-emerald-600' : 'text-slate-400'}`}><UserIcon size={22}/><span className="text-[10px] font-black">حسابي</span></button>
+        <button onClick={() => setView('search')} className={`flex flex-col items-center gap-1 ${state.view === 'search' ? 'text-emerald-600' : 'text-slate-400'}`}><SearchIcon size={22}/><span className="text-[10px] font-black">بحث</span></button>
+        <button onClick={() => setView('support')} className={`flex flex-col items-center gap-1 ${state.view === 'support' ? 'text-emerald-600' : 'text-slate-400'}`}><ClipboardList size={22}/><span className="text-[10px] font-black">سوق</span></button>
+        <button onClick={() => setView(state.currentUser ? 'profile' : 'login')} className={`flex flex-col items-center gap-1 ${state.view === 'profile' || state.view === 'dashboard' ? 'text-emerald-600' : 'text-slate-400'}`}><UserIcon size={22}/><span className="text-[10px] font-black">حسابي</span></button>
       </div>
     </div>
   );
