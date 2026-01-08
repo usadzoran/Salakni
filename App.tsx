@@ -50,7 +50,10 @@ import {
   DollarSign,
   TrendingUp,
   BarChart3,
-  Calendar
+  Calendar,
+  Wallet,
+  Activity,
+  Users
 } from 'lucide-react';
 
 // --- مساعدات البيانات ---
@@ -139,10 +142,15 @@ function GlobalStyles() {
       }
       .stat-card {
         background: white;
-        border-radius: 2rem;
-        padding: 1.5rem;
+        border-radius: 2.5rem;
+        padding: 2rem;
         border: 1px solid #f1f5f9;
-        box-shadow: 0 10px 25px -10px rgba(0,0,0,0.05);
+        box-shadow: 0 15px 30px -10px rgba(0,0,0,0.03);
+        transition: all 0.3s ease;
+      }
+      .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 20px 40px -12px rgba(16, 185, 129, 0.1);
       }
     `}</style>
   );
@@ -297,7 +305,6 @@ function ChatsView({ currentUser, activeChat, onSelectChat, onBack }: { currentU
 
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
 
-  // جلب المحادثات والاشتراك في التحديثات
   useEffect(() => {
     const fetchChats = async () => {
       setLoadingChats(true);
@@ -326,7 +333,6 @@ function ChatsView({ currentUser, activeChat, onSelectChat, onBack }: { currentU
     return () => { supabase.removeChannel(chatsChannel); };
   }, [currentUser.id]);
 
-  // جلب الرسائل والاشتراك فيها
   useEffect(() => {
     if (!activeChat) return;
     const fetchMessages = async () => {
@@ -360,7 +366,6 @@ function ChatsView({ currentUser, activeChat, onSelectChat, onBack }: { currentU
 
   return (
     <div className="max-w-7xl mx-auto h-[calc(100vh-140px)] flex flex-col md:flex-row bg-white overflow-hidden shadow-2xl md:rounded-[3rem] border border-slate-100 animate-fade-in">
-      {/* قائمة المحادثات */}
       <div className={`w-full md:w-96 flex-shrink-0 flex flex-col border-l border-slate-100 ${activeChat ? 'hidden md:flex' : 'flex'}`}>
         <div className="p-8 border-b border-slate-50 flex justify-between items-center">
           <h2 className="text-2xl font-black text-slate-900">محادثاتي</h2>
@@ -380,7 +385,6 @@ function ChatsView({ currentUser, activeChat, onSelectChat, onBack }: { currentU
         </div>
       </div>
 
-      {/* نافذة الدردشة */}
       <div className={`flex-grow flex flex-col bg-slate-50/20 ${!activeChat ? 'hidden md:flex' : 'flex'}`}>
         {activeChat ? (
           <>
@@ -434,28 +438,31 @@ function ChatsView({ currentUser, activeChat, onSelectChat, onBack }: { currentU
 }
 
 // --- واجهة لوحة تحكم الحرفي (Worker Dashboard) ---
-function WorkerDashboardView({ currentUser, onBack }: { currentUser: User, onBack: () => void }) {
+function WorkerDashboardView({ currentUser, onBack, onStartChat }: { currentUser: User, onBack: () => void, onStartChat: (id: string) => void }) {
   const [activeJobs, setActiveJobs] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // بيانات افتراضية للأرباح في غياب جدول مخصص
+  // بيانات افتراضية للأداء والأرباح
   const stats = {
-    totalEarnings: (currentUser.completedJobs || 0) * 1250,
-    monthlyEarnings: (currentUser.completedJobs || 0) * 450,
-    pendingPayments: 3500,
-    profileViews: 128
+    totalEarnings: (currentUser.completedJobs || 0) * 1850,
+    monthlyEarnings: (currentUser.completedJobs || 0) * 450 + 1200,
+    pendingPayments: 4500,
+    profileViews: 342,
+    responseRate: 98,
+    clientSatisfaction: 96
   };
 
   useEffect(() => {
     const fetchActiveJobs = async () => {
       setLoading(true);
-      // في النسخة الحالية، نعرض المهام التي تهم تخصص الحرفي أو المهام التي "قد" يكون مشاركاً فيها
+      // جلب المهام النشطة في ولاية الحرفي أو حسب تخصصه
       const { data } = await supabase
         .from('tasks')
         .select('*')
         .eq('status', 'open')
-        .eq('category', currentUser.categories[0])
-        .limit(5);
+        .or(`category.eq.${currentUser.categories[0]},wilaya.eq.${currentUser.location.wilaya}`)
+        .order('created_at', { ascending: false })
+        .limit(6);
       
       if (data) setActiveJobs(data.map(t => ({ ...t, status: t.status as any })));
       setLoading(false);
@@ -464,103 +471,158 @@ function WorkerDashboardView({ currentUser, onBack }: { currentUser: User, onBac
   }, [currentUser]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 md:px-8 py-12 text-right animate-fade-in">
-       <div className="flex justify-between items-center mb-12">
+    <div className="max-w-7xl mx-auto px-4 md:px-8 py-12 text-right animate-fade-in bg-slate-50/30">
+       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
           <div>
-             <h1 className="text-4xl font-black text-slate-900">مرحباً، {currentUser.firstName} 👋</h1>
-             <p className="text-slate-500 font-bold mt-2">نظرة عامة على أدائك المهني وأرباحك.</p>
+             <h1 className="text-4xl font-black text-slate-900">لوحة تحكم الحرفي 🛠️</h1>
+             <p className="text-slate-500 font-bold mt-2">مرحباً {currentUser.firstName}، إليك ملخص نشاطك لهذا اليوم.</p>
           </div>
-          <button onClick={onBack} className="bg-slate-100 text-slate-600 px-6 py-3 rounded-2xl font-black hover:bg-slate-200 transition-all flex items-center gap-2">
-             <ArrowRight size={20} className="rotate-180"/> العودة للبروفايل
-          </button>
+          <div className="flex gap-4">
+             <button onClick={onBack} className="bg-white text-slate-600 px-6 py-3 rounded-2xl font-black border border-slate-100 shadow-sm hover:bg-slate-50 transition-all flex items-center gap-2">
+                <ArrowRight size={20} className="rotate-180"/> الملف الشخصي
+             </button>
+             <button className="bg-emerald-600 text-white px-6 py-3 rounded-2xl font-black shadow-lg hover:bg-emerald-700 transition-all flex items-center gap-2">
+                <Plus size={20}/> تحديث الحالة
+             </button>
+          </div>
        </div>
 
-       {/* إحصائيات سريعة */}
+       {/* قسم الأرباح والنمو */}
        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
           <div className="stat-card">
-             <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mb-4"><DollarSign size={24}/></div>
+             <div className="flex justify-between items-start mb-4">
+                <div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center"><Wallet size={28}/></div>
+                <span className="text-emerald-500 text-xs font-black bg-emerald-50 px-2 py-1 rounded-lg">+12%</span>
+             </div>
              <p className="text-slate-400 font-bold text-sm">إجمالي الأرباح</p>
-             <h3 className="text-3xl font-black text-slate-900 mt-1">{stats.totalEarnings} <span className="text-xs">دج</span></h3>
+             <h3 className="text-3xl font-black text-slate-900 mt-2">{stats.totalEarnings.toLocaleString()} <span className="text-xs">دج</span></h3>
           </div>
           <div className="stat-card">
-             <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mb-4"><TrendingUp size={24}/></div>
-             <p className="text-slate-400 font-bold text-sm">أرباح الشهر</p>
-             <h3 className="text-3xl font-black text-slate-900 mt-1">{stats.monthlyEarnings} <span className="text-xs">دج</span></h3>
+             <div className="flex justify-between items-start mb-4">
+                <div className="w-14 h-14 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center"><DollarSign size={28}/></div>
+                <span className="text-blue-500 text-xs font-black bg-blue-50 px-2 py-1 rounded-lg">هذا الشهر</span>
+             </div>
+             <p className="text-slate-400 font-bold text-sm">أرباح مكتسبة</p>
+             <h3 className="text-3xl font-black text-slate-900 mt-2">{stats.monthlyEarnings.toLocaleString()} <span className="text-xs">دج</span></h3>
           </div>
           <div className="stat-card">
-             <div className="w-12 h-12 bg-yellow-100 text-yellow-600 rounded-2xl flex items-center justify-center mb-4"><Star size={24}/></div>
-             <p className="text-slate-400 font-bold text-sm">التقييم الحالي</p>
-             <h3 className="text-3xl font-black text-slate-900 mt-1">{currentUser.rating || 'جديد'}</h3>
+             <div className="flex justify-between items-start mb-4">
+                <div className="w-14 h-14 bg-yellow-100 text-yellow-600 rounded-2xl flex items-center justify-center"><CheckCircle size={28}/></div>
+                <span className="text-yellow-500 text-xs font-black bg-yellow-50 px-2 py-1 rounded-lg">بانتظار التأكيد</span>
+             </div>
+             <p className="text-slate-400 font-bold text-sm">دفعات معلقة</p>
+             <h3 className="text-3xl font-black text-slate-900 mt-2">{stats.pendingPayments.toLocaleString()} <span className="text-xs">دج</span></h3>
           </div>
           <div className="stat-card">
-             <div className="w-12 h-12 bg-purple-100 text-purple-600 rounded-2xl flex items-center justify-center mb-4"><Briefcase size={24}/></div>
-             <p className="text-slate-400 font-bold text-sm">المهام المكتملة</p>
-             <h3 className="text-3xl font-black text-slate-900 mt-1">{currentUser.completedJobs || 0}</h3>
+             <div className="flex justify-between items-start mb-4">
+                <div className="w-14 h-14 bg-purple-100 text-purple-600 rounded-2xl flex items-center justify-center"><Users size={28}/></div>
+                <span className="text-purple-500 text-xs font-black bg-purple-50 px-2 py-1 rounded-lg">نشاط عالي</span>
+             </div>
+             <p className="text-slate-400 font-bold text-sm">زيارات البروفايل</p>
+             <h3 className="text-3xl font-black text-slate-900 mt-2">{stats.profileViews} <span className="text-xs">مشاهدة</span></h3>
           </div>
        </div>
 
        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-          {/* المهام النشطة */}
+          {/* المهام النشطة - Active Jobs Market */}
           <div className="lg:col-span-2 space-y-6">
-             <div className="flex justify-between items-center mb-2">
-                <h2 className="text-2xl font-black text-slate-900 flex items-center gap-3"><Clock className="text-emerald-600"/> فرص عمل متاحة لتخصصك</h2>
-             </div>
-             {loading ? <div className="h-40 bg-slate-50 rounded-3xl animate-pulse"></div> : 
-               activeJobs.length > 0 ? activeJobs.map(job => (
-                 <div key={job.id} className="craft-card p-6 flex flex-col md:flex-row justify-between items-center gap-6 group hover:border-emerald-200">
-                    <div className="flex-1">
-                       <h4 className="text-lg font-black text-slate-900 mb-1">{job.title}</h4>
-                       <div className="flex items-center gap-4 text-xs text-slate-400 font-bold">
-                          <span className="flex items-center gap-1"><MapPin size={12}/> {job.wilaya}</span>
-                          <span className="flex items-center gap-1"><Calendar size={12}/> {new Date(job.created_at).toLocaleDateString('ar-DZ')}</span>
-                       </div>
-                       <p className="text-slate-500 text-sm mt-3 line-clamp-1">{job.description}</p>
-                    </div>
-                    <div className="flex items-center gap-6">
-                       <span className="text-xl font-black text-emerald-600">{job.budget} دج</span>
-                       <button className="bg-slate-900 text-white px-6 py-3 rounded-xl font-black text-sm hover:bg-emerald-600 transition-all">تقديم عرض</button>
-                    </div>
-                 </div>
-               )) : <div className="p-12 bg-slate-50 rounded-3xl text-center text-slate-400 font-bold">لا توجد فرص متاحة حالياً لتخصصك.</div>
-             }
-          </div>
-
-          {/* رؤى الأداء */}
-          <div className="space-y-6">
-             <h2 className="text-2xl font-black text-slate-900 flex items-center gap-3"><BarChart3 className="text-emerald-600"/> رؤى الأداء</h2>
-             <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm space-y-8">
-                <div>
-                   <div className="flex justify-between mb-2">
-                      <span className="text-sm font-black text-slate-600">رضا الزبائن</span>
-                      <span className="text-sm font-black text-emerald-600">92%</span>
-                   </div>
-                   <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-emerald-500 rounded-full" style={{ width: '92%' }}></div>
-                   </div>
-                </div>
-                <div>
-                   <div className="flex justify-between mb-2">
-                      <span className="text-sm font-black text-slate-600">سرعة الرد</span>
-                      <span className="text-sm font-black text-emerald-600">عالية جداً</span>
-                   </div>
-                   <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-emerald-500 rounded-full" style={{ width: '85%' }}></div>
-                   </div>
-                </div>
-                <div className="pt-6 border-t border-slate-50">
-                   <p className="text-xs text-slate-400 font-medium leading-relaxed">
-                      يتم تحديث هذه البيانات بناءً على تفاعلات الزبائن مع عروضك وتقييماتهم بعد انتهاء العمل.
-                   </p>
-                </div>
+             <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-black text-slate-900 flex items-center gap-3">
+                   <Activity className="text-emerald-600"/> مهام جديدة بانتظارك
+                </h2>
+                <button className="text-emerald-600 font-black text-sm hover:underline">عرض الكل</button>
              </div>
              
-             <div className="bg-emerald-600 p-8 rounded-[3rem] text-white shadow-xl relative overflow-hidden group">
-                <div className="absolute -top-10 -left-10 w-32 h-32 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
-                <h4 className="text-xl font-black mb-4">وثق حسابك الآن! 🛡️</h4>
-                <p className="text-emerald-50 font-medium text-sm mb-6 leading-relaxed">
-                   الحسابات الموثقة تحصل على عدد طلبات أكبر بـ 4 أضعاف.
-                </p>
-                <button className="bg-white text-emerald-600 px-6 py-3 rounded-xl font-black text-sm w-full">طلب التوثيق</button>
+             {loading ? (
+               <div className="space-y-4">
+                 {[1,2,3].map(i => <div key={i} className="h-32 bg-white rounded-3xl animate-pulse border border-slate-100"></div>)}
+               </div>
+             ) : activeJobs.length > 0 ? (
+               activeJobs.map(job => (
+                 <div key={job.id} className="stat-card flex flex-col md:flex-row justify-between items-center gap-6 group">
+                    <div className="flex-1 w-full">
+                       <div className="flex items-center gap-2 mb-2">
+                          <span className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-lg font-black text-[10px] uppercase border border-emerald-100">{job.category}</span>
+                          <span className="text-slate-300 text-[10px]">•</span>
+                          <span className="text-slate-400 font-bold text-[10px] flex items-center gap-1"><Clock size={10}/> {new Date(job.created_at).toLocaleDateString('ar-DZ')}</span>
+                       </div>
+                       <h4 className="text-xl font-black text-slate-900 mb-2 group-hover:text-emerald-600 transition-colors">{job.title}</h4>
+                       <div className="flex items-center gap-4 text-xs text-slate-500 font-bold">
+                          <span className="flex items-center gap-1"><MapPin size={14} className="text-red-400"/> {job.wilaya}</span>
+                          <span className="flex items-center gap-1 font-black text-slate-900"><DollarSign size={14} className="text-emerald-500"/> {job.budget} دج</span>
+                       </div>
+                    </div>
+                    <div className="flex items-center gap-4 w-full md:w-auto">
+                       <button onClick={() => onStartChat(job.seeker_id)} className="flex-grow md:flex-none bg-slate-900 text-white px-8 py-4 rounded-2xl font-black text-sm hover:bg-emerald-600 transition-all shadow-md active:scale-95">تقديم عرض</button>
+                    </div>
+                 </div>
+               ))
+             ) : (
+               <div className="py-20 bg-white rounded-[3rem] border-2 border-dashed border-slate-200 text-center">
+                  <Briefcase size={48} className="mx-auto text-slate-200 mb-4"/>
+                  <p className="text-slate-400 font-black text-lg">لا توجد مهام جديدة متوافقة مع تخصصك حالياً.</p>
+               </div>
+             )}
+          </div>
+
+          {/* إحصائيات الأداء - Performance Statistics */}
+          <div className="space-y-8">
+             <h2 className="text-2xl font-black text-slate-900 flex items-center gap-3">
+                <BarChart3 className="text-emerald-600"/> تقرير الأداء المهني
+             </h2>
+             
+             <div className="stat-card">
+                <div className="space-y-8">
+                   <div>
+                      <div className="flex justify-between items-end mb-3">
+                         <div>
+                            <p className="text-slate-400 font-bold text-xs">رضا الزبائن</p>
+                            <h5 className="text-xl font-black text-slate-900">{stats.clientSatisfaction}%</h5>
+                         </div>
+                         <Star className="text-yellow-400" size={24} fill="currentColor"/>
+                      </div>
+                      <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
+                         <div className="h-full bg-emerald-500 rounded-full shadow-sm" style={{ width: `${stats.clientSatisfaction}%` }}></div>
+                      </div>
+                   </div>
+
+                   <div>
+                      <div className="flex justify-between items-end mb-3">
+                         <div>
+                            <p className="text-slate-400 font-bold text-xs">معدل سرعة الرد</p>
+                            <h5 className="text-xl font-black text-slate-900">{stats.responseRate}%</h5>
+                         </div>
+                         <Zap className="text-blue-400" size={24} fill="currentColor"/>
+                      </div>
+                      <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
+                         <div className="h-full bg-blue-500 rounded-full shadow-sm" style={{ width: `${stats.responseRate}%` }}></div>
+                      </div>
+                   </div>
+
+                   <div className="pt-6 border-t border-slate-50 flex items-center gap-3">
+                      <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center shrink-0">
+                         <Trophy size={20}/>
+                      </div>
+                      <p className="text-[10px] text-slate-500 font-bold leading-relaxed">
+                         أداء ممتاز! أنت من بين أفضل 5% من الحرفيين في فئتك هذا الشهر. استمر في تقديم خدمات رائعة لزيادة أرباحك.
+                      </p>
+                   </div>
+                </div>
+             </div>
+
+             <div className="bg-slate-900 p-8 rounded-[3rem] text-white shadow-2xl relative overflow-hidden group">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+                <h4 className="text-xl font-black mb-4 flex items-center gap-2">تحليلات الأسبوع <TrendingUp className="text-emerald-400" size={20}/></h4>
+                <div className="flex items-end gap-3 h-24 mb-6">
+                   <div className="flex-1 bg-white/10 rounded-t-lg transition-all duration-500 group-hover:h-[40%]" style={{ height: '30%' }}></div>
+                   <div className="flex-1 bg-white/10 rounded-t-lg transition-all duration-500 group-hover:h-[60%]" style={{ height: '45%' }}></div>
+                   <div className="flex-1 bg-emerald-500 rounded-t-lg transition-all duration-500 group-hover:h-[80%]" style={{ height: '65%' }}></div>
+                   <div className="flex-1 bg-white/10 rounded-t-lg transition-all duration-500 group-hover:h-[45%]" style={{ height: '35%' }}></div>
+                   <div className="flex-1 bg-white/10 rounded-t-lg transition-all duration-500 group-hover:h-[70%]" style={{ height: '55%' }}></div>
+                   <div className="flex-1 bg-emerald-400 rounded-t-lg transition-all duration-500 group-hover:h-[95%]" style={{ height: '75%' }}></div>
+                   <div className="flex-1 bg-white/10 rounded-t-lg transition-all duration-500 group-hover:h-[50%]" style={{ height: '40%' }}></div>
+                </div>
+                <p className="text-slate-400 text-[10px] font-bold">معدل الطلبات في منطقتك ارتفع بنسبة 18% هذا الأسبوع. تأكد من أن هاتفك متاح!</p>
              </div>
           </div>
        </div>
@@ -963,6 +1025,17 @@ export default function App() {
             <button onClick={() => setView('landing')} className={`font-black text-lg ${state.view === 'landing' ? 'text-emerald-600' : 'text-slate-500 hover:text-emerald-600'}`}>الرئيسية</button>
             <button onClick={() => setView('search')} className={`font-black text-lg ${state.view === 'search' ? 'text-emerald-600' : 'text-slate-500 hover:text-emerald-600'}`}>الحرفيين</button>
             <button onClick={() => setView('support')} className={`font-black text-lg ${state.view === 'support' ? 'text-emerald-600' : 'text-slate-500 hover:text-emerald-600'}`}>سوق المهام</button>
+            
+            {/* قسم المهام الخاص بالمستخدم في القائمة */}
+            {state.currentUser && (
+              <button 
+                onClick={() => setView('dashboard')} 
+                className={`font-black text-lg ${state.view === 'dashboard' ? 'text-emerald-600' : 'text-slate-500 hover:text-emerald-600'}`}
+              >
+                {state.currentUser.role === 'WORKER' ? 'لوحة التحكم' : 'طلباتي'}
+              </button>
+            )}
+
             {state.currentUser && <button onClick={() => setView('chats')} className={`font-black text-lg ${state.view === 'chats' ? 'text-emerald-600' : 'text-slate-500 hover:text-emerald-600'}`}>الرسائل</button>}
           </div>
           <div className="flex items-center gap-3">
@@ -982,7 +1055,7 @@ export default function App() {
         {state.view === 'profile' && state.currentUser && <WorkerView worker={state.currentUser} isOwnProfile={true} onBack={() => setView('landing')} onEdit={() => setView('edit-profile')} onLogout={() => updateCurrentUser(null)} onGoToDashboard={() => setView('dashboard')} />}
         {state.view === 'dashboard' && state.currentUser && (
            state.currentUser.role === 'WORKER' ? 
-           <WorkerDashboardView currentUser={state.currentUser} onBack={() => setView('profile')} /> :
+           <WorkerDashboardView currentUser={state.currentUser} onBack={() => setView('profile')} onStartChat={handleStartChat} /> :
            <MyTasksView currentUser={state.currentUser} onBack={() => setView('profile')} />
         )}
         {state.view === 'edit-profile' && state.currentUser && <EditProfileView user={state.currentUser} onSaved={(u) => { updateCurrentUser(u); setView('profile'); }} onCancel={() => setView('profile')} />}
@@ -992,8 +1065,16 @@ export default function App() {
       <div className="fixed bottom-0 left-0 right-0 h-20 bg-white/95 backdrop-blur-2xl border-t border-slate-100 flex items-center justify-around md:hidden z-[60] shadow-2xl rounded-t-3xl">
         <button onClick={() => setView('landing')} className={`flex flex-col items-center gap-1 ${state.view === 'landing' ? 'text-emerald-600' : 'text-slate-400'}`}><Home size={22}/><span className="text-[10px] font-black">الرئيسية</span></button>
         <button onClick={() => setView('search')} className={`flex flex-col items-center gap-1 ${state.view === 'search' ? 'text-emerald-600' : 'text-slate-400'}`}><SearchIcon size={22}/><span className="text-[10px] font-black">بحث</span></button>
+        {/* زر المهام السريع في الموبايل */}
+        <button 
+          onClick={() => setView(state.currentUser ? 'dashboard' : 'login')} 
+          className={`flex flex-col items-center gap-1 ${state.view === 'dashboard' ? 'text-emerald-600' : 'text-slate-400'}`}
+        >
+          <ClipboardList size={22}/>
+          <span className="text-[10px] font-black">المهام</span>
+        </button>
         <button onClick={() => setView('chats')} className={`flex flex-col items-center gap-1 ${state.view === 'chats' ? 'text-emerald-600' : 'text-slate-400'}`}><MessageSquare size={22}/><span className="text-[10px] font-black">الرسائل</span></button>
-        <button onClick={() => setView(state.currentUser ? 'profile' : 'login')} className={`flex flex-col items-center gap-1 ${state.view === 'profile' || state.view === 'dashboard' || state.view === 'login' || state.view === 'register' ? 'text-emerald-600' : 'text-slate-400'}`}><UserIcon size={22}/><span className="text-[10px] font-black">حسابي</span></button>
+        <button onClick={() => setView(state.currentUser ? 'profile' : 'login')} className={`flex flex-col items-center gap-1 ${state.view === 'profile' || state.view === 'login' || state.view === 'register' ? 'text-emerald-600' : 'text-slate-400'}`}><UserIcon size={22}/><span className="text-[10px] font-black">حسابي</span></button>
       </div>
     </div>
   );
